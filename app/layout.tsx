@@ -1,15 +1,23 @@
-// app/layout.tsx
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { Toaster } from 'sonner';
-import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import './globals.css';
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
 
-const inter = Inter({ subsets: ['latin'] });
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'NextElektronik - Online Shop',
-  description: 'Toko elektronik online terpercaya — produk berkualitas, harga terbaik, pengiriman cepat ke seluruh Indonesia',
+  title: {
+    default: "Onetone Store",
+    template: "%s | Onetone Store",
+  },
+  description: "Premium Online Store — Onetone Brand",
 };
 
 export default function RootLayout({
@@ -18,12 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <body className={inter.className}>
-        <NuqsAdapter>
-          {children}
-        </NuqsAdapter>
-        <Toaster position="top-right" richColors />
+    <html lang="id" suppressHydrationWarning>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
       </body>
     </html>
   );

@@ -1,122 +1,203 @@
-/* app/globals.css */
+/* app/globals.css — Onetone Brand Design System */
 @import 'tailwindcss';
 @import 'leaflet/dist/leaflet.css';
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-light: var(--primary-light);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
+  /* === MAPPING TAILWIND ← CSS VARIABLES === */
+  --color-background:          var(--background);
+  --color-foreground:          var(--foreground);
+  --color-primary:             var(--primary);
+  --color-primary-hover:       var(--primary-hover);
+  --color-primary-light:       var(--primary-light);
+  --color-primary-foreground:  var(--primary-foreground);
+  --color-secondary:           var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
+  --color-muted:               var(--muted);
+  --color-muted-foreground:    var(--muted-foreground);
+  --color-accent:              var(--accent);
+  --color-accent-foreground:   var(--accent-foreground);
+  --color-destructive:         var(--destructive);
+  --color-success:             var(--success);
+  --color-warning:             var(--warning);
+  --color-danger:              var(--danger);
+  --color-border:              var(--border);
+  --color-input:               var(--input);
+  --color-ring:                var(--ring);
+  --color-card:                var(--card);
+  --color-card-foreground:     var(--card-foreground);
+  --color-popover:             var(--popover);
+  --color-popover-foreground:  var(--popover-foreground);
+  --color-surface:             var(--surface);
+  --color-surface-foreground:  var(--surface-foreground);
+
+  /* Radius scale */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Font */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
+/* =============================================
+   ONETONE DARK THEME (default)
+   Brand: Dark background + Gold/Amber accent
+   ============================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #1A1A1A;
-  --primary: #51B1A6;
-  --primary-hover: #3D9A8F;
-  --primary-light: #C5DDD9;
-  --primary-foreground: #ffffff;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #1A1A1A;
-  --muted: #f5f5f5;
-  --muted-foreground: #808080;
-  --accent: #f5f5f5;
-  --accent-foreground: #1A1A1A;
-  --destructive: #ef4444;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #51B1A6;
-  --card: #ffffff;
-  --card-foreground: #1A1A1A;
-  --popover: #ffffff;
-  --popover-foreground: #1A1A1A;
-  --radius: 0.625rem;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  /* Background layers */
+  --background:         #0A0A0A;   /* base hitam */
+  --foreground:         #F5F0E8;   /* teks utama warm white */
+
+  /* Brand Primary — Gold/Amber */
+  --primary:            #C9A84C;   /* gold onetone */
+  --primary-hover:      #E0BC6A;   /* gold terang saat hover */
+  --primary-light:      #3D2E0E;   /* gold gelap untuk bg subtle */
+  --primary-foreground: #0A0A0A;   /* teks di atas gold */
+
+  /* Secondary — Dark warm */
+  --secondary:          #1C1C1C;
+  --secondary-foreground: #F5F0E8;
+
+  /* Card & Surface */
+  --card:               #141414;   /* card sedikit lebih terang dari background */
+  --card-foreground:    #F5F0E8;
+  --surface:            #1E1E1E;   /* surface layer (sidebar, panel) */
+  --surface-foreground: #F5F0E8;
+
+  /* Popover */
+  --popover:            #1C1C1C;
+  --popover-foreground: #F5F0E8;
+
+  /* Muted */
+  --muted:              #1C1C1C;
+  --muted-foreground:   #7A7468;   /* warm gray */
+
+  /* Accent — subtle gold tint */
+  --accent:             #1E1A10;
+  --accent-foreground:  #C9A84C;
+
+  /* Border & Input */
+  --border:             #2A2520;   /* warm dark border */
+  --input:              #1C1C1C;
+  --ring:               #C9A84C;   /* focus ring = gold */
+
+  /* Status colors */
+  --destructive:        #EF4444;
+  --success:            #22C55E;
+  --warning:            #F59E0B;
+  --danger:             #EF4444;
+
+  /* Radius — sedikit lebih rounded dari default */
+  --radius: 0.75rem;
 }
 
+/* =============================================
+   LIGHT THEME — override jika diperlukan
+   class="light" di html tag
+   ============================================= */
+.light {
+  --background:         #FAFAF7;
+  --foreground:         #1A1714;
+  --primary:            #B8922A;
+  --primary-hover:      #9A7520;
+  --primary-light:      #F5EDD3;
+  --primary-foreground: #FFFFFF;
+  --secondary:          #F2EFE8;
+  --secondary-foreground: #1A1714;
+  --card:               #FFFFFF;
+  --card-foreground:    #1A1714;
+  --surface:            #F2EFE8;
+  --surface-foreground: #1A1714;
+  --popover:            #FFFFFF;
+  --popover-foreground: #1A1714;
+  --muted:              #F2EFE8;
+  --muted-foreground:   #8A7D6B;
+  --accent:             #F5EDD3;
+  --accent-foreground:  #B8922A;
+  --border:             #E2D9C8;
+  --input:              #E2D9C8;
+  --ring:               #B8922A;
+}
+
+/* =============================================
+   BASE STYLES
+   ============================================= */
 body {
   color: var(--foreground);
   background: var(--background);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* =============================================
+   SCROLLBAR — Gold accent
+   ============================================= */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--muted);
+  background: var(--surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
+  background: #3A3020;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--primary);
 }
 
-/* Animation */
+/* =============================================
+   ANIMATIONS
+   ============================================= */
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
-
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-in-out;
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fadeInUp {
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.5s ease-out;
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+  50%       { transform: translateY(-10px); }
 }
-
 .animate-float {
   animation: float 4s ease-in-out infinite;
 }
-
 .animate-float-delayed {
   animation: float 5s ease-in-out 1s infinite;
+}
+
+/* Gold shimmer — untuk elemen premium */
+@keyframes goldShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.animate-gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    #F0D080 40%,
+    var(--primary) 60%,
+    #C9A84C 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: goldShimmer 3s linear infinite;
 }
