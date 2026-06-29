@@ -1,0 +1,11 @@
+packages:
+  - '.'
+
+allowBuilds:
+  esbuild: false
+  sharp: true
+  unrs-resolver: false
+
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
