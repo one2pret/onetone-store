@@ -66,16 +66,16 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
     <>
       <header className="sticky top-0 z-50">
         {/* ── Main Nav ── */}
-        <div className="bg-slate-800">
+        <div className="bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center gap-4">
               {/* Logo */}
-              <Link href="/" className="text-xl font-bold text-white shrink-0">
+              <Link href="/" className="text-xl font-bold animate-gold-shimmer shrink-0">
                 Next<span className="text-primary">Elektronik</span>
               </Link>
 
               {/* Category dropdown button — desktop */}
-              <button className="hidden lg:flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm px-4 py-2.5 rounded-lg transition">
+              <button className="hidden lg:flex items-center gap-1.5 bg-secondary hover:bg-secondary-foreground/10 text-foreground text-sm px-4 py-2.5 rounded-lg transition">
                 <Package className="w-4 h-4" />
                 Kategori
                 <ChevronDown className="w-4 h-4" />
@@ -86,9 +86,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 <input
                   type="text"
                   placeholder="Cari produk, merek, atau kategori..."
-                  className="w-full pl-4 pr-12 py-2.5 bg-white rounded-lg text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full pl-4 pr-12 py-2.5 bg-input border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 />
-                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary-hover text-white p-2 rounded-md transition">
+                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary-hover text-primary-foreground p-2 rounded-md transition">
                   <Search className="w-4 h-4" />
                 </button>
               </div>
@@ -96,15 +96,15 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
               {/* Right icons */}
               <div className="flex items-center gap-0.5 ml-auto md:ml-0">
                 {/* Wishlist */}
-                <button className="relative p-2.5 text-slate-300 hover:text-white rounded-lg transition hidden sm:block">
+                <button className="relative p-2.5 text-foreground hover:text-primary rounded-lg transition hidden sm:block">
                   <Heart className="w-5 h-5" />
                 </button>
 
                 {/* Cart */}
-                <Link href="/cart" className="relative p-2.5 text-slate-300 hover:text-white rounded-lg transition">
+                <Link href="/cart" className="relative p-2.5 text-foreground hover:text-primary rounded-lg transition">
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
-                    <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1">
+                    <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold px-1">
                       {cartCount}
                     </span>
                   )}
@@ -118,39 +118,39 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-700 transition"
                     >
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
                         {getInitials(user.name)}
                       </div>
                       <div className="text-left hidden lg:block">
-                        <p className="text-sm text-white font-medium leading-tight max-w-[120px] truncate">
+                        <p className="text-sm text-foreground font-medium leading-tight max-w-[120px] truncate">
                           {user.name}
                         </p>
-                        <p className="text-[11px] text-slate-400 leading-tight">
+                        <p className="text-[11px] text-muted-foreground leading-tight">
                           {user.role === 'admin' ? 'Administrator' : 'Customer'}
                         </p>
                       </div>
                       <ChevronDown className={cn(
-                        'w-4 h-4 text-slate-400 transition-transform duration-200',
+                        'w-4 h-4 text-muted-foreground transition-transform duration-200',
                         userMenuOpen && 'rotate-180'
                       )} />
                     </button>
 
                     {/* Dropdown menu */}
                     {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="absolute right-0 mt-2 w-64 bg-card rounded-xl shadow-xl border border-border py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                         {/* User info header */}
-                        <div className="px-4 py-3 border-b border-slate-100">
+                        <div className="px-4 py-3 border-b border-border">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold shrink-0">
                               {getInitials(user.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
-                              <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                              <p className="text-sm font-semibold text-foreground truncate">{user.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                             </div>
                           </div>
                           {user.role === 'admin' && (
-                            <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-primary/10 text-primary text-[11px] font-medium rounded-full">
+                            <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-primary-light text-primary text-[11px] font-medium rounded-full">
                               <LayoutDashboard className="w-3 h-3" />
                               Admin
                             </span>
@@ -161,37 +161,37 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                         <div className="py-1">
                           {user.role === 'admin' && (
                             <Link
-                              href="/dashboard"
-                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
-                            >
-                              <LayoutDashboard className="w-4 h-4 text-slate-400" />
+                                href="/dashboard"
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
+                              >
+                                <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
                               Dashboard
                             </Link>
                           )}
                           <Link
                             href="/orders"
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
                           >
-                            <ShoppingBag className="w-4 h-4 text-slate-400" />
+                            <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                             Pesanan Saya
                           </Link>
                           <Link
                             href="/addresses"
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
                           >
-                            <MapPin className="w-4 h-4 text-slate-400" />
+                            <MapPin className="w-4 h-4 text-muted-foreground" />
                             Alamat Saya
                           </Link>
                         </div>
 
                         {/* Logout */}
-                        <div className="border-t border-slate-100 pt-1">
+                        <div className="border-t border-border pt-1">
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
                               setLogoutDialogOpen(true);
                             }}
-                            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition"
+                            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition"
                           >
                             <LogOut className="w-4 h-4" />
                             Keluar
@@ -202,21 +202,21 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   </div>
                 ) : (
                   <div className="hidden md:flex items-center gap-2 ml-2">
-                    <Link href="/login" className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white transition">
+                    <Link href="/login" className="flex items-center gap-2 px-3 py-2 text-sm text-foreground border border-border rounded-lg hover:text-primary hover:border-primary transition">
                       <User className="w-5 h-5" />
                       Masuk
                     </Link>
-                    <Link href="/register" className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-white rounded-lg transition font-medium">
+                    <Link href="/register" className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg transition font-medium">
                       Daftar
                     </Link>
                   </div>
                 )}
 
                 {/* Mobile menu toggle */}
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="md:hidden p-2.5 text-slate-300 hover:text-white"
-                >
+                  <button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="md:hidden p-2.5 text-foreground hover:text-primary"
+                  >
                   {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
               </div>
@@ -225,7 +225,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
         </div>
 
         {/* ── Category Bar ── */}
-        <div className="bg-slate-700 hidden md:block">
+        <div className="bg-card hidden md:block border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-6 overflow-x-auto text-sm">
             <Link
               href="/products"
@@ -233,7 +233,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 'whitespace-nowrap py-1 transition',
                 pathname === '/products' && !pathname.includes('?')
                   ? 'text-primary font-semibold'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-foreground hover:text-primary'
               )}
             >
               Semua Produk
@@ -244,7 +244,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 href={`/products?category=${cat.slug}`}
                 className={cn(
                   'whitespace-nowrap py-1 transition',
-                  'text-slate-300 hover:text-white'
+                  'text-foreground hover:text-primary'
                 )}
               >
                 {cat.name}
@@ -261,30 +261,30 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
 
         {/* ── Mobile Menu ── */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-slate-800 border-t border-slate-700">
+          <div className="md:hidden bg-card border-t border-border">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
               {/* Mobile search */}
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Cari produk..."
-                  className="w-full pl-4 pr-12 py-2.5 bg-slate-700 text-white rounded-lg text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full pl-4 pr-12 py-2.5 bg-input border border-border text-foreground rounded-lg text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                 />
-                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-white p-2 rounded-md">
+                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground p-2 rounded-md">
                   <Search className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Mobile categories */}
               <div className="flex gap-2 flex-wrap">
-                <Link href="/products" className="px-3 py-1.5 bg-slate-700 text-slate-300 text-xs rounded-full hover:text-white">
+                <Link href="/products" className="px-3 py-1.5 bg-secondary text-foreground text-xs rounded-full hover:text-primary">
                   Semua
                 </Link>
                 {categories.map((cat) => (
                   <Link
                     key={cat.id}
                     href={`/products?category=${cat.slug}`}
-                    className="px-3 py-1.5 bg-slate-700 text-slate-300 text-xs rounded-full hover:text-white"
+                    className="px-3 py-1.5 bg-secondary text-foreground text-xs rounded-full hover:text-primary"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {cat.name}
@@ -292,30 +292,30 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 ))}
               </div>
 
-              <div className="border-t border-slate-700 pt-3">
+              <div className="border-t border-border pt-3">
                 {user ? (
                   <div className="space-y-1">
                     {/* Mobile user info */}
                     <div className="flex items-center gap-3 px-3 py-2">
-                      <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                         {getInitials(user.name)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm text-white font-medium truncate">{user.name}</p>
-                        <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                        <p className="text-sm text-foreground font-medium truncate">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                       </div>
                     </div>
                     {user.role === 'admin' && (
-                      <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm text-primary font-medium" onClick={() => setMobileMenuOpen(false)}>
-                        <LayoutDashboard className="w-4 h-4" />
+                      <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm text-primary font-medium hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
+                        <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
                         Dashboard
                       </Link>
                     )}
-                    <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
-                      <ShoppingBag className="w-4 h-4" />
+                    <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
+                      <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                       Pesanan Saya
                     </Link>
-                    <Link href="/addresses" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/addresses" className="flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
                       <MapPin className="w-4 h-4" />
                       Alamat Saya
                     </Link>
@@ -324,7 +324,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                         setMobileMenuOpen(false);
                         setLogoutDialogOpen(true);
                       }}
-                      className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-400 hover:text-red-300"
+                      className="flex items-center gap-3 w-full px-3 py-2 text-sm text-destructive hover:text-destructive/80"
                     >
                       <LogOut className="w-4 h-4" />
                       Keluar
@@ -332,10 +332,10 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <Link href="/login" className="flex-1 py-2.5 text-center text-sm text-white border border-slate-600 rounded-lg hover:bg-slate-700" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/login" className="flex-1 py-2.5 text-center text-sm text-foreground border border-border rounded-lg hover:bg-accent hover:text-primary" onClick={() => setMobileMenuOpen(false)}>
                       Masuk
                     </Link>
-                    <Link href="/register" className="flex-1 py-2.5 text-center text-sm bg-primary text-white rounded-lg hover:bg-primary-hover font-medium" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/register" className="flex-1 py-2.5 text-center text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover font-medium" onClick={() => setMobileMenuOpen(false)}>
                       Daftar
                     </Link>
                   </div>
@@ -355,28 +355,28 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
             onClick={() => setLogoutDialogOpen(false)}
           />
           {/* Dialog */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-7 h-7 text-red-500" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-1">
+              <h3 className="text-lg font-bold text-foreground mb-1">
                 Keluar dari Akun?
               </h3>
-              <p className="text-sm text-slate-500 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 Kamu akan keluar dari akun dan perlu login kembali untuk mengakses fitur yang memerlukan autentikasi.
               </p>
               <div className="flex gap-3 w-full">
                 <button
                   onClick={() => setLogoutDialogOpen(false)}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-muted-foreground bg-muted hover:bg-muted/80 rounded-xl transition"
                 >
                   Batal
                 </button>
                 <form action={logout} className="flex-1">
                   <button
                     type="submit"
-                    className="w-full px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-xl transition flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 text-sm font-medium text-primary-foreground bg-destructive hover:bg-destructive/80 rounded-xl transition flex items-center justify-center gap-2"
                   >
                     <LogOut className="w-4 h-4" />
                     Ya, Keluar
