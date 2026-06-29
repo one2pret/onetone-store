@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { AdminSidebar, SidebarProvider } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 export default async function AdminLayout({
   children,
@@ -16,16 +17,18 @@ export default async function AdminLayout({
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen bg-slate-100">
-        <AdminSidebar />
-        <div className="lg:pl-[250px]">
-          <AdminHeader user={session.user} />
-          <main className="p-4 md:p-6">
-            {children}
-          </main>
+    <NuqsAdapter>
+      <SidebarProvider>
+        <div className="min-h-screen bg-slate-100">
+          <AdminSidebar />
+          <div className="lg:pl-[250px]">
+            <AdminHeader user={session.user} />
+            <main className="p-4 md:p-6">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </NuqsAdapter>
   );
 }
