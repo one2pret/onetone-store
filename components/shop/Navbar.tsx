@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ShoppingCart, User, Search, Menu, X, LogOut,
-  Heart, Package, ChevronDown, ShoppingBag,
+  Heart, ShoppingBag, ChevronDown,
   LayoutDashboard, AlertTriangle, MapPin,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -45,7 +45,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -56,7 +55,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close dropdown on route change
   useEffect(() => {
     setUserMenuOpen(false);
     setMobileMenuOpen(false);
@@ -69,17 +67,11 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
         <div className="bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center gap-4">
-              {/* Logo */}
-              <Link href="/" className="text-xl font-bold animate-gold-shimmer shrink-0">
-                Next<span className="text-primary">Elektronik</span>
-              </Link>
 
-              {/* Category dropdown button — desktop */}
-              <button className="hidden lg:flex items-center gap-1.5 bg-secondary hover:bg-secondary-foreground/10 text-foreground text-sm px-4 py-2.5 rounded-lg transition">
-                <Package className="w-4 h-4" />
-                Kategori
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              {/* Logo ONETONE */}
+              <Link href="/" className="shrink-0 text-xl font-bold tracking-widest uppercase">
+                <span className="animate-gold-shimmer">ONETONE</span>
+              </Link>
 
               {/* Search bar */}
               <div className="flex-1 max-w-2xl relative hidden md:block">
@@ -113,7 +105,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 {/* User / Auth */}
                 {user ? (
                   <div className="hidden md:block relative" ref={userMenuRef}>
-                    {/* Avatar button */}
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-700 transition"
@@ -135,10 +126,8 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                       )} />
                     </button>
 
-                    {/* Dropdown menu */}
                     {userMenuOpen && (
                       <div className="absolute right-0 mt-2 w-64 bg-card rounded-xl shadow-xl border border-border py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                        {/* User info header */}
                         <div className="px-4 py-3 border-b border-border">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold shrink-0">
@@ -156,41 +145,25 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                             </span>
                           )}
                         </div>
-
-                        {/* Menu items */}
                         <div className="py-1">
                           {user.role === 'admin' && (
-                            <Link
-                                href="/dashboard"
-                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
-                              >
-                                <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
+                            <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
+                              <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
                               Dashboard
                             </Link>
                           )}
-                          <Link
-                            href="/orders"
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
-                          >
+                          <Link href="/orders" className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
                             <ShoppingBag className="w-4 h-4 text-muted-foreground" />
                             Pesanan Saya
                           </Link>
-                          <Link
-                            href="/addresses"
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
-                          >
+                          <Link href="/addresses" className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition">
                             <MapPin className="w-4 h-4 text-muted-foreground" />
                             Alamat Saya
                           </Link>
                         </div>
-
-                        {/* Logout */}
                         <div className="border-t border-border pt-1">
                           <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              setLogoutDialogOpen(true);
-                            }}
+                            onClick={() => { setUserMenuOpen(false); setLogoutDialogOpen(true); }}
                             className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition"
                           >
                             <LogOut className="w-4 h-4" />
@@ -213,10 +186,10 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 )}
 
                 {/* Mobile menu toggle */}
-                  <button
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="md:hidden p-2.5 text-foreground hover:text-primary"
-                  >
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="md:hidden p-2.5 text-foreground hover:text-primary"
+                >
                   {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
               </div>
@@ -244,14 +217,16 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 href={`/products?category=${cat.slug}`}
                 className={cn(
                   'whitespace-nowrap py-1 transition',
-                  'text-foreground hover:text-primary'
+                  pathname.includes(cat.slug)
+                    ? 'text-primary font-semibold'
+                    : 'text-foreground hover:text-primary'
                 )}
               >
                 {cat.name}
               </Link>
             ))}
             <Link
-              href="/products"
+              href="/products?promo=true"
               className="whitespace-nowrap py-1 text-primary font-semibold hover:text-primary-hover transition"
             >
               Promo
@@ -263,7 +238,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
         {mobileMenuOpen && (
           <div className="md:hidden bg-card border-t border-border">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
-              {/* Mobile search */}
               <div className="relative">
                 <input
                   type="text"
@@ -274,8 +248,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Search className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Mobile categories */}
               <div className="flex gap-2 flex-wrap">
                 <Link href="/products" className="px-3 py-1.5 bg-secondary text-foreground text-xs rounded-full hover:text-primary">
                   Semua
@@ -291,11 +263,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   </Link>
                 ))}
               </div>
-
               <div className="border-t border-border pt-3">
                 {user ? (
                   <div className="space-y-1">
-                    {/* Mobile user info */}
                     <div className="flex items-center gap-3 px-3 py-2">
                       <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                         {getInitials(user.name)}
@@ -320,10 +290,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                       Alamat Saya
                     </Link>
                     <button
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        setLogoutDialogOpen(true);
-                      }}
+                      onClick={() => { setMobileMenuOpen(false); setLogoutDialogOpen(true); }}
                       className="flex items-center gap-3 w-full px-3 py-2 text-sm text-destructive hover:text-destructive/80"
                     >
                       <LogOut className="w-4 h-4" />
@@ -349,20 +316,16 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
       {/* ── Logout Confirmation Dialog ── */}
       {logoutDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setLogoutDialogOpen(false)}
           />
-          {/* Dialog */}
           <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-7 h-7 text-red-500" />
               </div>
-              <h3 className="text-lg font-bold text-foreground mb-1">
-                Keluar dari Akun?
-              </h3>
+              <h3 className="text-lg font-bold text-foreground mb-1">Keluar dari Akun?</h3>
               <p className="text-sm text-muted-foreground mb-6">
                 Kamu akan keluar dari akun dan perlu login kembali untuk mengakses fitur yang memerlukan autentikasi.
               </p>
