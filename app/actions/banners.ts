@@ -39,8 +39,8 @@ export async function getBanner(id: number) {
   return rows[0] ?? null;
 }
 
-// Create banner (admin)
-export async function createBanner(formData: FormData) {
+// Create banner (admin) — prevState required for useActionState
+export async function createBanner(prevState: any, formData: FormData) {
   const session = await auth();
   if (!session?.user || (session.user as any).role !== 'admin') {
     return { success: false, errors: { _form: ['Unauthorized'] } };
@@ -61,16 +61,17 @@ export async function createBanner(formData: FormData) {
 
   try {
     await db.insert(banners).values(validated.data);
-    revalidatePath('/dashboard/banners');
-    revalidatePath('/');
-    redirect('/dashboard/banners');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal membuat banner'] } };
+    return { success: false, errors: { _form: ['Gagal membuat banner.'] } };
   }
+
+  revalidatePath('/dashboard/banners');
+  revalidatePath('/');
+  redirect('/dashboard/banners');
 }
 
-// Update banner (admin)
-export async function updateBanner(id: number, formData: FormData) {
+// Update banner (admin) — prevState required for useActionState
+export async function updateBanner(id: number, prevState: any, formData: FormData) {
   const session = await auth();
   if (!session?.user || (session.user as any).role !== 'admin') {
     return { success: false, errors: { _form: ['Unauthorized'] } };
@@ -91,12 +92,13 @@ export async function updateBanner(id: number, formData: FormData) {
 
   try {
     await db.update(banners).set(validated.data).where(eq(banners.id, id));
-    revalidatePath('/dashboard/banners');
-    revalidatePath('/');
-    redirect('/dashboard/banners');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal update banner'] } };
+    return { success: false, errors: { _form: ['Gagal update banner.'] } };
   }
+
+  revalidatePath('/dashboard/banners');
+  revalidatePath('/');
+  redirect('/dashboard/banners');
 }
 
 // Delete banner (admin)

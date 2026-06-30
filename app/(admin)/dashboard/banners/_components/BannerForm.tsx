@@ -15,36 +15,56 @@ interface BannerFormProps {
   banner?: Banner | null;
 }
 
+type ActionState = {
+  success: boolean;
+  errors?: Record<string, string[]>;
+} | null;
+
 export function BannerForm({ banner }: BannerFormProps) {
   const action = banner
-    ? ((_prev: any, formData: FormData) => updateBanner(banner.id, formData))
+    ? updateBanner.bind(null, banner.id)
     : createBanner;
 
-  const [state, formAction, isPending] = useActionState(action as any, null);
+  const [state, formAction, isPending] = useActionState(
+    action as (state: ActionState, formData: FormData) => Promise<ActionState>,
+    null
+  );
+
   const [imagePreview, setImagePreview] = useState(banner?.image || '');
+  const [imageError, setImageError] = useState(false);
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setImageError(false);
+    setImagePreview(e.target.value);
+  }
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
-      {(state as any)?.errors?._form && (
-        <p className="text-red-500 text-sm p-3 bg-red-50 rounded-lg border border-red-100">
-          {(state as any).errors._form[0]}
-        </p>
+      {state?.errors?._form && (
+        <div className="p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg text-sm">
+          {state.errors._form[0]}
+        </div>
       )}
 
       <div>
-        <Label htmlFor="title">Judul Banner *</Label>
+        <Label htmlFor="title" className="text-foreground">
+          Judul Banner <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="title"
           name="title"
           defaultValue={banner?.title}
           required
           className="mt-1"
-          placeholder="contoh: Flash Sale Akhir Tahun"
+          placeholder="Contoh: Koleksi Sportswear Terbaru"
         />
+        {state?.errors?.title && (
+          <p className="text-destructive text-sm mt-1">{state.errors.title[0]}</p>
+        )}
       </div>
 
       <div>
-        <Label htmlFor="subtitle">Subtitle</Label>
+        <Label htmlFor="subtitle" className="text-foreground">Subtitle</Label>
         <Textarea
           id="subtitle"
           name="subtitle"
@@ -56,31 +76,45 @@ export function BannerForm({ banner }: BannerFormProps) {
       </div>
 
       <div>
-        <Label htmlFor="image">URL Gambar *</Label>
+        <Label htmlFor="image" className="text-foreground">
+          URL Gambar <span className="text-destructive">*</span>
+        </Label>
         <Input
           id="image"
           name="image"
           defaultValue={banner?.image}
           required
           className="mt-1"
-          placeholder="https://images.unsplash.com/..."
-          onChange={(e) => setImagePreview(e.target.value)}
+          placeholder="https://images.unsplash.com/... atau https://res.cloudinary.com/..."
+          onChange={handleImageChange}
         />
-        {imagePreview && (
-          <div className="mt-3 relative aspect-[3/1] rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+        {state?.errors?.image && (
+          <p className="text-destructive text-sm mt-1">{state.errors.image[0]}</p>
+        )}
+
+        {/* Image preview — hanya tampil jika URL valid & tidak error */}
+        {imagePreview && !imageError && (
+          <div className="mt-3 relative aspect-[3/1] rounded-xl overflow-hidden border border-border bg-muted">
             <Image
               src={imagePreview}
-              alt="Preview"
+              alt="Preview banner"
               fill
               className="object-cover"
-              onError={() => setImagePreview('')}
+              onError={() => setImageError(true)}
+              unoptimized={imagePreview.startsWith('https://unsplash.com/photos')}
             />
           </div>
+        )}
+        {imagePreview && imageError && (
+          <p className="text-muted-foreground text-xs mt-2">
+            ⚠️ Gambar tidak bisa ditampilkan. Pastikan URL valid dan dari domain yang diizinkan
+            (images.unsplash.com, res.cloudinary.com).
+          </p>
         )}
       </div>
 
       <div>
-        <Label htmlFor="link">Link (opsional)</Label>
+        <Label htmlFor="link" className="text-foreground">Link (opsional)</Label>
         <Input
           id="link"
           name="link"
@@ -92,7 +126,7 @@ export function BannerForm({ banner }: BannerFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="sortOrder">Urutan</Label>
+          <Label htmlFor="sortOrder" className="text-foreground">Urutan Tampil</Label>
           <Input
             id="sortOrder"
             name="sortOrder"
@@ -107,15 +141,15 @@ export function BannerForm({ banner }: BannerFormProps) {
               type="checkbox"
               name="isActive"
               defaultChecked={banner?.isActive ?? true}
-              className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+              className="w-4 h-4 accent-primary rounded"
             />
-            <span className="text-sm text-slate-700">Aktif</span>
+            <span className="text-sm text-foreground">Aktif</span>
           </label>
         </div>
       </div>
 
       <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={isPending} className="bg-primary hover:bg-primary-hover">
+        <Button type="submit" disabled={isPending}>
           {isPending ? 'Menyimpan...' : banner ? 'Update Banner' : 'Buat Banner'}
         </Button>
       </div>
