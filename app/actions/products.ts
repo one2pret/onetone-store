@@ -9,7 +9,6 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
 
-// Validation schema
 const productSchema = z.object({
   name: z.string().min(1, 'Nama produk wajib diisi'),
   categoryId: z.coerce.number().optional().nullable(),
@@ -21,8 +20,7 @@ const productSchema = z.object({
   isFeatured: z.coerce.boolean().optional(),
 });
 
-// Helper to query products with category join
-async function queryProductsWithCategory(whereConditions: any[], options?: { limit?: number; orderBy?: any }) {
+async function queryProductsWithCategory(whereConditions: any[], options?: { limit?: number }) {
   let query = db.select()
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -35,26 +33,17 @@ async function queryProductsWithCategory(whereConditions: any[], options?: { lim
   }
 
   const rows = await query;
-  return rows.map(row => ({
-    ...row.products,
-    category: row.categories,
-  }));
+  return rows.map(row => ({ ...row.products, category: row.categories }));
 }
 
-// Get all products (for admin)
 export async function getProducts() {
   const rows = await db.select()
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .orderBy(desc(products.createdAt));
-
-  return rows.map(row => ({
-    ...row.products,
-    category: row.categories,
-  }));
+  return rows.map(row => ({ ...row.products, category: row.categories }));
 }
 
-// Get active products (for shop)
 export async function getActiveProducts(options?: {
   categorySlug?: string;
   search?: string;
@@ -62,67 +51,51 @@ export async function getActiveProducts(options?: {
   featured?: boolean;
 }) {
   let whereConditions: any[] = [eq(products.isActive, true)];
-
-  if (options?.featured) {
-    whereConditions.push(eq(products.isFeatured, true));
-  }
-
-  if (options?.search) {
-    whereConditions.push(like(products.name, `%${options.search}%`));
-  }
+  if (options?.featured) whereConditions.push(eq(products.isFeatured, true));
+  if (options?.search) whereConditions.push(like(products.name, `%${options.search}%`));
 
   const results = await queryProductsWithCategory(whereConditions, { limit: options?.limit });
-
-  // Filter by category slug if provided
   if (options?.categorySlug) {
     return results.filter(p => p.category?.slug === options.categorySlug);
   }
-
   return results;
 }
 
-// Get featured products
 export async function getFeaturedProducts(limit = 8) {
   return getActiveProducts({ featured: true, limit });
 }
 
-// Get single product by slug
 export async function getProductBySlug(slug: string) {
   const rows = await db.select()
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(eq(products.slug, slug))
     .limit(1);
-
   if (rows.length === 0) return null;
   return { ...rows[0].products, category: rows[0].categories };
 }
 
-// Get single product by ID
 export async function getProduct(id: number) {
   const rows = await db.select()
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(eq(products.id, id))
     .limit(1);
-
   if (rows.length === 0) return null;
   return { ...rows[0].products, category: rows[0].categories };
 }
 
-// Get all categories
 export async function getCategories() {
   return await db.select().from(categories).orderBy(asc(categories.name));
 }
 
-// Get category by slug
 export async function getCategoryBySlug(slug: string) {
   const rows = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   return rows[0] ?? null;
 }
 
-// Create product (admin)
-export async function createProduct(formData: FormData) {
+// Create product — prevState required for useActionState compatibility
+export async function createProduct(prevState: any, formData: FormData) {
   const validated = productSchema.safeParse({
     name: formData.get('name'),
     categoryId: formData.get('categoryId') || null,
@@ -135,10 +108,7 @@ export async function createProduct(formData: FormData) {
   });
 
   if (!validated.success) {
-    return {
-      success: false,
-      errors: validated.error.flatten().fieldErrors
-    };
+    return { success: false, errors: validated.error.flatten().fieldErrors };
   }
 
   const slug = slugify(validated.data.name);
@@ -149,17 +119,17 @@ export async function createProduct(formData: FormData) {
       slug,
       price: String(validated.data.price),
     });
-
-    revalidatePath('/dashboard/products');
-    revalidatePath('/products');
-    redirect('/dashboard/products');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal membuat produk'] } };
+    return { success: false, errors: { _form: ['Gagal membuat produk. Pastikan nama produk belum digunakan.'] } };
   }
+
+  revalidatePath('/dashboard/products');
+  revalidatePath('/products');
+  redirect('/dashboard/products');
 }
 
-// Update product (admin)
-export async function updateProduct(id: number, formData: FormData) {
+// Update product — prevState required for useActionState compatibility
+export async function updateProduct(id: number, prevState: any, formData: FormData) {
   const validated = productSchema.safeParse({
     name: formData.get('name'),
     categoryId: formData.get('categoryId') || null,
@@ -172,32 +142,24 @@ export async function updateProduct(id: number, formData: FormData) {
   });
 
   if (!validated.success) {
-    return {
-      success: false,
-      errors: validated.error.flatten().fieldErrors
-    };
+    return { success: false, errors: validated.error.flatten().fieldErrors };
   }
 
   const slug = slugify(validated.data.name);
 
   try {
     await db.update(products)
-      .set({
-        ...validated.data,
-        slug,
-        price: String(validated.data.price),
-      })
+      .set({ ...validated.data, slug, price: String(validated.data.price) })
       .where(eq(products.id, id));
-
-    revalidatePath('/dashboard/products');
-    revalidatePath('/products');
-    redirect('/dashboard/products');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal update produk'] } };
+    return { success: false, errors: { _form: ['Gagal update produk.'] } };
   }
+
+  revalidatePath('/dashboard/products');
+  revalidatePath('/products');
+  redirect('/dashboard/products');
 }
 
-// Delete product (admin)
 export async function deleteProduct(id: number) {
   try {
     await db.delete(products).where(eq(products.id, id));
