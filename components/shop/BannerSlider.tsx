@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Banner {
@@ -19,8 +19,19 @@ interface BannerSliderProps {
   banners: Banner[];
 }
 
+function isValidImageUrl(url: string): boolean {
+  if (!url || url.trim() === '') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function BannerSlider({ banners }: BannerSliderProps) {
   const [current, setCurrent] = useState(0);
+  const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
   const total = banners.length;
 
   const next = useCallback(() => {
@@ -31,7 +42,6 @@ export function BannerSlider({ banners }: BannerSliderProps) {
     setCurrent((prev) => (prev - 1 + total) % total);
   }, [total]);
 
-  // Auto-slide every 5 seconds
   useEffect(() => {
     if (total <= 1) return;
     const timer = setInterval(next, 5000);
@@ -41,18 +51,30 @@ export function BannerSlider({ banners }: BannerSliderProps) {
   if (total === 0) return null;
 
   const banner = banners[current];
+  const hasValidImage = isValidImageUrl(banner.image) && !imgErrors[banner.id];
 
   const content = (
     <div className="relative w-full aspect-[4/3] sm:aspect-[2.5/1] md:aspect-[3/1] lg:aspect-[3.5/1] overflow-hidden bg-slate-900">
-      <Image
-        src={banner.image}
-        alt={banner.title}
-        fill
-        sizes="100vw"
-        className="object-cover"
-        priority={current === 0}
-      />
-      {/* Gradient overlay — stronger on mobile for readability */}
+
+      {/* Gambar banner — hanya render jika URL valid */}
+      {hasValidImage ? (
+        <Image
+          src={banner.image}
+          alt={banner.title}
+          fill
+          sizes="100vw"
+          className="object-cover"
+          priority={current === 0}
+          onError={() => setImgErrors((prev) => ({ ...prev, [banner.id]: true }))}
+        />
+      ) : (
+        // Fallback: gradient background + icon jika gambar tidak tersedia
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+          <ImageOff className="w-12 h-12 text-slate-600" />
+        </div>
+      )}
+
+      {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/60 sm:via-black/30 sm:to-transparent" />
 
       {/* Text content */}
@@ -71,7 +93,7 @@ export function BannerSlider({ banners }: BannerSliderProps) {
         </div>
       </div>
 
-      {/* Navigation arrows — smaller on mobile */}
+      {/* Navigation arrows */}
       {total > 1 && (
         <>
           <button

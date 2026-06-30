@@ -18,15 +18,28 @@ const bannerSchema = z.object({
   sortOrder: z.coerce.number().default(0),
 });
 
-// Get active banners (for shop)
+function isValidImageUrl(url: string): boolean {
+  if (!url || url.trim() === '') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Get active banners (for shop) — only banners with valid image URLs
 export async function getActiveBanners() {
-  return await db.select()
+  const rows = await db.select()
     .from(banners)
     .where(eq(banners.isActive, true))
     .orderBy(asc(banners.sortOrder));
+
+  // Filter server-side: jangan kirim banner dengan URL gambar tidak valid ke client
+  return rows.filter((b) => isValidImageUrl(b.image));
 }
 
-// Get all banners (for admin)
+// Get all banners (for admin) — tampilkan semua termasuk yang URL-nya tidak valid
 export async function getAllBanners() {
   return await db.select()
     .from(banners)
