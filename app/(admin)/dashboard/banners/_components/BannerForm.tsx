@@ -20,6 +20,17 @@ type ActionState = {
   errors?: Record<string, string[]>;
 } | null;
 
+/** Cek apakah string adalah URL valid yang bisa diterima next/image */
+function isValidImageUrl(url: string): boolean {
+  if (!url || url.trim() === '') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function BannerForm({ banner }: BannerFormProps) {
   const action = banner
     ? updateBanner.bind(null, banner.id)
@@ -37,6 +48,9 @@ export function BannerForm({ banner }: BannerFormProps) {
     setImageError(false);
     setImagePreview(e.target.value);
   }
+
+  const showPreview = isValidImageUrl(imagePreview) && !imageError;
+  const showUrlWarning = imagePreview.length > 0 && !isValidImageUrl(imagePreview);
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
@@ -92,8 +106,15 @@ export function BannerForm({ banner }: BannerFormProps) {
           <p className="text-destructive text-sm mt-1">{state.errors.image[0]}</p>
         )}
 
-        {/* Image preview — hanya tampil jika URL valid & tidak error */}
-        {imagePreview && !imageError && (
+        {/* Peringatan URL belum valid (masih diketik) */}
+        {showUrlWarning && (
+          <p className="text-muted-foreground text-xs mt-1">
+            Masukkan URL lengkap yang diawali <code className="bg-muted px-1 rounded">https://</code>
+          </p>
+        )}
+
+        {/* Preview gambar — hanya render Image jika URL sudah valid */}
+        {showPreview && (
           <div className="mt-3 relative aspect-[3/1] rounded-xl overflow-hidden border border-border bg-muted">
             <Image
               src={imagePreview}
@@ -101,11 +122,12 @@ export function BannerForm({ banner }: BannerFormProps) {
               fill
               className="object-cover"
               onError={() => setImageError(true)}
-              unoptimized={imagePreview.startsWith('https://unsplash.com/photos')}
             />
           </div>
         )}
-        {imagePreview && imageError && (
+
+        {/* Pesan jika gambar gagal dimuat (domain tidak terdaftar, dll) */}
+        {imageError && (
           <p className="text-muted-foreground text-xs mt-2">
             ⚠️ Gambar tidak bisa ditampilkan. Pastikan URL valid dan dari domain yang diizinkan
             (images.unsplash.com, res.cloudinary.com).
