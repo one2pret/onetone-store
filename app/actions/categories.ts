@@ -47,13 +47,13 @@ export async function createCategory(prevState: any, formData: FormData) {
       slug,
       description: validated.data.description,
     });
-
-    revalidatePath('/dashboard/categories');
-    revalidatePath('/products');
-    redirect('/dashboard/categories');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal membuat kategori'] } };
+    return { success: false, errors: { _form: ['Gagal membuat kategori. Pastikan nama kategori belum digunakan.'] } };
   }
+
+  revalidatePath('/dashboard/categories');
+  revalidatePath('/products');
+  redirect('/dashboard/categories');
 }
 
 // Update category
@@ -80,13 +80,13 @@ export async function updateCategory(id: number, prevState: any, formData: FormD
         description: validated.data.description,
       })
       .where(eq(categories.id, id));
-
-    revalidatePath('/dashboard/categories');
-    revalidatePath('/products');
-    redirect('/dashboard/categories');
   } catch (error) {
-    return { success: false, errors: { _form: ['Gagal update kategori'] } };
+    return { success: false, errors: { _form: ['Gagal update kategori.'] } };
   }
+
+  revalidatePath('/dashboard/categories');
+  revalidatePath('/products');
+  redirect('/dashboard/categories');
 }
 
 // Delete category
@@ -108,6 +108,7 @@ export async function deleteCategory(id: number) {
     await db.delete(categories).where(eq(categories.id, id));
 
     revalidatePath('/dashboard/categories');
+    revalidatePath('/products');
     return { success: true };
   } catch (error) {
     return { success: false, error: 'Gagal hapus kategori' };

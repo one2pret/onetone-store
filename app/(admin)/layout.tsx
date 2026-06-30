@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { AdminSidebar, SidebarProvider } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { Toaster } from 'sonner';
 
 export default async function AdminLayout({
   children,
@@ -28,6 +29,7 @@ export default async function AdminLayout({
             </main>
           </div>
         </div>
+        <Toaster richColors position="top-right" />
       </SidebarProvider>
     </NuqsAdapter>
   );

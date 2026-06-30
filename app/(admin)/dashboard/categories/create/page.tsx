@@ -18,7 +18,7 @@ export default function CreateCategoryPage() {
         <p className="text-sm text-slate-500 mt-0.5">Buat kategori baru untuk produk</p>
       </div>
 
-      <div className="max-w-2xl bg-white rounded-xl border border-slate-200/60 shadow-sm p-5 md:p-6">
+      <div className="max-w-2xl">
         <CategoryForm />
       </div>
     </div>
