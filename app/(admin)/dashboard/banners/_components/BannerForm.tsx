@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { Banner } from '@/lib/db/schema';
 import Image from 'next/image';
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 interface BannerFormProps {
   banner?: Banner | null;
@@ -20,14 +21,27 @@ type ActionState = {
   errors?: Record<string, string[]>;
 } | null;
 
-/** Cek apakah string adalah URL valid yang bisa diterima next/image */
-function isValidImageUrl(url: string): boolean {
-  if (!url || url.trim() === '') return false;
+// Domain yang terdaftar di next.config.ts remotePatterns
+const ALLOWED_HOSTNAMES = [
+  'images.unsplash.com',
+  'unsplash.com',
+  'res.cloudinary.com',
+  'lh3.googleusercontent.com',
+  'avatars.githubusercontent.com',
+  'placehold.co',
+];
+
+type UrlStatus = 'empty' | 'invalid_format' | 'blocked_domain' | 'valid';
+
+function checkImageUrl(url: string): UrlStatus {
+  if (!url || url.trim() === '') return 'empty';
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+    if (parsed.protocol !== 'https:' || !parsed.hostname) return 'invalid_format';
+    if (!ALLOWED_HOSTNAMES.includes(parsed.hostname)) return 'blocked_domain';
+    return 'valid';
   } catch {
-    return false;
+    return 'invalid_format';
   }
 }
 
@@ -42,15 +56,15 @@ export function BannerForm({ banner }: BannerFormProps) {
   );
 
   const [imagePreview, setImagePreview] = useState(banner?.image || '');
-  const [imageError, setImageError] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setImageError(false);
+    setImageLoadError(false);
     setImagePreview(e.target.value);
   }
 
-  const showPreview = isValidImageUrl(imagePreview) && !imageError;
-  const showUrlWarning = imagePreview.length > 0 && !isValidImageUrl(imagePreview);
+  const urlStatus = checkImageUrl(imagePreview);
+  const showPreview = urlStatus === 'valid' && !imageLoadError;
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
@@ -99,21 +113,47 @@ export function BannerForm({ banner }: BannerFormProps) {
           defaultValue={banner?.image}
           required
           className="mt-1"
-          placeholder="https://images.unsplash.com/... atau https://res.cloudinary.com/..."
+          placeholder="https://images.unsplash.com/photo-..."
           onChange={handleImageChange}
         />
         {state?.errors?.image && (
           <p className="text-destructive text-sm mt-1">{state.errors.image[0]}</p>
         )}
 
-        {/* Peringatan URL belum valid (masih diketik) */}
-        {showUrlWarning && (
+        {/* Panduan domain yang diizinkan */}
+        <p className="text-muted-foreground text-xs mt-1.5">
+          Domain yang didukung:{' '}
+          <code className="bg-muted px-1 rounded">images.unsplash.com</code>{', '}
+          <code className="bg-muted px-1 rounded">res.cloudinary.com</code>
+        </p>
+
+        {/* Status feedback berdasarkan URL */}
+        {urlStatus === 'invalid_format' && (
           <p className="text-muted-foreground text-xs mt-1">
             Masukkan URL lengkap yang diawali <code className="bg-muted px-1 rounded">https://</code>
           </p>
         )}
 
-        {/* Preview gambar — hanya render Image jika URL sudah valid */}
+        {urlStatus === 'blocked_domain' && (() => {
+          let hostname = '';
+          try { hostname = new URL(imagePreview).hostname; } catch {}
+          return (
+            <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-700 dark:text-amber-300">
+                <p className="font-medium">Domain <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">{hostname}</code> tidak didukung.</p>
+                <p className="mt-1">
+                  Gunakan URL gambar langsung dari{' '}
+                  <strong>Unsplash</strong> (<code>images.unsplash.com</code>) atau upload ke{' '}
+                  <strong>Cloudinary</strong> lalu gunakan URL-nya.
+                  Shortlink seperti <code>pin.it</code> atau link halaman web tidak bisa digunakan sebagai gambar.
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Preview gambar jika URL valid */}
         {showPreview && (
           <div className="mt-3 relative aspect-[3/1] rounded-xl overflow-hidden border border-border bg-muted">
             <Image
@@ -121,16 +161,15 @@ export function BannerForm({ banner }: BannerFormProps) {
               alt="Preview banner"
               fill
               className="object-cover"
-              onError={() => setImageError(true)}
+              onError={() => setImageLoadError(true)}
             />
           </div>
         )}
 
-        {/* Pesan jika gambar gagal dimuat (domain tidak terdaftar, dll) */}
-        {imageError && (
+        {/* Gambar gagal load meski URL valid */}
+        {urlStatus === 'valid' && imageLoadError && (
           <p className="text-muted-foreground text-xs mt-2">
-            ⚠️ Gambar tidak bisa ditampilkan. Pastikan URL valid dan dari domain yang diizinkan
-            (images.unsplash.com, res.cloudinary.com).
+            ⚠️ Gambar tidak bisa dimuat. Pastikan URL mengarah langsung ke file gambar (bukan halaman web).
           </p>
         )}
       </div>
