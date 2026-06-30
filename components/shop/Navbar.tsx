@@ -64,17 +64,29 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
     <>
       <header className="sticky top-0 z-50">
         {/* ── Main Nav ── */}
-        <div className="bg-background">
+        <div className="bg-background border-b border-border/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex items-center gap-4">
+            {/*
+              3-COLUMN GRID LAYOUT
+              ─────────────────────────────────────────────────────
+              Kolom 1 (kiri)  : Logo — lebar fixed, tidak shrink
+              Kolom 2 (tengah): Search bar — mengambil sisa ruang (flex-1)
+              Kolom 3 (kanan) : Icon + User — lebar sama dengan kolom 1
+                                agar search bar benar-benar di tengah
+              ─────────────────────────────────────────────────────
+              Teknis: grid grid-cols-[auto_1fr_auto] items-center
+              - auto  → kolom menyesuaikan isi (logo & user block)
+              - 1fr   → kolom mengambil semua sisa ruang (search)
+            */}
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
-              {/* Logo ONETONE */}
+              {/* ── Kolom 1: Logo ── */}
               <Link href="/" className="shrink-0 text-xl font-bold tracking-widest uppercase">
                 <span className="animate-gold-shimmer">ONETONE</span>
               </Link>
 
-              {/* Search bar */}
-              <div className="flex-1 max-w-2xl relative hidden md:block">
+              {/* ── Kolom 2: Search bar (tengah, full width kolom) ── */}
+              <div className="relative hidden md:block">
                 <input
                   type="text"
                   placeholder="Cari produk, merek, atau kategori..."
@@ -84,9 +96,12 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Search className="w-4 h-4" />
                 </button>
               </div>
+              {/* Placeholder kolom 2 di mobile agar grid tetap 3 kolom */}
+              <div className="md:hidden" />
 
-              {/* Right icons */}
-              <div className="flex items-center gap-0.5 ml-auto md:ml-0">
+              {/* ── Kolom 3: Icon kanan + User block ── */}
+              <div className="flex items-center gap-0.5 justify-end">
+
                 {/* Wishlist */}
                 <button className="relative p-2.5 text-foreground hover:text-primary rounded-lg transition hidden sm:block">
                   <Heart className="w-5 h-5" />
@@ -107,9 +122,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <div className="hidden md:block relative" ref={userMenuRef}>
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-700 transition"
+                      className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-accent transition"
                     >
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                         {getInitials(user.name)}
                       </div>
                       <div className="text-left hidden lg:block">
@@ -174,9 +189,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                     )}
                   </div>
                 ) : (
-                  <div className="hidden md:flex items-center gap-2 ml-2">
+                  <div className="hidden md:flex items-center gap-2 ml-1">
                     <Link href="/login" className="flex items-center gap-2 px-3 py-2 text-sm text-foreground border border-border rounded-lg hover:text-primary hover:border-primary transition">
-                      <User className="w-5 h-5" />
+                      <User className="w-4 h-4" />
                       Masuk
                     </Link>
                     <Link href="/register" className="px-4 py-2 text-sm bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg transition font-medium">
@@ -193,6 +208,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
               </div>
+
             </div>
           </div>
         </div>
