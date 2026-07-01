@@ -1,4 +1,4 @@
-// app/(admin)/products/_components/DeleteProductButton.tsx
+// app/(admin)/dashboard/products/_components/DeleteProductButton.tsx
 'use client';
 
 import { useState } from 'react';
@@ -21,7 +21,6 @@ export function DeleteProductButton({ id, name }: Props) {
   async function handleDelete() {
     setLoading(true);
     const result = await deleteProduct(id);
-
     if (result.success) {
       toast.success('Produk berhasil dihapus');
       router.refresh();
@@ -34,8 +33,8 @@ export function DeleteProductButton({ id, name }: Props) {
   return (
     <ConfirmDialog
       trigger={
-        <Button variant="ghost" size="icon" disabled={loading}>
-          <Trash2 className="w-4 h-4 text-red-600" />
+        <Button variant="ghost" size="icon" disabled={loading} title="Hapus produk">
+          <Trash2 className="w-4 h-4 text-destructive" />
         </Button>
       }
       title="Hapus Produk"
