@@ -12,10 +12,10 @@ export default async function BannersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800">Banner</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Kelola banner slider di homepage</p>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Banner</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Kelola banner slider di homepage</p>
         </div>
-        <Button asChild size="sm" className="bg-primary hover:bg-primary-hover text-white rounded-lg">
+        <Button asChild size="sm">
           <Link href="/dashboard/banners/create">
             <Plus className="w-4 h-4 mr-1.5" />
             Tambah Banner
