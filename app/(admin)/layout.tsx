@@ -20,7 +20,7 @@ export default async function AdminLayout({
   return (
     <NuqsAdapter>
       <SidebarProvider>
-        <div className="min-h-screen bg-slate-100">
+        <div className="min-h-screen bg-background">
           <AdminSidebar />
           <div className="lg:pl-[250px]">
             <AdminHeader user={session.user} />
