@@ -1,3 +1,4 @@
+// app/(admin)/dashboard/orders/_components/OrdersTable.tsx
 'use client';
 
 import { useMemo } from 'react';
@@ -40,21 +41,21 @@ const columns: ColumnDef<OrderWithUser>[] = [
     accessorKey: 'orderNumber',
     header: 'No. Order',
     cell: ({ row }) => (
-      <span className="font-mono text-sm font-medium">{row.getValue('orderNumber')}</span>
+      <span className="font-mono text-sm font-medium text-foreground">{row.getValue('orderNumber')}</span>
     ),
   },
   {
     id: 'customer',
     header: 'Customer',
     cell: ({ row }) => (
-      <span className="text-sm">{row.original.user?.name || '-'}</span>
+      <span className="text-sm text-foreground">{row.original.user?.name || '-'}</span>
     ),
   },
   {
     accessorKey: 'total',
     header: 'Total',
     cell: ({ row }) => (
-      <span className="font-medium">{formatRupiah(row.getValue('total') as string)}</span>
+      <span className="font-medium text-foreground">{formatRupiah(row.getValue('total') as string)}</span>
     ),
   },
   {
@@ -70,7 +71,7 @@ const columns: ColumnDef<OrderWithUser>[] = [
     cell: ({ row }) => {
       const date = row.getValue('createdAt');
       return (
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-muted-foreground">
           {date ? formatDate(date as Date) : '-'}
         </span>
       );
@@ -106,7 +107,7 @@ export function OrdersTable({ data }: Props) {
   return (
     <div>
       {/* Status Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto px-4 md:px-5 py-3 md:py-4 border-b border-slate-200/60 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto px-4 md:px-5 py-3 md:py-4 border-b border-border scrollbar-none">
         {statusFilters.map((filter) => (
           <button
             key={filter.value}
@@ -114,8 +115,8 @@ export function OrdersTable({ data }: Props) {
             className={cn(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
               status === filter.value
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
             )}
           >
             {filter.label}

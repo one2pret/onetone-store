@@ -1,4 +1,4 @@
-// app/(admin)/categories/_components/CategoryForm.tsx
+// app/(admin)/dashboard/categories/_components/CategoryForm.tsx
 'use client';
 
 import { useActionState } from 'react';
@@ -23,21 +23,24 @@ export function CategoryForm({ category }: Props) {
     ? updateCategory.bind(null, category.id)
     : createCategory;
 
-  const [state, formAction, pending] = useActionState(action as any, null) as [ActionState, any, boolean];
+  const [state, formAction, pending] = useActionState(
+    action as (state: ActionState, formData: FormData) => Promise<ActionState>,
+    null
+  );
 
   return (
     <form action={formAction} className="space-y-6">
       {state?.errors?._form && (
-        <div className="p-4 bg-red-100 text-red-700 rounded-lg">
+        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg text-sm">
           {state.errors._form[0]}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-100 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="name">
-              Nama Kategori <span className="text-red-500">*</span>
+            <Label htmlFor="name" className="text-foreground">
+              Nama Kategori <span className="text-destructive">*</span>
             </Label>
             <Input
               id="name"
@@ -49,12 +52,12 @@ export function CategoryForm({ category }: Props) {
               placeholder="Contoh: Elektronik"
             />
             {state?.errors?.name && (
-              <p className="text-red-500 text-sm mt-1">{state.errors.name[0]}</p>
+              <p className="text-destructive text-sm mt-1">{state.errors.name[0]}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="description">Deskripsi</Label>
+            <Label htmlFor="description" className="text-foreground">Deskripsi</Label>
             <Textarea
               id="description"
               name="description"
@@ -69,11 +72,7 @@ export function CategoryForm({ category }: Props) {
 
       <div className="flex items-center gap-4">
         <Button type="submit" disabled={pending}>
-          {pending
-            ? 'Menyimpan...'
-            : category
-              ? 'Update Kategori'
-              : 'Tambah Kategori'}
+          {pending ? 'Menyimpan...' : category ? 'Update Kategori' : 'Tambah Kategori'}
         </Button>
         <Button variant="ghost" asChild>
           <a href="/dashboard/categories">Batal</a>
