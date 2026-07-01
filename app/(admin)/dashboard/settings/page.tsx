@@ -1,6 +1,7 @@
 // app/(admin)/dashboard/settings/page.tsx
 import { getStoreSettings } from '@/app/actions/store-settings';
 import { StoreSettingsForm } from './_components/StoreSettingsForm';
+import { DataToolsCard } from './_components/DataToolsCard';
 import { Settings } from 'lucide-react';
 
 export default async function SettingsPage() {
@@ -16,7 +17,10 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <StoreSettingsForm settings={settings} />
+      <div className="space-y-8">
+        <StoreSettingsForm settings={settings} />
+        <DataToolsCard />
+      </div>
     </div>
   );
 }
