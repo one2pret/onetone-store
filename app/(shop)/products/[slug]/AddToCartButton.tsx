@@ -5,13 +5,26 @@ import { useState } from 'react';
 import { ShoppingCart, Minus, Plus, Check, CreditCard } from 'lucide-react';
 import { addToCart } from '@/app/actions/cart';
 import { useRouter } from 'next/navigation';
+import { VariantSelector } from '@/components/shop/VariantSelector';
+import { formatRupiah } from '@/lib/utils';
+
+interface Variant {
+  id: number;
+  size: string | null;
+  color: string | null;
+  colorHex: string | null;
+  stock: number;
+  priceModifier: string | null;
+}
 
 interface Props {
   productId: number;
-  disabled?: boolean;
+  basePrice: number;
+  variants: Variant[];
+  initialStock: number;
 }
 
-export function AddToCartButton({ productId, disabled }: Props) {
+export function AddToCartButton({ productId, basePrice, variants, initialStock }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
@@ -19,12 +32,33 @@ export function AddToCartButton({ productId, disabled }: Props) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const hasVariants = variants.length > 0;
+
+  // Variant state managed here, updated by VariantSelector
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+  const [finalPrice, setFinalPrice] = useState(basePrice);
+  const [currentStock, setCurrentStock] = useState(initialStock);
+
+  const handleVariantChange = (variantId: number | null, price: number, stock: number) => {
+    setSelectedVariantId(variantId);
+    setFinalPrice(price);
+    setCurrentStock(stock);
+    setQuantity(1);
+  };
+
+  // Disabled logic
+  const variantRequired = hasVariants && selectedVariantId === null;
+  const outOfStock = currentStock <= 0 && !variantRequired;
+  const disabled = variantRequired || outOfStock || loading || buyNowLoading;
+
   const handleAddToCart = async () => {
+    if (hasVariants && !selectedVariantId) {
+      setError('Pilih ukuran dan warna terlebih dahulu');
+      return;
+    }
     setLoading(true);
     setError(null);
-
-    const result = await addToCart(productId, quantity);
-
+    const result = await addToCart(productId, quantity, selectedVariantId ?? undefined);
     if (result.success) {
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
@@ -32,16 +66,17 @@ export function AddToCartButton({ productId, disabled }: Props) {
     } else {
       setError(result.error || 'Gagal menambahkan ke keranjang');
     }
-
     setLoading(false);
   };
 
   const handleBuyNow = async () => {
+    if (hasVariants && !selectedVariantId) {
+      setError('Pilih ukuran dan warna terlebih dahulu');
+      return;
+    }
     setBuyNowLoading(true);
     setError(null);
-
-    const result = await addToCart(productId, quantity);
-
+    const result = await addToCart(productId, quantity, selectedVariantId ?? undefined);
     if (result.success) {
       router.push('/checkout');
     } else {
@@ -51,22 +86,52 @@ export function AddToCartButton({ productId, disabled }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Price — dynamic */}
+      <div className="text-3xl font-bold text-primary">
+        {formatRupiah(finalPrice)}
+      </div>
+
+      {/* Variant Selector */}
+      {hasVariants && (
+        <VariantSelector
+          variants={variants}
+          basePrice={basePrice}
+          onVariantChange={handleVariantChange}
+        />
+      )}
+
+      {/* Stock Info — non-variant product */}
+      {!hasVariants && (
+        <div>
+          {currentStock > 0 ? (
+            <p className="text-green-600 text-sm">✓ Stok tersedia ({currentStock} pcs)</p>
+          ) : (
+            <p className="text-red-600 text-sm">✗ Stok habis</p>
+          )}
+        </div>
+      )}
+
+      {/* Hint saat varian belum dipilih */}
+      {variantRequired && (
+        <p className="text-sm text-amber-600">⚠ Silakan pilih ukuran dan warna</p>
+      )}
+
       {/* Quantity Selector */}
       <div className="flex items-center gap-4">
         <span className="text-sm text-slate-600">Jumlah:</span>
         <div className="flex items-center border border-slate-200 rounded-lg">
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="p-2 hover:bg-slate-100"
+            className="p-2 hover:bg-slate-100 disabled:opacity-40"
             disabled={disabled}
           >
             <Minus className="w-4 h-4" />
           </button>
           <span className="w-12 text-center font-medium">{quantity}</span>
           <button
-            onClick={() => setQuantity(quantity + 1)}
-            className="p-2 hover:bg-slate-100"
+            onClick={() => setQuantity(Math.min(currentStock || 99, quantity + 1))}
+            className="p-2 hover:bg-slate-100 disabled:opacity-40"
             disabled={disabled}
           >
             <Plus className="w-4 h-4" />
@@ -83,46 +148,33 @@ export function AddToCartButton({ productId, disabled }: Props) {
       <div className="flex gap-3">
         <button
           onClick={handleAddToCart}
-          disabled={disabled || loading || buyNowLoading}
+          disabled={disabled}
           className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
             added
               ? 'bg-green-600 text-white'
               : disabled
-              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
               : 'border-2 border-primary text-primary hover:bg-primary/5'
           }`}
         >
-          {loading ? (
-            'Menambahkan...'
-          ) : added ? (
-            <>
-              <Check className="w-5 h-5" />
-              Ditambahkan!
-            </>
+          {loading ? 'Menambahkan...' : added ? (
+            <><Check className="w-5 h-5" /> Ditambahkan!</>
           ) : (
-            <>
-              <ShoppingCart className="w-5 h-5" />
-              Keranjang
-            </>
+            <><ShoppingCart className="w-5 h-5" /> Keranjang</>
           )}
         </button>
 
         <button
           onClick={handleBuyNow}
-          disabled={disabled || loading || buyNowLoading}
+          disabled={disabled}
           className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
             disabled
-              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
               : 'bg-primary text-white hover:bg-primary-hover'
           }`}
         >
-          {buyNowLoading ? (
-            'Memproses...'
-          ) : (
-            <>
-              <CreditCard className="w-5 h-5" />
-              Bayar Sekarang
-            </>
+          {buyNowLoading ? 'Memproses...' : (
+            <><CreditCard className="w-5 h-5" /> Bayar Sekarang</>
           )}
         </button>
       </div>

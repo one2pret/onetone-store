@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getProductBySlug, getActiveProducts } from '@/app/actions/products';
+import { getProductVariants } from '@/app/actions/product-variants';
 import { formatRupiah } from '@/lib/utils';
 import { AddToCartButton } from './AddToCartButton';
 import { ProductCard } from '@/components/shop/ProductCard';
@@ -20,13 +21,19 @@ export default async function ProductDetailPage({ params }: Props) {
     notFound();
   }
 
+  // Fetch variants
+  const variants = await getProductVariants(product.id);
+
   // Get related products
   const relatedProducts = await getActiveProducts({
     categorySlug: product.category?.slug,
-    limit: 4,
+    limit: 5,
   });
-
   const related = relatedProducts.filter(p => p.id !== product.id).slice(0, 4);
+
+  const hasVariants = variants.length > 0;
+  // For non-variant products, fall back to product.stock
+  const initialStock = hasVariants ? 0 : (product.stock ?? 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -64,35 +71,20 @@ export default async function ProductDetailPage({ params }: Props) {
           <p className="text-sm text-primary mb-2">{product.category?.name}</p>
           <h1 className="text-3xl font-bold text-slate-800 mb-4">{product.name}</h1>
 
-          <div className="text-3xl font-bold text-primary mb-6">
-            {formatRupiah(product.price)}
-          </div>
-
           <div className="prose prose-sm text-slate-600 mb-6">
             <p>{product.description || 'Tidak ada deskripsi.'}</p>
           </div>
 
-          {/* Stock Info */}
-          <div className="mb-6">
-            {product.stock !== null && product.stock > 0 ? (
-              <p className="text-green-600">
-                ✓ Stok tersedia ({product.stock} pcs)
-              </p>
-            ) : (
-              <p className="text-red-600">✗ Stok habis</p>
-            )}
-          </div>
-
-          {/* Add to Cart */}
-          <div className="mb-8">
-            <AddToCartButton
-              productId={product.id}
-              disabled={!product.stock || product.stock <= 0}
-            />
-          </div>
+          {/* AddToCartButton handles variants, price, stock display */}
+          <AddToCartButton
+            productId={product.id}
+            basePrice={parseFloat(String(product.price))}
+            variants={variants}
+            initialStock={initialStock}
+          />
 
           {/* Features */}
-          <div className="border-t border-slate-100 pt-6 space-y-3">
+          <div className="border-t border-slate-100 pt-6 space-y-3 mt-6">
             <div className="flex items-center gap-3 text-sm text-slate-600">
               <Truck className="w-5 h-5 text-primary" />
               <span>Pengiriman ke seluruh Indonesia</span>
