@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/db';
 import {
-  orders, orderItems, cartItems, products, users,
+  orders, orderItems, cartItems, products, productVariants, users,
   orderStatusLogs, addresses, shippings, shippingHistories, invoices,
 } from '@/lib/db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
@@ -17,19 +17,17 @@ import { createInvoice, expireInvoice } from '@/lib/xendit';
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
   if (orderRows.length === 0) return [];
-
   const orderIds = orderRows.map(o => o.id);
   const allItems = await db.select().from(orderItems).where(
     sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`
   );
-
   return orderRows.map(order => ({
     ...order,
     items: allItems.filter(item => item.orderId === order.id),
   }));
 }
 
-// Create order from cart (revamped with Xendit + shipping)
+// Create order from cart
 export async function createOrder(prevState: any, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -37,7 +35,6 @@ export async function createOrder(prevState: any, formData: FormData) {
   }
 
   const userId = Number(session.user.id);
-
   const addressId = Number(formData.get('addressId'));
   const courierName = formData.get('courierName') as string || '';
   const courierCompany = formData.get('courierCompany') as string || '';
@@ -48,29 +45,30 @@ export async function createOrder(prevState: any, formData: FormData) {
   try {
     // 1. Validate address
     const addressRows = await db.select().from(addresses)
-      .where(eq(addresses.id, addressId))
-      .limit(1);
-
+      .where(eq(addresses.id, addressId)).limit(1);
     if (addressRows.length === 0 || addressRows[0].userId !== userId) {
       return { success: false, error: 'Alamat tidak ditemukan atau bukan milik Anda' };
     }
     const address = addressRows[0];
 
-    // 2. Get cart items with product info
-    const cart = await db.select()
+    // 2. Get cart items with product + variant info
+    const cartRows = await db.select()
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
+      .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
       .where(eq(cartItems.userId, userId));
 
-    if (cart.length === 0) {
+    if (cartRows.length === 0) {
       return { success: false, error: 'Keranjang kosong' };
     }
 
-    // 3. Validate stock
-    const stockItems = cart.map(row => ({
+    // 3. Validate stock (per variant jika ada, fallback ke produk)
+    const stockItems = cartRows.map(row => ({
       productId: row.cart_items.productId,
+      variantId: row.cart_items.variantId ?? undefined,
       quantity: row.cart_items.quantity ?? 1,
-      productName: row.products!.name,
+      productName: row.products!.name +
+        (row.product_variants ? ` (${row.product_variants.size} / ${row.product_variants.color})` : ''),
     }));
 
     const stockResult = await validateStock(stockItems);
@@ -78,15 +76,17 @@ export async function createOrder(prevState: any, formData: FormData) {
       return { success: false, error: stockResult.errors.join(', ') };
     }
 
-    // 4. Calculate totals
-    const subtotal = cart.reduce((sum, row) => {
-      return sum + (Number(row.products!.price) * (row.cart_items.quantity ?? 1));
+    // 4. Calculate subtotal — harga dasar + priceModifier varian
+    const subtotal = cartRows.reduce((sum, row) => {
+      const base = Number(row.products!.price);
+      const modifier = Number(row.product_variants?.priceModifier ?? 0);
+      return sum + (base + modifier) * (row.cart_items.quantity ?? 1);
     }, 0);
 
     const total = subtotal + courierPrice;
     const orderNumber = generateOrderNumber();
 
-    // 5. Create order (willExpiredAt set via MySQL NOW() + 24h for timezone consistency)
+    // 5. Create order
     const [result] = await db.insert(orders).values({
       userId,
       orderNumber,
@@ -103,20 +103,31 @@ export async function createOrder(prevState: any, formData: FormData) {
 
     const orderId = Number(result.insertId);
 
-    // 7. Create order items
+    // 6. Create order items — simpan variantId + variantLabel (snapshot)
     await db.insert(orderItems).values(
-      cart.map((row) => ({
-        orderId,
-        productId: row.cart_items.productId,
-        productName: row.products!.name,
-        productImage: row.products!.image,
-        price: row.products!.price,
-        quantity: row.cart_items.quantity ?? 1,
-        subtotal: String(Number(row.products!.price) * (row.cart_items.quantity ?? 1)),
-      }))
+      cartRows.map((row) => {
+        const base = Number(row.products!.price);
+        const modifier = Number(row.product_variants?.priceModifier ?? 0);
+        const unitPrice = base + modifier;
+        const qty = row.cart_items.quantity ?? 1;
+        const variant = row.product_variants;
+        const variantLabel = variant ? `${variant.size} / ${variant.color}` : null;
+
+        return {
+          orderId,
+          productId: row.cart_items.productId,
+          variantId: row.cart_items.variantId ?? null,
+          productName: row.products!.name,
+          productImage: row.products!.image,
+          variantLabel,
+          price: String(unitPrice),
+          quantity: qty,
+          subtotal: String(unitPrice * qty),
+        };
+      })
     );
 
-    // 8. Create shipping record
+    // 7. Create shipping record
     await db.insert(shippings).values({
       orderId,
       recipientName: address.recipientName,
@@ -131,21 +142,21 @@ export async function createOrder(prevState: any, formData: FormData) {
       price: String(courierPrice),
     });
 
-    // 9. Deduct stock
+    // 8. Deduct stock (variant atau produk)
     await deductStock(
-      cart.map(row => ({
+      cartRows.map(row => ({
         productId: row.cart_items.productId,
+        variantId: row.cart_items.variantId ?? undefined,
         quantity: row.cart_items.quantity ?? 1,
       }))
     );
 
-    // 10. Clear cart
+    // 9. Clear cart
     await db.delete(cartItems).where(eq(cartItems.userId, userId));
 
-    // 11. Create Xendit invoice
+    // 10. Create Xendit invoice
     let paymentUrl: string | undefined;
     try {
-      // Get user email
       const userRows = await db.select().from(users)
         .where(eq(users.id, userId)).limit(1);
       const userEmail = userRows[0]?.email || '';
@@ -160,7 +171,6 @@ export async function createOrder(prevState: any, formData: FormData) {
 
       paymentUrl = invoice.invoiceUrl;
 
-      // Store invoice
       await db.insert(invoices).values({
         orderId,
         xenditId: invoice.id,
@@ -170,7 +180,6 @@ export async function createOrder(prevState: any, formData: FormData) {
         expiredAt: new Date(invoice.expiryDate),
       });
     } catch (xenditError) {
-      // Order still created, customer can retry payment later
       console.error('Xendit invoice creation failed:', xenditError);
     }
 
@@ -194,7 +203,6 @@ export async function cancelOrderByCustomer(orderId: number) {
   const userId = Number(session.user.id);
 
   try {
-    // Get order
     const orderRows = await db.select().from(orders)
       .where(eq(orders.id, orderId)).limit(1);
 
@@ -208,30 +216,22 @@ export async function cancelOrderByCustomer(orderId: number) {
       return { success: false, error: 'Hanya order berstatus waiting_payment yang dapat dibatalkan' };
     }
 
-    // Try to expire Xendit invoice
     const invoiceRows = await db.select().from(invoices)
       .where(eq(invoices.orderId, orderId)).limit(1);
 
     if (invoiceRows.length > 0 && invoiceRows[0].xenditId) {
-      try {
-        await expireInvoice(invoiceRows[0].xenditId);
-      } catch {
-        // Continue even if expire fails
-      }
+      try { await expireInvoice(invoiceRows[0].xenditId); } catch { /* continue */ }
       await db.update(invoices).set({ status: 'cancelled', cancelledAt: new Date() })
         .where(eq(invoices.id, invoiceRows[0].id));
     }
 
-    // Restore stock
     await restoreStock(orderId);
 
-    // Update order
     await db.update(orders).set({
       status: 'cancelled',
       cancelledAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    // Audit log
     await db.insert(orderStatusLogs).values({
       orderId,
       fromStatus: 'waiting_payment',
@@ -262,7 +262,6 @@ export async function repayOrder(orderId: number): Promise<{
   const userId = Number(session.user.id);
 
   try {
-    // Get order
     const orderRows = await db.select().from(orders)
       .where(eq(orders.id, orderId)).limit(1);
 
@@ -271,7 +270,6 @@ export async function repayOrder(orderId: number): Promise<{
     }
 
     const order = orderRows[0];
-
     const isExpired = order.status === 'expired';
     const isWaitingNoInvoice = order.status === 'waiting_payment';
 
@@ -279,7 +277,6 @@ export async function repayOrder(orderId: number): Promise<{
       return { success: false, error: 'Order tidak dapat dibayar' };
     }
 
-    // For waiting_payment, check if invoice already exists
     if (isWaitingNoInvoice) {
       const existingInvoice = await db.select().from(invoices)
         .where(eq(invoices.orderId, orderId)).limit(1);
@@ -288,28 +285,25 @@ export async function repayOrder(orderId: number): Promise<{
       }
     }
 
-    // Get order items for stock validation (only for expired → re-deduct)
     const items = await db.select().from(orderItems)
       .where(eq(orderItems.orderId, orderId));
 
     const stockItems = items.map(item => ({
       productId: item.productId!,
+      variantId: item.variantId ?? undefined,
       quantity: item.quantity,
       productName: item.productName,
     }));
 
-    // Get user email
     const userRows = await db.select().from(users)
       .where(eq(users.id, userId)).limit(1);
     const userEmail = userRows[0]?.email || '';
 
-    // Validate stock
     const stockResult = await validateStock(stockItems);
     if (!stockResult.valid) {
       return { success: false, error: stockResult.errors.join(', ') };
     }
 
-    // Create new Xendit invoice
     const invoice = await createInvoice({
       externalId: order.orderNumber!,
       amount: Number(order.total),
@@ -318,7 +312,6 @@ export async function repayOrder(orderId: number): Promise<{
       orderId,
     });
 
-    // Store new invoice
     await db.insert(invoices).values({
       orderId,
       xenditId: invoice.id,
@@ -329,17 +322,14 @@ export async function repayOrder(orderId: number): Promise<{
     });
 
     if (isExpired) {
-      // Transition back to waiting_payment
       await db.update(orders).set({
         status: 'waiting_payment',
         willExpiredAt: sql`NOW() + INTERVAL 24 HOUR`,
         expiredAt: null,
       }).where(eq(orders.id, orderId));
 
-      // Deduct stock again (was restored when expired)
-      await deductStock(stockItems.map(i => ({ productId: i.productId, quantity: i.quantity })));
+      await deductStock(stockItems.map(i => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })));
 
-      // Audit log
       await db.insert(orderStatusLogs).values({
         orderId,
         fromStatus: 'expired',
@@ -357,7 +347,7 @@ export async function repayOrder(orderId: number): Promise<{
   }
 }
 
-// Cancel order by admin (waiting_payment or packing)
+// Cancel order by admin
 export async function cancelOrderByAdmin(orderId: number) {
   const session = await auth();
   if (!session?.user?.id || (session.user as any).role !== 'admin') {
@@ -367,7 +357,6 @@ export async function cancelOrderByAdmin(orderId: number) {
   const adminId = session.user.id;
 
   try {
-    // Get order
     const orderRows = await db.select().from(orders)
       .where(eq(orders.id, orderId)).limit(1);
 
@@ -382,37 +371,23 @@ export async function cancelOrderByAdmin(orderId: number) {
       return { success: false, error: `Order berstatus "${order.status}" tidak dapat dibatalkan oleh admin` };
     }
 
-    // Try to expire Xendit invoice if waiting_payment
     if (order.status === 'waiting_payment') {
       const invoiceRows = await db.select().from(invoices)
         .where(eq(invoices.orderId, orderId)).limit(1);
-
       if (invoiceRows.length > 0 && invoiceRows[0].xenditId) {
-        try {
-          await expireInvoice(invoiceRows[0].xenditId);
-        } catch {
-          // Continue even if expire fails
-        }
+        try { await expireInvoice(invoiceRows[0].xenditId); } catch { /* continue */ }
         await db.update(invoices).set({ status: 'cancelled', cancelledAt: new Date() })
           .where(eq(invoices.id, invoiceRows[0].id));
       }
-    } else {
-      // For packing — no invoice to expire, but still check
-      const invoiceRows = await db.select().from(invoices)
-        .where(eq(invoices.orderId, orderId)).limit(1);
-      // Invoice already paid for packing, no need to expire
     }
 
-    // Restore stock
     await restoreStock(orderId);
 
-    // Update order
     await db.update(orders).set({
       status: 'cancelled',
       cancelledAt: new Date(),
     }).where(eq(orders.id, orderId));
 
-    // Audit log
     await db.insert(orderStatusLogs).values({
       orderId,
       fromStatus: order.status!,
@@ -429,14 +404,11 @@ export async function cancelOrderByAdmin(orderId: number) {
   }
 }
 
-// Get order tracking info (customer with ownership check, or admin)
+// Get order tracking info
 export async function getOrderTracking(orderId: number): Promise<{
   success: boolean;
   error?: string;
-  data?: {
-    shipping: any | null;
-    histories: any[];
-  };
+  data?: { shipping: any | null; histories: any[] };
 }> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -447,7 +419,6 @@ export async function getOrderTracking(orderId: number): Promise<{
   const isAdmin = (session.user as any).role === 'admin';
 
   try {
-    // Get order
     const orderRows = await db.select().from(orders)
       .where(eq(orders.id, orderId)).limit(1);
 
@@ -456,13 +427,10 @@ export async function getOrderTracking(orderId: number): Promise<{
     }
 
     const order = orderRows[0];
-
-    // Ownership check (skip for admin)
     if (!isAdmin && order.userId !== userId) {
       return { success: false, error: 'Order tidak ditemukan' };
     }
 
-    // Get shipping record
     const shippingRows = await db.select().from(shippings)
       .where(eq(shippings.orderId, orderId)).limit(1);
 
@@ -471,8 +439,6 @@ export async function getOrderTracking(orderId: number): Promise<{
     }
 
     const shipping = shippingRows[0];
-
-    // Get shipping histories
     const histories = await db.select().from(shippingHistories)
       .where(eq(shippingHistories.shippingId, shipping.id))
       .orderBy(desc(shippingHistories.updatedAt));
@@ -487,25 +453,18 @@ export async function getOrderTracking(orderId: number): Promise<{
 // Get user's orders
 export async function getUserOrders() {
   const session = await auth();
-  if (!session?.user?.id) {
-    return [];
-  }
-
+  if (!session?.user?.id) return [];
   const userId = Number(session.user.id);
-
   const orderRows = await db.select().from(orders)
     .where(eq(orders.userId, userId))
     .orderBy(desc(orders.createdAt));
-
   return queryOrdersWithItems(orderRows);
 }
 
 // Get single order
 export async function getOrder(id: number) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return null;
-  }
+  if (!session?.user?.id) return null;
 
   const rows = await db.select()
     .from(orders)
@@ -546,13 +505,10 @@ export async function getAllOrders() {
   }));
 }
 
-// Update order status (admin — legacy, kept for simple updates)
+// Update order status (admin legacy)
 export async function updateOrderStatus(orderId: number, status: string) {
   try {
-    await db.update(orders)
-      .set({ status: status as any })
-      .where(eq(orders.id, orderId));
-
+    await db.update(orders).set({ status: status as any }).where(eq(orders.id, orderId));
     revalidatePath('/dashboard/orders');
     revalidatePath('/orders');
     return { success: true };
@@ -569,7 +525,6 @@ export async function changeOrderStatus(
   note?: string,
 ) {
   try {
-    // Get current order
     const orderRows = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
     if (orderRows.length === 0) {
       return { success: false, error: 'Order tidak ditemukan' };
@@ -578,7 +533,6 @@ export async function changeOrderStatus(
     const order = orderRows[0];
     const currentStatus = order.status!;
 
-    // Validate transition
     if (!validateStatusTransition(currentStatus, newStatus)) {
       return {
         success: false,
@@ -586,32 +540,17 @@ export async function changeOrderStatus(
       };
     }
 
-    // Build update fields with relevant timestamp
-    // Use sql`NOW()` to match MySQL timezone (avoids JS UTC vs MySQL local mismatch)
     const updateData: Record<string, any> = { status: newStatus as any };
-
     switch (newStatus) {
-      case 'packing':
-        updateData.paidAt = sql`NOW()`;
-        break;
-      case 'shipping':
-        updateData.shippingAt = sql`NOW()`;
-        break;
-      case 'delivered':
-        updateData.deliveredAt = sql`NOW()`;
-        break;
-      case 'expired':
-        updateData.expiredAt = sql`NOW()`;
-        break;
-      case 'cancelled':
-        updateData.cancelledAt = sql`NOW()`;
-        break;
+      case 'packing':   updateData.paidAt = sql`NOW()`; break;
+      case 'shipping':  updateData.shippingAt = sql`NOW()`; break;
+      case 'delivered': updateData.deliveredAt = sql`NOW()`; break;
+      case 'expired':   updateData.expiredAt = sql`NOW()`; break;
+      case 'cancelled': updateData.cancelledAt = sql`NOW()`; break;
     }
 
-    // Update order
     await db.update(orders).set(updateData).where(eq(orders.id, orderId));
 
-    // Insert audit log
     await db.insert(orderStatusLogs).values({
       orderId,
       fromStatus: currentStatus,
@@ -635,34 +574,24 @@ export async function getDashboardStats() {
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
-
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   weekStart.setHours(0, 0, 0, 0);
-
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const todayOrders = allOrders.filter(o =>
-    o.createdAt && new Date(o.createdAt) >= todayStart
-  );
-
+  const todayOrders = allOrders.filter(o => o.createdAt && new Date(o.createdAt) >= todayStart);
   const paidOrders = allOrders.filter(o => o.paidAt !== null);
-
   const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total), 0);
-
   const todayRevenue = paidOrders
     .filter(o => o.paidAt && new Date(o.paidAt) >= todayStart)
     .reduce((sum, o) => sum + Number(o.total), 0);
-
   const weekRevenue = paidOrders
     .filter(o => o.paidAt && new Date(o.paidAt) >= weekStart)
     .reduce((sum, o) => sum + Number(o.total), 0);
-
   const monthRevenue = paidOrders
     .filter(o => o.paidAt && new Date(o.paidAt) >= monthStart)
     .reduce((sum, o) => sum + Number(o.total), 0);
 
-  // Count per status
   const ordersByStatus: Record<string, number> = {};
   for (const order of allOrders) {
     const status = order.status || 'waiting_payment';
