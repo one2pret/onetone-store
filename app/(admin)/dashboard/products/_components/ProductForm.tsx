@@ -1,7 +1,7 @@
 // app/(admin)/dashboard/products/_components/ProductForm.tsx
 'use client';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { createProduct, updateProduct } from '@/app/actions/products';
 import { upsertProductVariants } from '@/app/actions/product-variants';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ interface Props {
   variants?: ProductVariant[];
 }
 
-type ActionState = {
+type ActionResult = {
   success: boolean;
   errors?: Record<string, string[]>;
   productId?: number;
@@ -102,14 +102,8 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
 export function ProductForm({ product, categories, variants = [] }: Props) {
-  const action = product ? updateProduct.bind(null, product.id) : createProduct;
-
-  const [state, formAction, pending] = useActionState(
-    action as (state: ActionState, formData: FormData) => Promise<ActionState>,
-    null
-  );
-
-  const [isPersistingVariants, startVariantTransition] = useTransition();
+  const [state, setState] = useState<ActionResult>(null);
+  const [isPending, startTransition] = useTransition();
 
   const existingImages: string[] = (() => {
     try { return product?.images ? JSON.parse(product.images) : []; } catch { return []; }
@@ -117,29 +111,53 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
 
   const [mainImage, setMainImage] = useState(product?.image ?? '');
   const [extraImages, setExtraImages] = useState<string[]>(existingImages);
-  const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
+
+  // FIX: init from existing variants so edit mode shows saved data
+  const [variantRows, setVariantRows] = useState<VariantRow[]>(
+    variants.map((v) => ({
+      size: v.size,
+      color: v.color,
+      colorHex: v.colorHex ?? '',
+      stock: v.stock,
+      priceModifier: parseFloat(String(v.priceModifier ?? 0)),
+      sku: v.sku ?? '',
+    }))
+  );
 
   const imagesJson = JSON.stringify(extraImages.filter(Boolean));
 
-  // After product saved, persist variants
-  const handleSubmit = async (formData: FormData) => {
-    // Inject image values
+  // FIX: use onSubmit so we can call upsertProductVariants after save
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set('image', mainImage);
     formData.set('images', imagesJson);
 
-    const result = await (action as (state: ActionState, formData: FormData) => Promise<ActionState>)(state, formData);
+    startTransition(async () => {
+      let result: ActionResult;
 
-    if (result?.success && result.productId && variantRows.length > 0) {
-      startVariantTransition(async () => {
-        await upsertProductVariants(result.productId!, variantRows);
-      });
-    }
+      if (product) {
+        // UPDATE — use existing product.id
+        result = await updateProduct(product.id, null, formData);
+        if (result?.success) {
+          await upsertProductVariants(product.id, variantRows);
+        }
+      } else {
+        // CREATE — get new productId from result
+        result = await createProduct(null, formData);
+        if (result?.success && result.productId) {
+          await upsertProductVariants(result.productId, variantRows);
+        }
+      }
+
+      setState(result);
+    });
   };
 
-  const isSaving = pending || isPersistingVariants;
+  const isSaving = isPending;
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <input type="hidden" name="image" value={mainImage} />
       <input type="hidden" name="images" value={imagesJson} />
 
@@ -150,7 +168,7 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
       )}
       {state?.success && (
         <div className="p-4 bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 rounded-lg text-sm">
-          ✓ Produk berhasil disimpan!
+          ✓ Produk & varian berhasil disimpan!
         </div>
       )}
 
