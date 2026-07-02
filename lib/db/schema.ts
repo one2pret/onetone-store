@@ -93,11 +93,27 @@ export const products = mysqlTable('products', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ PRODUCT VARIANTS ============
+export const productVariants = mysqlTable('product_variants', {
+  id: int('id').primaryKey().autoincrement(),
+  productId: int('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  size: varchar('size', { length: 20 }).notNull(),   // S, M, L, XL, XXL, XXXL, FREE SIZE
+  color: varchar('color', { length: 100 }).notNull(), // Mauve Wine, Black, Navy, dll
+  colorHex: varchar('color_hex', { length: 7 }),      // opsional: #7B3F5E untuk swatch UI
+  stock: int('stock').default(0).notNull(),
+  priceModifier: decimal('price_modifier', { precision: 10, scale: 2 }).default('0'), // +/- dari harga dasar
+  sku: varchar('sku', { length: 100 }),               // opsional: kode SKU per varian
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
 // ============ CART ITEMS ============
 export const cartItems = mysqlTable('cart_items', {
   id: int('id').primaryKey().autoincrement(),
   userId: int('user_id').references(() => users.id).notNull(),
   productId: int('product_id').references(() => products.id).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id), // nullable = produk tanpa varian
   quantity: int('quantity').default(1),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
@@ -138,8 +154,10 @@ export const orderItems = mysqlTable('order_items', {
   id: int('id').primaryKey().autoincrement(),
   orderId: int('order_id').references(() => orders.id).notNull(),
   productId: int('product_id').references(() => products.id),
+  variantId: int('variant_id').references(() => productVariants.id), // simpan referensi varian
   productName: varchar('product_name', { length: 255 }).notNull(),
   productImage: varchar('product_image', { length: 500 }),
+  variantLabel: varchar('variant_label', { length: 100 }), // "L / Mauve Wine" — snapshot saat beli
   price: decimal('price', { precision: 12, scale: 2 }).notNull(),
   quantity: int('quantity').notNull(),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
@@ -198,99 +216,10 @@ export const orderStatusLogs = mysqlTable('order_status_logs', {
   orderId: int('order_id').references(() => orders.id).notNull(),
   fromStatus: varchar('from_status', { length: 50 }).notNull(),
   toStatus: varchar('to_status', { length: 50 }).notNull(),
-  changedBy: varchar('changed_by', { length: 100 }).notNull(), // "user:1", "admin:1", "webhook:xendit"
+  changedBy: varchar('changed_by', { length: 100 }).notNull(),
   note: text('note'),
   createdAt: timestamp('created_at').defaultNow(),
 });
-
-// ============ RELATIONS ============
-export const usersRelations = relations(users, ({ many }) => ({
-  orders: many(orders),
-  cartItems: many(cartItems),
-  addresses: many(addresses),
-}));
-
-export const addressesRelations = relations(addresses, ({ one }) => ({
-  user: one(users, {
-    fields: [addresses.userId],
-    references: [users.id],
-  }),
-}));
-
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  products: many(products),
-}));
-
-export const productsRelations = relations(products, ({ one, many }) => ({
-  category: one(categories, {
-    fields: [products.categoryId],
-    references: [categories.id],
-  }),
-  cartItems: many(cartItems),
-  orderItems: many(orderItems),
-}));
-
-export const cartItemsRelations = relations(cartItems, ({ one }) => ({
-  user: one(users, {
-    fields: [cartItems.userId],
-    references: [users.id],
-  }),
-  product: one(products, {
-    fields: [cartItems.productId],
-    references: [products.id],
-  }),
-}));
-
-export const ordersRelations = relations(orders, ({ one, many }) => ({
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-  items: many(orderItems),
-  invoices: many(invoices),
-  shippings: many(shippings),
-  statusLogs: many(orderStatusLogs),
-}));
-
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
-  order: one(orders, {
-    fields: [orderItems.orderId],
-    references: [orders.id],
-  }),
-  product: one(products, {
-    fields: [orderItems.productId],
-    references: [products.id],
-  }),
-}));
-
-export const invoicesRelations = relations(invoices, ({ one }) => ({
-  order: one(orders, {
-    fields: [invoices.orderId],
-    references: [orders.id],
-  }),
-}));
-
-export const shippingsRelations = relations(shippings, ({ one, many }) => ({
-  order: one(orders, {
-    fields: [shippings.orderId],
-    references: [orders.id],
-  }),
-  histories: many(shippingHistories),
-}));
-
-export const shippingHistoriesRelations = relations(shippingHistories, ({ one }) => ({
-  shipping: one(shippings, {
-    fields: [shippingHistories.shippingId],
-    references: [shippings.id],
-  }),
-}));
-
-export const orderStatusLogsRelations = relations(orderStatusLogs, ({ one }) => ({
-  order: one(orders, {
-    fields: [orderStatusLogs.orderId],
-    references: [orders.id],
-  }),
-}));
 
 // ============ BANNERS ============
 export const banners = mysqlTable('banners', {
@@ -304,6 +233,71 @@ export const banners = mysqlTable('banners', {
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
+
+// ============ RELATIONS ============
+export const usersRelations = relations(users, ({ many }) => ({
+  orders: many(orders),
+  cartItems: many(cartItems),
+  addresses: many(addresses),
+}));
+
+export const addressesRelations = relations(addresses, ({ one }) => ({
+  user: one(users, { fields: [addresses.userId], references: [users.id] }),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  products: many(products),
+}));
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
+  variants: many(productVariants),
+  cartItems: many(cartItems),
+  orderItems: many(orderItems),
+}));
+
+export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
+  product: one(products, { fields: [productVariants.productId], references: [products.id] }),
+  cartItems: many(cartItems),
+  orderItems: many(orderItems),
+}));
+
+export const cartItemsRelations = relations(cartItems, ({ one }) => ({
+  user: one(users, { fields: [cartItems.userId], references: [users.id] }),
+  product: one(products, { fields: [cartItems.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [cartItems.variantId], references: [productVariants.id] }),
+}));
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  user: one(users, { fields: [orders.userId], references: [users.id] }),
+  items: many(orderItems),
+  invoices: many(invoices),
+  shippings: many(shippings),
+  statusLogs: many(orderStatusLogs),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
+  product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [orderItems.variantId], references: [productVariants.id] }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  order: one(orders, { fields: [invoices.orderId], references: [orders.id] }),
+}));
+
+export const shippingsRelations = relations(shippings, ({ one, many }) => ({
+  order: one(orders, { fields: [shippings.orderId], references: [orders.id] }),
+  histories: many(shippingHistories),
+}));
+
+export const shippingHistoriesRelations = relations(shippingHistories, ({ one }) => ({
+  shipping: one(shippings, { fields: [shippingHistories.shippingId], references: [shippings.id] }),
+}));
+
+export const orderStatusLogsRelations = relations(orderStatusLogs, ({ one }) => ({
+  order: one(orders, { fields: [orderStatusLogs.orderId], references: [orders.id] }),
+}));
 
 // ============ TYPE INFERENCE ============
 export type User = InferSelectModel<typeof users>;
@@ -321,6 +315,9 @@ export type NewCategory = InferInsertModel<typeof categories>;
 
 export type Product = InferSelectModel<typeof products>;
 export type NewProduct = InferInsertModel<typeof products>;
+
+export type ProductVariant = InferSelectModel<typeof productVariants>;
+export type NewProductVariant = InferInsertModel<typeof productVariants>;
 
 export type CartItem = InferSelectModel<typeof cartItems>;
 export type NewCartItem = InferInsertModel<typeof cartItems>;
@@ -347,9 +344,15 @@ export type ProductWithCategory = Product & {
   category: Category | null;
 };
 
-// Cart item with product
+export type ProductWithVariants = Product & {
+  category: Category | null;
+  variants: ProductVariant[];
+};
+
+// Cart item with product & variant
 export type CartItemWithProduct = CartItem & {
   product: Product;
+  variant?: ProductVariant | null;
 };
 
 // Order with items
