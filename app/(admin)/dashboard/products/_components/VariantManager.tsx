@@ -26,7 +26,7 @@ const PRESET_COLORS: { name: string; hex: string }[] = [
 
 // ---- Types ----
 export interface VariantRow {
-  _key: string; // client-only unique key
+  _key: string;
   size: string;
   color: string;
   colorHex: string;
@@ -95,7 +95,22 @@ export function VariantManager({ initial = [], onChange }: Props) {
     sync(rows.map((r) => (r._key === key ? { ...r, [field]: value } : r)));
   }
 
-  // Group by size for summary display
+  // FIX: apply both color + hex in one atomic sync call
+  function applyPresetColor(pc: { name: string; hex: string }) {
+    // Find first row with empty color, or target last row
+    const idx = rows.findIndex((r) => r.color === '');
+    const targetIdx = idx !== -1 ? idx : rows.length - 1;
+    if (targetIdx < 0) return;
+    const targetKey = rows[targetIdx]._key;
+    sync(
+      rows.map((r) =>
+        r._key === targetKey
+          ? { ...r, color: pc.name, colorHex: pc.hex }
+          : r
+      )
+    );
+  }
+
   const totalStock = rows.reduce((s, r) => s + (r.stock || 0), 0);
   const variantCount = rows.length;
 
@@ -139,7 +154,7 @@ export function VariantManager({ initial = [], onChange }: Props) {
           {rows.length === 0 ? (
             <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
               <p className="text-sm text-muted-foreground mb-3">
-                Belum ada varian. Tambahkan ukuran & warna produk.
+                Belum ada varian. Tambahkan ukuran &amp; warna produk.
               </p>
               <Button type="button" variant="outline" size="sm" onClick={add} className="gap-1">
                 <Plus className="w-3.5 h-3.5" /> Tambah Varian Pertama
@@ -159,7 +174,7 @@ export function VariantManager({ initial = [], onChange }: Props) {
               </div>
 
               {rows.map((row) => (
-                <VariantRow
+                <VariantRowItem
                   key={row._key}
                   row={row}
                   onUpdate={(field, value) => update(row._key, field, value)}
@@ -169,28 +184,23 @@ export function VariantManager({ initial = [], onChange }: Props) {
             </div>
           )}
 
-          {/* Color quick-pick */}
+          {/* Preset Color Quick-Pick */}
           {rows.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2">Preset Warna ONETONE — klik untuk mengisi kolom warna:</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                Preset Warna ONETONE — klik untuk mengisi baris kosong (atau baris terakhir):
+              </p>
               <div className="flex flex-wrap gap-2">
                 {PRESET_COLORS.map((pc) => (
                   <button
                     key={pc.name}
                     type="button"
-                    title={pc.name}
+                    title={`Isi warna: ${pc.name}`}
                     className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border border-border bg-background hover:bg-muted transition-colors"
-                    onClick={() => {
-                      // Apply to last empty color row, or add new row
-                      const idx = rows.findIndex((r) => r.color === '');
-                      if (idx !== -1) {
-                        update(rows[idx]._key, 'color', pc.name);
-                        update(rows[idx]._key, 'colorHex', pc.hex);
-                      }
-                    }}
+                    onClick={() => applyPresetColor(pc)}
                   >
                     <span
-                      className="w-3 h-3 rounded-full border border-border inline-block"
+                      className="w-3 h-3 rounded-full border border-border/60 inline-block shrink-0"
                       style={{ background: pc.hex }}
                     />
                     {pc.name}
@@ -206,7 +216,7 @@ export function VariantManager({ initial = [], onChange }: Props) {
 }
 
 // ---- Single row ----
-function VariantRow({
+function VariantRowItem({
   row,
   onUpdate,
   onRemove,

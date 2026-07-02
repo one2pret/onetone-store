@@ -1,5 +1,6 @@
 // app/(admin)/dashboard/products/[id]/edit/page.tsx
 import { getProduct, getCategories } from '@/app/actions/products';
+import { getProductVariants } from '@/app/actions/product-variants';
 import { ProductForm } from '../../_components/ProductForm';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -11,9 +12,10 @@ interface Props {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, categories] = await Promise.all([
+  const [product, categories, variants] = await Promise.all([
     getProduct(Number(id)),
     getCategories(),
+    getProductVariants(Number(id)),  // FIX: fetch variants
   ]);
 
   if (!product) notFound();
@@ -33,7 +35,8 @@ export default async function EditProductPage({ params }: Props) {
       </div>
 
       <div className="max-w-2xl">
-        <ProductForm product={product} categories={categories} />
+        {/* FIX: pass variants so form shows existing data */}
+        <ProductForm product={product} categories={categories} variants={variants} />
       </div>
     </div>
   );
