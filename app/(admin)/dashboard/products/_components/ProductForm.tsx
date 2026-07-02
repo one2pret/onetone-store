@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { createProduct, updateProduct } from '@/app/actions/products';
 import { upsertProductVariants } from '@/app/actions/product-variants';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,7 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
 export function ProductForm({ product, categories, variants = [] }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<ActionResult>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -112,21 +114,22 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
   const [mainImage, setMainImage] = useState(product?.image ?? '');
   const [extraImages, setExtraImages] = useState<string[]>(existingImages);
 
-  // FIX: init from existing variants so edit mode shows saved data
+  // FIX: init with full VariantRow shape including _key and isActive
   const [variantRows, setVariantRows] = useState<VariantRow[]>(
     variants.map((v) => ({
+      _key: Math.random().toString(36).slice(2),
       size: v.size,
       color: v.color,
       colorHex: v.colorHex ?? '',
       stock: v.stock,
       priceModifier: parseFloat(String(v.priceModifier ?? 0)),
       sku: v.sku ?? '',
+      isActive: v.isActive ?? true,
     }))
   );
 
   const imagesJson = JSON.stringify(extraImages.filter(Boolean));
 
-  // FIX: use onSubmit so we can call upsertProductVariants after save
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -137,13 +140,13 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
       let result: ActionResult;
 
       if (product) {
-        // UPDATE — use existing product.id
+        // UPDATE — no redirect() in action, so this returns properly
         result = await updateProduct(product.id, null, formData);
         if (result?.success) {
           await upsertProductVariants(product.id, variantRows);
         }
       } else {
-        // CREATE — get new productId from result
+        // CREATE — action returns { success, productId }
         result = await createProduct(null, formData);
         if (result?.success && result.productId) {
           await upsertProductVariants(result.productId, variantRows);
@@ -151,10 +154,13 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
       }
 
       setState(result);
+
+      // FIX: redirect manually after variants saved
+      if (result?.success) {
+        router.push('/dashboard/products');
+      }
     });
   };
-
-  const isSaving = isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -166,13 +172,8 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
           {state.errors._form[0]}
         </div>
       )}
-      {state?.success && (
-        <div className="p-4 bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 rounded-lg text-sm">
-          ✓ Produk & varian berhasil disimpan!
-        </div>
-      )}
 
-      {/* ── Informasi Produk ────────────────────────────────── */}
+      {/* ── Informasi Produk ───────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-base font-semibold text-foreground mb-4">Informasi Produk</h2>
         <div className="space-y-4">
@@ -205,7 +206,7 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
         </div>
       </div>
 
-      {/* ── Foto Produk ──────────────────────────────────────── */}
+      {/* ── Foto Produk ────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-base font-semibold text-foreground mb-1">Foto Produk</h2>
         <p className="text-xs text-muted-foreground mb-5">
@@ -214,7 +215,7 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
         <div className="space-y-6">
           <ImageUrlInput name="_mainImageDisplay" label="Foto Utama *" value={mainImage}
             onChange={setMainImage}
-            placeholder="https://res.cloudinary.com/... atau https://drive.google.com/uc?id=..."
+            placeholder="https://res.cloudinary.com/..."
             error={state?.errors?.image?.[0]} />
           <div className="border-t border-border pt-5">
             <MultiImageInput value={extraImages} onChange={setExtraImages} />
@@ -222,7 +223,7 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
         </div>
       </div>
 
-      {/* ── Harga & Stok ─────────────────────────────────────── */}
+      {/* ── Harga & Stok ───────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-base font-semibold text-foreground mb-1">Harga & Stok Dasar</h2>
         <p className="text-xs text-muted-foreground mb-4">
@@ -254,13 +255,10 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
         </div>
       </div>
 
-      {/* ── Varian Produk ────────────────────────────────────── */}
-      <VariantManager
-        initial={variants}
-        onChange={setVariantRows}
-      />
+      {/* ── Varian Produk ─────────────────────────────────── */}
+      <VariantManager initial={variants} onChange={setVariantRows} />
 
-      {/* ── Pengaturan ───────────────────────────────────────── */}
+      {/* ── Pengaturan ──────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-base font-semibold text-foreground mb-4">Pengaturan</h2>
         <div className="space-y-3">
@@ -278,8 +276,8 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Menyimpan...' : product ? 'Update Produk' : 'Tambah Produk'}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? 'Menyimpan...' : product ? 'Update Produk' : 'Tambah Produk'}
         </Button>
         <Button variant="ghost" asChild>
           <a href="/dashboard/products">Batal</a>

@@ -5,7 +5,6 @@ import { db } from '@/lib/db';
 import { products, categories } from '@/lib/db/schema';
 import { eq, desc, and, like, asc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
 
@@ -94,7 +93,10 @@ export async function getCategoryBySlug(slug: string) {
   return rows[0] ?? null;
 }
 
-// Create product — prevState required for useActionState compatibility
+/**
+ * Create product — returns { success, productId } instead of redirecting.
+ * The caller (ProductForm) handles redirect after upsertProductVariants.
+ */
 export async function createProduct(prevState: any, formData: FormData) {
   const validated = productSchema.safeParse({
     name: formData.get('name'),
@@ -108,27 +110,43 @@ export async function createProduct(prevState: any, formData: FormData) {
   });
 
   if (!validated.success) {
-    return { success: false, errors: validated.error.flatten().fieldErrors };
+    return { success: false, errors: validated.error.flatten().fieldErrors, productId: undefined };
   }
 
+  const image = (formData.get('image') as string) || '';
+  const images = (formData.get('images') as string) || '[]';
   const slug = slugify(validated.data.name);
 
   try {
-    await db.insert(products).values({
-      ...validated.data,
-      slug,
-      price: String(validated.data.price),
-    });
-  } catch (error) {
-    return { success: false, errors: { _form: ['Gagal membuat produk. Pastikan nama produk belum digunakan.'] } };
-  }
+    const inserted = await db
+      .insert(products)
+      .values({
+        ...validated.data,
+        slug,
+        image,
+        images,
+        price: String(validated.data.price),
+      })
+      .returning({ id: products.id });
 
-  revalidatePath('/dashboard/products');
-  revalidatePath('/products');
-  redirect('/dashboard/products');
+    const productId = inserted[0]?.id;
+    revalidatePath('/dashboard/products');
+    revalidatePath('/products');
+    // FIX: return productId so caller can save variants, then redirect
+    return { success: true, productId };
+  } catch {
+    return {
+      success: false,
+      errors: { _form: ['Gagal membuat produk. Pastikan nama produk belum digunakan.'] },
+      productId: undefined,
+    };
+  }
 }
 
-// Update product — prevState required for useActionState compatibility
+/**
+ * Update product — returns { success } instead of redirecting.
+ * The caller (ProductForm) handles redirect after upsertProductVariants.
+ */
 export async function updateProduct(id: number, prevState: any, formData: FormData) {
   const validated = productSchema.safeParse({
     name: formData.get('name'),
@@ -142,22 +160,26 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
   });
 
   if (!validated.success) {
-    return { success: false, errors: validated.error.flatten().fieldErrors };
+    return { success: false, errors: validated.error.flatten().fieldErrors, productId: id };
   }
 
+  const image = (formData.get('image') as string) || '';
+  const images = (formData.get('images') as string) || '[]';
   const slug = slugify(validated.data.name);
 
   try {
-    await db.update(products)
-      .set({ ...validated.data, slug, price: String(validated.data.price) })
+    await db
+      .update(products)
+      .set({ ...validated.data, slug, image, images, price: String(validated.data.price) })
       .where(eq(products.id, id));
-  } catch (error) {
-    return { success: false, errors: { _form: ['Gagal update produk.'] } };
+  } catch {
+    return { success: false, errors: { _form: ['Gagal update produk.'] }, productId: id };
   }
 
   revalidatePath('/dashboard/products');
   revalidatePath('/products');
-  redirect('/dashboard/products');
+  // FIX: return success so caller can save variants, then redirect
+  return { success: true, productId: id };
 }
 
 export async function deleteProduct(id: number) {
@@ -166,7 +188,7 @@ export async function deleteProduct(id: number) {
     revalidatePath('/dashboard/products');
     revalidatePath('/products');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Gagal hapus produk' };
   }
 }
