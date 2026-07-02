@@ -2,28 +2,34 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { cartItems, products } from '@/lib/db/schema';
+import { cartItems, products, productVariants } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
-// Get user's cart
+// ---- helpers ----
+function variantPrice(basePrice: string | number, modifier: string | null): number {
+  return Number(basePrice) + Number(modifier ?? 0);
+}
+
+// Get user's cart — includes variant join
 export async function getCart() {
   const session = await auth();
-  if (!session?.user?.id) {
-    return [];
-  }
+  if (!session?.user?.id) return [];
 
   const userId = Number(session.user.id);
 
-  const rows = await db.select()
+  const rows = await db
+    .select()
     .from(cartItems)
     .leftJoin(products, eq(cartItems.productId, products.id))
+    .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
     .where(eq(cartItems.userId, userId));
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     ...row.cart_items,
     product: row.products!,
+    variant: row.product_variants ?? null,
   }));
 }
 
@@ -33,16 +39,21 @@ export async function getCartCount() {
   return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
 }
 
-// Get cart total
+// Get cart total (respects priceModifier)
 export async function getCartTotal() {
   const cart = await getCart();
   return cart.reduce((sum, item) => {
-    return sum + (Number(item.product.price) * (item.quantity || 0));
+    const price = variantPrice(item.product.price, item.variant?.priceModifier ?? null);
+    return sum + price * (item.quantity || 0);
   }, 0);
 }
 
-// Add item to cart
-export async function addToCart(productId: number, quantity = 1) {
+// Add item to cart — accepts optional variantId
+export async function addToCart(
+  productId: number,
+  quantity = 1,
+  variantId?: number
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: 'Silakan login terlebih dahulu' };
@@ -51,43 +62,71 @@ export async function addToCart(productId: number, quantity = 1) {
   const userId = Number(session.user.id);
 
   try {
-    // Check if product exists and has stock
-    const productRows = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+    const productRows = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
     const product = productRows[0];
+    if (!product) return { success: false, error: 'Produk tidak ditemukan' };
 
-    if (!product) {
-      return { success: false, error: 'Produk tidak ditemukan' };
+    // Validate variant stock if variantId provided
+    if (variantId) {
+      const variantRows = await db
+        .select()
+        .from(productVariants)
+        .where(eq(productVariants.id, variantId))
+        .limit(1);
+      const variant = variantRows[0];
+      if (!variant) return { success: false, error: 'Varian tidak ditemukan' };
+      if (variant.stock < quantity)
+        return { success: false, error: 'Stok varian tidak mencukupi' };
+    } else {
+      // Non-variant product: check product.stock
+      if (product.stock !== null && product.stock < quantity)
+        return { success: false, error: 'Stok tidak mencukupi' };
     }
 
-    if (product.stock !== null && product.stock < quantity) {
-      return { success: false, error: 'Stok tidak mencukupi' };
-    }
+    // Check if exact same product+variant already in cart
+    const conditions = variantId
+      ? and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId),
+          eq(cartItems.variantId, variantId)
+        )
+      : and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId)
+        );
 
-    // Check if item already in cart
-    const existingRows = await db.select().from(cartItems).where(
-      and(
-        eq(cartItems.userId, userId),
-        eq(cartItems.productId, productId)
-      )
-    ).limit(1);
+    const existingRows = await db
+      .select()
+      .from(cartItems)
+      .where(conditions)
+      .limit(1);
     const existing = existingRows[0];
 
     if (existing) {
-      // Update quantity
-      const newQuantity = (existing.quantity || 0) + quantity;
-
-      if (product.stock !== null && product.stock < newQuantity) {
-        return { success: false, error: 'Stok tidak mencukupi' };
+      const newQty = (existing.quantity || 0) + quantity;
+      // Re-check stock
+      if (variantId) {
+        const vRows = await db
+          .select()
+          .from(productVariants)
+          .where(eq(productVariants.id, variantId))
+          .limit(1);
+        if (vRows[0] && vRows[0].stock < newQty)
+          return { success: false, error: 'Stok varian tidak mencukupi' };
       }
-
-      await db.update(cartItems)
-        .set({ quantity: newQuantity })
+      await db
+        .update(cartItems)
+        .set({ quantity: newQty })
         .where(eq(cartItems.id, existing.id));
     } else {
-      // Add new item
       await db.insert(cartItems).values({
         userId,
         productId,
+        variantId: variantId ?? null,
         quantity,
       });
     }
@@ -103,22 +142,20 @@ export async function addToCart(productId: number, quantity = 1) {
 // Update cart item quantity
 export async function updateCartItem(cartItemId: number, quantity: number) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: 'Unauthorized' };
-  }
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
 
   try {
     if (quantity <= 0) {
       await db.delete(cartItems).where(eq(cartItems.id, cartItemId));
     } else {
-      await db.update(cartItems)
+      await db
+        .update(cartItems)
         .set({ quantity })
         .where(eq(cartItems.id, cartItemId));
     }
-
     revalidatePath('/cart');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Gagal update keranjang' };
   }
 }
@@ -126,15 +163,13 @@ export async function updateCartItem(cartItemId: number, quantity: number) {
 // Remove item from cart
 export async function removeFromCart(cartItemId: number) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: 'Unauthorized' };
-  }
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
 
   try {
     await db.delete(cartItems).where(eq(cartItems.id, cartItemId));
     revalidatePath('/cart');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Gagal hapus dari keranjang' };
   }
 }
@@ -142,17 +177,14 @@ export async function removeFromCart(cartItemId: number) {
 // Clear cart
 export async function clearCart() {
   const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: 'Unauthorized' };
-  }
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
 
   const userId = Number(session.user.id);
-
   try {
     await db.delete(cartItems).where(eq(cartItems.userId, userId));
     revalidatePath('/cart');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Gagal mengosongkan keranjang' };
   }
 }
