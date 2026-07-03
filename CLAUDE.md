@@ -1,120 +1,263 @@
-# Next Olshop — Project Rules
+# onetone-store — Project Rules & AI Context
 
 ## Project Overview
+
 Aplikasi **Online Shop (Olshop)** single-store untuk UMKM/bisnis personal.
 Bukan marketplace — satu toko, dua persona: **Admin** (pemilik toko) dan **Customer** (pembeli).
 
+**Nama Produk:** onetone-olshop
+**Client:** Fashion sport store (nama klien dirahasiakan)
+**Target:** MVP backend + Flutter mobile dalam 30 hari
+
+---
+
 ## Tech Stack
+
 - **Framework**: Next.js 16 (App Router, Server Components, Server Actions, Turbopack)
 - **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS 4 (utility-first, responsive-first)
-- **Database**: MySQL via `mysql2`
-- **ORM**: Drizzle ORM 0.38+ (`drizzle-kit` untuk migrations)
-- **Auth**: NextAuth v5 (beta) — Credentials provider, JWT strategy
+- **Styling**: Tailwind CSS 4 + shadcn/ui
+- **Database**: MySQL 8 via `mysql2`
+- **ORM**: Drizzle ORM 0.38+
+- **Auth**: NextAuth v5 (Credentials provider, JWT strategy)
 - **Validation**: Zod
-- **Icons**: Lucide React
-- **Utils**: clsx + tailwind-merge (`cn()` helper di `lib/utils.ts`)
+- **Storage**: Cloudflare R2 (via AWS S3-compatible SDK)
+- **Image Processing**: sharp (resize, WebP convert, compress)
+- **Payment**: Xendit (QRIS, VA, e-wallet)
+- **Shipping**: Bitship (aggregator kurir Indonesia)
+- **Testing**: Vitest
+- **Maps**: Leaflet
+
+---
 
 ## Project Structure
+
 ```
 app/
-  (shop)/          → Customer-facing pages (landing, products, cart, checkout, orders)
-  (auth)/          → Login & Register pages
-  (admin)/         → Admin dashboard & management pages
-  api/             → REST API routes (untuk Flutter consumption)
-  actions/         → Server Actions (products, orders, cart, auth)
+  (shop)/          → Customer pages
+  (auth)/          → Login & Register
+  (admin)/         → Admin dashboard
+  api/             → REST API (Flutter consumption)
+  actions/         → Server Actions (web mutations)
 components/
-  shop/            → Customer UI components (Navbar, ProductCard, Footer, etc.)
-  admin/           → Admin UI components (Sidebar, Header, etc.)
+  shop/            → Customer UI
+  admin/           → Admin UI
+  ui/              → shadcn/ui base
 lib/
-  db/              → Database connection, schema, seed
+  db/              → schema, seed, connection
   auth.ts          → NextAuth config
-  auth.config.ts   → Edge-compatible auth config
-  utils.ts         → Utility functions
+  storage.ts       → R2 abstraction layer (SEMUA upload lewat sini)
+  image-processor.ts → sharp wrapper (resize, WebP, thumb)
+  drive-import.ts  → Google Drive import helper
+  bitship.ts       → Bitship API client
+  xendit.ts        → Xendit SDK wrapper
+  stock.ts         → Stock management
+  order-status.ts  → Status machine
+  utils.ts         → formatRupiah, formatDate, generateOrderNumber
 types/             → TypeScript type definitions
+docs/              → Dokumentasi teknis
 ```
 
+---
+
 ## Naming Conventions
-- **Project name**: "Next Olshop" (bukan ecommerce)
+
 - **Files**: kebab-case untuk routes, PascalCase untuk components
-- **Database tables**: snake_case (users, cart_items, order_items)
+- **DB tables**: snake_case (users, cart_items, order_items, product_images)
 - **Variables/functions**: camelCase
 - **Types/Interfaces**: PascalCase
-- **Server Actions**: camelCase verb prefix (createProduct, updateOrder, deleteCartItem)
-- **API routes**: RESTful — `/api/products`, `/api/orders/[id]`
+- **Server Actions**: verb prefix (createProduct, updateOrder)
+- **API routes**: RESTful `/api/products`, `/api/orders/[id]`
+
+---
 
 ## Coding Rules
 
 ### Next.js Patterns
-- Gunakan **Server Components** by default, `'use client'` hanya jika butuh interactivity
-- Gunakan **Server Actions** (`'use server'`) untuk semua mutasi data, bukan API routes
-- API routes HANYA untuk konsumsi external (Flutter app)
-- Gunakan `revalidatePath()` setelah mutasi untuk cache busting
-- Layout hierarchy: Root → Route Group Layout → Page
-- Loading states via `loading.tsx`, error handling via `error.tsx`
+
+- Server Components by default; `'use client'` hanya jika perlu interactivity
+- Server Actions untuk semua mutasi dari web app
+- API routes HANYA untuk konsumsi external (Flutter)
+- `revalidatePath()` setelah setiap mutasi
+- Error via `error.tsx`, loading via `loading.tsx`
 
 ### Database & ORM
-- Schema definition di `lib/db/schema.ts`
-- Gunakan Drizzle `relations()` untuk define relasi antar tabel
-- Semua query pakai Drizzle query builder, JANGAN raw SQL
-- Decimal fields untuk harga: `decimal('price', { precision: 12, scale: 2 })`
-- Timestamps: `createdAt` dan `updatedAt` dengan default `now()`
-- Enum fields untuk status: gunakan `mysqlEnum()`
 
-### Styling (Tailwind CSS 4)
-- Mobile-first responsive design: `sm:`, `md:`, `lg:`, `xl:`
-- Gunakan `cn()` helper untuk conditional classes
-- Design modern, clean, minimalist
-- Color palette konsisten — gunakan CSS variables atau Tailwind config
-- Spacing konsisten: 4px grid system (p-1, p-2, p-4, p-6, p-8)
-- Rounded corners: `rounded-lg` atau `rounded-xl` untuk cards
-- Shadows: `shadow-sm` untuk subtle depth
+- Schema di `lib/db/schema.ts` — jangan raw SQL
+- Drizzle `relations()` untuk semua relasi
+- Decimal untuk harga: `decimal('price', { precision: 12, scale: 2 })`
+- Timestamps: `createdAt`, `updatedAt` dengan default `now()`
 
-### Authentication & Authorization
-- Middleware di `middleware.ts` untuk route protection
-- Admin routes: `/dashboard/*` — require role `admin`
-- Customer protected routes: `/cart`, `/checkout`, `/orders` — require authenticated
-- Auth routes: `/login`, `/register` — redirect jika sudah login
-- Session check via `auth()` di Server Components
+### Storage Rules (PENTING)
 
-### Form & Validation
-- Validasi dengan Zod schema sebelum database operation
-- Server-side validation WAJIB, client-side validation optional (UX)
-- Error messages dalam Bahasa Indonesia untuk user-facing
-- Handle loading states di form submissions
+- **JANGAN** simpan file di `/public/uploads` atau folder apapun di server
+- **SEMUA** upload gambar lewat `lib/storage.ts` → Cloudflare R2
+- **DB hanya simpan** `object_key` (path relatif), bukan full URL
+- Rekonstruksi URL: `${process.env.NEXT_PUBLIC_CDN_URL}/${objectKey}`
+- Filename: selalu UUID, jangan nama asli user
+- Format output: WebP (original tetap disimpan)
+- Sizes: original, webp (800px), thumb (400px)
+- Validasi MIME dari content (bukan ekstensi) sebelum upload
+- Checksum (SHA256) untuk deteksi duplikasi
+
+### Bucket Structure di R2
+
+```
+onetone-store/
+  products/
+    {product-slug}/
+      {uuid}-original.jpg
+      {uuid}-main.webp      ← 800px
+      {uuid}-thumb.webp     ← 400px
+  temp/
+    {session-id}/           ← auto-cleanup 24 jam
+```
 
 ### API Response Format
+
 ```typescript
 // Success
 { success: true, data: T }
 // Error
 { success: false, error: string }
-// List with pagination
+// List
 { success: true, data: T[], meta: { page, limit, total } }
 ```
 
-## Database Schema Overview
+### Auth Pattern
+
+```typescript
+// Selalu cek di awal server action/API
+const session = await auth();
+if (!session?.user) return { success: false, error: "Unauthorized" };
+if (session.user.role !== "admin") return { success: false, error: "Forbidden" };
+```
+
+---
+
+## Database Schema — Tabel Utama
+
 | Table | Purpose |
 |-------|---------|
 | users | Admin & customer accounts |
 | categories | Product categories |
 | products | Product catalog |
+| product_images | Gambar produk (metadata + R2 object_key) |
 | cart_items | Shopping cart per user |
 | orders | Customer orders |
-| order_items | Items in each order |
+| order_items | Items per order (dengan snapshot price/name) |
+| invoices | Xendit invoice records |
+| shippings | Bitship tracking records |
+| addresses | Customer addresses |
+| order_status_logs | Audit trail setiap status change |
+| banners | Promotional banners |
+
+---
+
+## Order Status Machine
+
+```
+waiting_payment → packing → shipping → delivered ✓
+       ↓              ↓
+    expired       cancelled ✗
+       ↓
+waiting_payment (repay)
+```
+
+---
 
 ## Key Commands
+
 ```bash
 pnpm dev              # Dev server (Turbopack)
 pnpm build            # Production build
-pnpm db:push          # Push schema to MySQL
-pnpm db:studio        # Open Drizzle Studio
+pnpm db:push          # Push schema ke MySQL
+pnpm db:studio        # Drizzle Studio UI
 pnpm db:seed          # Seed sample data
+pnpm test             # Vitest watch mode
+pnpm test:run         # Vitest single run
 ```
 
+---
+
+## Environment Variables
+
+```bash
+# Database
+DATABASE_URL=mysql://...
+
+# Auth
+AUTH_SECRET=
+
+# Storage — Cloudflare R2
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=onetone-store
+NEXT_PUBLIC_CDN_URL=https://cdn.onetone.id
+
+# Google Drive (untuk import fitur)
+GOOGLE_PICKER_API_KEY=
+GOOGLE_CLIENT_ID=
+
+# Payment
+XENDIT_SECRET_KEY=
+XENDIT_WEBHOOK_TOKEN=
+
+# Shipping
+BITSHIP_API_URL=https://api.biteship.com
+BITSHIP_API_KEY=
+
+# App
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+CRON_SECRET=
+```
+
+---
+
+## Current Sprint Focus
+
+**Minggu 1 (Sekarang):**
+- [ ] lib/storage.ts — Cloudflare R2 abstraction
+- [ ] lib/image-processor.ts — sharp resize/WebP
+- [ ] product_images schema & migration
+- [ ] Admin upload gambar produk
+- [ ] lib/drive-import.ts — Google Drive integration
+
+**Minggu 2:**
+- [ ] API audit semua 13+ endpoints
+- [ ] Webhook hardening Xendit + Bitship
+- [ ] Testing suite
+
+**Minggu 3:**
+- [ ] Flutter app skeleton
+- [ ] Auth + product catalog Flutter
+- [ ] Cart Flutter
+
+**Minggu 4:**
+- [ ] Checkout + order Flutter
+- [ ] Deploy VPS
+- [ ] Client handover
+
+---
+
+## Demo Accounts
+
+| Role | Email | Password |
+|------|-------|---------|
+| Admin | admin@store.com | password123 |
+| Customer | john@example.com | password123 |
+
+---
+
 ## Design Principles
-- **Responsive**: Harus bagus di mobile, tablet, desktop
-- **Modern**: Clean UI, whitespace yang cukup, typography jelas
-- **Fast**: Leverage Server Components, minimal client JS
-- **Accessible**: Semantic HTML, proper labels, keyboard navigation
-- **Indonesian Context**: Harga dalam Rupiah (Rp), alamat Indonesia, kurir lokal
+
+- **Mobile-first**: Responsive di semua ukuran
+- **Indonesian context**: Rupiah, alamat Indonesia, kurir lokal
+- **Fast**: Server Components, minimal client JS
+- **Secure**: Semua validasi di server, storage privat
+- **Maintainable**: Abstraction layer untuk setiap external service
+
+---
+
+*Dikelola oleh: Wawan (solo developer)*
+*AI Tools: Claude.ai Pro (planning), Cline/VSCode (coding), Claude Code CLI (agentic)*
