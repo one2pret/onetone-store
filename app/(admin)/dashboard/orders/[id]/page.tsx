@@ -4,7 +4,8 @@ import { getOrder } from '@/app/actions/orders';
 import { formatRupiah, formatDate, getStatusLabel, getStatusColor } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Package, MapPin, Truck, CreditCard, User } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Package, MapPin, Truck, CreditCard, User, ShoppingBag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { StatusUpdateForm } from '../_components/StatusUpdateForm';
@@ -17,6 +18,28 @@ import { eq, desc } from 'drizzle-orm';
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  if (src) {
+    return (
+      <div className="w-12 h-12 rounded-md overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+        <Image
+          src={src}
+          alt={alt}
+          width={48}
+          height={48}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-12 h-12 rounded-md shrink-0 bg-slate-100 flex items-center justify-center">
+      <ShoppingBag className="w-5 h-5 text-slate-400" />
+    </div>
+  );
 }
 
 export default async function AdminOrderDetailPage({ params }: Props) {
@@ -81,14 +104,18 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             <div className="p-5">
               <div className="divide-y divide-slate-50">
                 {order.items.map((item) => (
-                  <div key={item.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">{item.productName}</p>
+                  <div key={item.id} className="py-3 first:pt-0 last:pb-0 flex items-center gap-3">
+                    <ProductThumb src={(item as any).productImage} alt={item.productName} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{item.productName}</p>
+                      {(item as any).variantLabel && (
+                        <p className="text-xs text-slate-400 mt-0.5">{(item as any).variantLabel}</p>
+                      )}
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {formatRupiah(item.price)} x {item.quantity}
+                        {formatRupiah(item.price)} × {item.quantity}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-slate-700">
+                    <p className="text-sm font-semibold text-slate-700 shrink-0">
                       {formatRupiah(item.subtotal)}
                     </p>
                   </div>

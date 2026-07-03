@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Package, Clock } from 'lucide-react';
+import Image from 'next/image';
+import { Package, Clock, ShoppingBag } from 'lucide-react';
 import { formatRupiah, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -10,6 +11,8 @@ interface OrderItem {
   id: number;
   productName: string;
   quantity: number;
+  productImage?: string | null;
+  variantLabel?: string | null;
 }
 
 interface Order {
@@ -62,6 +65,28 @@ function CountdownTimer({ expiredAt }: { expiredAt: Date }) {
 
 function getTimeLeft(expiredAt: Date): number {
   return Math.max(0, Math.floor((new Date(expiredAt).getTime() - Date.now()) / 1000));
+}
+
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  if (src) {
+    return (
+      <div className="w-12 h-12 rounded-md overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+        <Image
+          src={src}
+          alt={alt}
+          width={48}
+          height={48}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-12 h-12 rounded-md shrink-0 bg-slate-100 flex items-center justify-center">
+      <ShoppingBag className="w-5 h-5 text-slate-400" />
+    </div>
+  );
 }
 
 export function OrdersList({ orders }: Props) {
@@ -134,11 +159,32 @@ export function OrdersList({ orders }: Props) {
                 )}
               </p>
 
+              {/* Item thumbnails */}
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex gap-2 flex-wrap">
+                  {order.items.slice(0, 4).map((item) => (
+                    <ProductThumb key={item.id} src={item.productImage} alt={item.productName} />
+                  ))}
+                  {order.items.length > 4 && (
+                    <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center text-xs text-slate-500 font-medium shrink-0">
+                      +{order.items.length - 4}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">
-                  {order.items.map(i => i.productName).join(', ')}
-                  {order.items.length > 1 && ` (${order.items.length} produk)`}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                  {order.items.map((item) => (
+                    <span key={item.id} className="text-slate-500 text-xs">
+                      {item.productName}
+                      {item.variantLabel && (
+                        <span className="text-slate-400"> · {item.variantLabel}</span>
+                      )}
+                      <span className="text-slate-400"> ×{item.quantity}</span>
+                    </span>
+                  ))}
+                </div>
                 <span className="font-semibold text-primary shrink-0 ml-4">{formatRupiah(order.total || '0')}</span>
               </div>
             </Link>

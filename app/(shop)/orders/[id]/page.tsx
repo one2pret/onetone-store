@@ -4,7 +4,8 @@ import { getOrder } from '@/app/actions/orders';
 import { formatRupiah, formatDate, formatShortDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Package, MapPin, Clock, Truck } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Package, MapPin, Clock, Truck, ShoppingBag } from 'lucide-react';
 import { db } from '@/lib/db';
 import { invoices, shippings, shippingHistories } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -15,6 +16,28 @@ import { OrderActions } from './OrderActions';
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  if (src) {
+    return (
+      <div className="w-14 h-14 rounded-md overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+        <Image
+          src={src}
+          alt={alt}
+          width={56}
+          height={56}
+          loading="lazy"
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="w-14 h-14 rounded-md shrink-0 bg-slate-100 flex items-center justify-center">
+      <ShoppingBag className="w-6 h-6 text-slate-400" />
+    </div>
+  );
 }
 
 export default async function OrderDetailPage({ params }: Props) {
@@ -113,14 +136,18 @@ export default async function OrderDetailPage({ params }: Props) {
             </h2>
             <div className="divide-y divide-slate-100">
               {order.items.map((item) => (
-                <div key={item.id} className="py-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-800">{item.productName}</p>
-                    <p className="text-sm text-slate-500">
-                      {formatRupiah(item.price)} x {item.quantity}
+                <div key={item.id} className="py-4 flex items-center gap-4">
+                  <ProductThumb src={(item as any).productImage} alt={item.productName} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 truncate">{item.productName}</p>
+                    {(item as any).variantLabel && (
+                      <p className="text-xs text-slate-400 mt-0.5">{(item as any).variantLabel}</p>
+                    )}
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {formatRupiah(item.price)} × {item.quantity}
                     </p>
                   </div>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-semibold text-slate-800 shrink-0">
                     {formatRupiah(item.subtotal)}
                   </p>
                 </div>
