@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, ShoppingBag, ShoppingCart } from 'lucide-react';
 import type { ProductVariant } from '@/lib/db/schema';
 
 // ---- Constants ----
@@ -27,6 +27,7 @@ const PRESET_COLORS: { name: string; hex: string }[] = [
 // ---- Types ----
 export interface VariantRow {
   _key: string;
+  id?: number;       // DB id jika sudah tersimpan
   size: string;
   color: string;
   colorHex: string;
@@ -43,6 +44,7 @@ function makeKey() {
 function rowFromVariant(v: ProductVariant): VariantRow {
   return {
     _key: makeKey(),
+    id: v.id,
     size: v.size,
     color: v.color,
     colorHex: v.colorHex ?? '',
@@ -70,9 +72,15 @@ function emptyRow(): VariantRow {
 interface Props {
   initial?: ProductVariant[];
   onChange: (rows: VariantRow[]) => void;
+  /** ID varian yang sudah dipakai di order — tidak bisa dihapus, hanya bisa dinonaktifkan */
+  usedInOrderIds?: number[];
+  /** ID varian yang ada di cart aktif */
+  usedInCartIds?: number[];
 }
 
-export function VariantManager({ initial = [], onChange }: Props) {
+export function VariantManager({ initial = [], onChange, usedInOrderIds = [], usedInCartIds = [] }: Props) {
+  const orderIdSet = new Set(usedInOrderIds);
+  const cartIdSet = new Set(usedInCartIds);
   const [rows, setRows] = useState<VariantRow[]>(() =>
     initial.length > 0 ? initial.map(rowFromVariant) : []
   );
@@ -163,13 +171,14 @@ export function VariantManager({ initial = [], onChange }: Props) {
           ) : (
             <div className="space-y-3 mt-4">
               {/* Column headers */}
-              <div className="hidden md:grid grid-cols-[100px_1fr_80px_80px_80px_80px_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
+              <div className="hidden md:grid grid-cols-[100px_1fr_80px_80px_80px_80px_40px_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
                 <span>Ukuran *</span>
                 <span>Warna *</span>
                 <span>Warna Hex</span>
                 <span>Stok *</span>
                 <span>+/- Harga</span>
                 <span>SKU</span>
+                <span className="text-center">Aktif</span>
                 <span></span>
               </div>
 
@@ -179,6 +188,8 @@ export function VariantManager({ initial = [], onChange }: Props) {
                   row={row}
                   onUpdate={(field, value) => update(row._key, field, value)}
                   onRemove={() => remove(row._key)}
+                  isUsedInOrder={row.id !== undefined && orderIdSet.has(row.id)}
+                  isUsedInCart={row.id !== undefined && cartIdSet.has(row.id)}
                 />
               ))}
             </div>
@@ -220,104 +231,151 @@ function VariantRowItem({
   row,
   onUpdate,
   onRemove,
+  isUsedInOrder = false,
+  isUsedInCart = false,
 }: {
   row: VariantRow;
   onUpdate: (field: keyof VariantRow, value: unknown) => void;
   onRemove: () => void;
+  isUsedInOrder?: boolean;
+  isUsedInCart?: boolean;
 }) {
+  const hasBadge = isUsedInOrder || isUsedInCart;
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-[100px_1fr_80px_80px_80px_80px_32px] gap-2 items-start p-3 md:p-0 rounded-lg md:rounded-none bg-muted/20 md:bg-transparent border md:border-none border-border">
-      {/* Ukuran */}
-      <div className="md:col-span-1">
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Ukuran</Label>
-        <select
-          value={row.size}
-          onChange={(e) => onUpdate('size', e.target.value)}
-          className="h-8 w-full rounded-md border border-input bg-background text-foreground px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          {SIZE_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+    <div
+      className={`rounded-lg border px-3 py-2.5 space-y-2 transition-colors ${
+        !row.isActive
+          ? 'border-destructive/20 bg-destructive/5 opacity-60'
+          : isUsedInOrder
+          ? 'border-amber-500/40 bg-amber-500/5'
+          : isUsedInCart
+          ? 'border-blue-500/30 bg-blue-500/5'
+          : 'border-border'
+      }`}
+    >
+      {/* Input baris */}
+      <div className="grid grid-cols-2 md:grid-cols-[100px_1fr_80px_80px_80px_80px_40px_32px] gap-2 items-center">
+        {/* Ukuran */}
+        <div className="md:col-span-1">
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Ukuran</Label>
+          <select
+            value={row.size}
+            onChange={(e) => onUpdate('size', e.target.value)}
+            className="h-8 w-full rounded-md border border-input bg-background text-foreground px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {SIZE_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Warna */}
+        <div>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Warna</Label>
+          <Input
+            value={row.color}
+            onChange={(e) => onUpdate('color', e.target.value)}
+            placeholder="Mauve Wine"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* Color Hex */}
+        <div className="flex gap-1 items-center">
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Hex</Label>
+          <input
+            type="color"
+            value={row.colorHex || '#888888'}
+            onChange={(e) => onUpdate('colorHex', e.target.value)}
+            className="w-8 h-8 rounded border border-input cursor-pointer"
+            title="Pilih warna"
+          />
+          <Input
+            value={row.colorHex}
+            onChange={(e) => onUpdate('colorHex', e.target.value)}
+            placeholder="#7B3F5E"
+            className="h-8 text-xs flex-1 font-mono"
+            maxLength={7}
+          />
+        </div>
+
+        {/* Stok */}
+        <div>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Stok</Label>
+          <Input
+            type="number"
+            min={0}
+            value={row.stock}
+            onChange={(e) => onUpdate('stock', Number(e.target.value))}
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* Price Modifier */}
+        <div>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">+/- Harga</Label>
+          <Input
+            type="number"
+            value={row.priceModifier}
+            onChange={(e) => onUpdate('priceModifier', Number(e.target.value))}
+            placeholder="0"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* SKU */}
+        <div>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">SKU</Label>
+          <Input
+            value={row.sku}
+            onChange={(e) => onUpdate('sku', e.target.value)}
+            placeholder="OT-001-M-BK"
+            className="h-8 text-xs font-mono"
+          />
+        </div>
+
+        {/* Active Toggle */}
+        <div className="flex items-center justify-center h-8">
+          <input
+            type="checkbox"
+            checked={row.isActive}
+            onChange={(e) => onUpdate('isActive', e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+          />
+        </div>
+
+        {/* Remove */}
+        <div className="flex items-center justify-center h-8">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onRemove}
+            disabled={isUsedInOrder}
+            title={isUsedInOrder ? 'Tidak bisa dihapus — ada di pesanan. Nonaktifkan saja.' : 'Hapus varian'}
+            className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* Warna */}
-      <div>
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Warna</Label>
-        <Input
-          value={row.color}
-          onChange={(e) => onUpdate('color', e.target.value)}
-          placeholder="Mauve Wine"
-          className="h-8 text-sm"
-        />
-      </div>
-
-      {/* Color Hex */}
-      <div className="flex gap-1 items-center">
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Hex</Label>
-        <input
-          type="color"
-          value={row.colorHex || '#888888'}
-          onChange={(e) => onUpdate('colorHex', e.target.value)}
-          className="w-8 h-8 rounded border border-input cursor-pointer"
-          title="Pilih warna"
-        />
-        <Input
-          value={row.colorHex}
-          onChange={(e) => onUpdate('colorHex', e.target.value)}
-          placeholder="#7B3F5E"
-          className="h-8 text-xs flex-1 font-mono"
-          maxLength={7}
-        />
-      </div>
-
-      {/* Stok */}
-      <div>
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Stok</Label>
-        <Input
-          type="number"
-          min={0}
-          value={row.stock}
-          onChange={(e) => onUpdate('stock', Number(e.target.value))}
-          className="h-8 text-sm"
-        />
-      </div>
-
-      {/* Price Modifier */}
-      <div>
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">+/- Harga</Label>
-        <Input
-          type="number"
-          value={row.priceModifier}
-          onChange={(e) => onUpdate('priceModifier', Number(e.target.value))}
-          placeholder="0"
-          className="h-8 text-sm"
-        />
-      </div>
-
-      {/* SKU */}
-      <div>
-        <Label className="text-xs text-muted-foreground md:hidden mb-1 block">SKU</Label>
-        <Input
-          value={row.sku}
-          onChange={(e) => onUpdate('sku', e.target.value)}
-          placeholder="OT-001-M-BK"
-          className="h-8 text-xs font-mono"
-        />
-      </div>
-
-      {/* Remove */}
-      <div className="flex items-center justify-end md:justify-center pt-1 md:pt-0 col-span-2 md:col-span-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onRemove}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Badge usage — di dalam row, di bawah inputs */}
+      {hasBadge && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {isUsedInOrder && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              <ShoppingBag className="w-2.5 h-2.5" /> Ada di pesanan — nonaktifkan saja, jangan hapus
+            </span>
+          )}
+          {isUsedInCart && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+              <ShoppingCart className="w-2.5 h-2.5" /> Ada di keranjang pembeli
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

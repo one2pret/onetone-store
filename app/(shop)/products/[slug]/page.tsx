@@ -21,8 +21,8 @@ export default async function ProductDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Fetch variants
-  const variants = await getProductVariants(product.id);
+  // Fetch only active variants for customer view
+  const variants = await getProductVariants(product.id, true);
 
   // Get related products
   const relatedProducts = await getActiveProducts({

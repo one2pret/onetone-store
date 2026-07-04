@@ -3,6 +3,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { createProduct, updateProduct } from '@/app/actions/products';
 import { upsertProductVariants } from '@/app/actions/product-variants';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,8 @@ interface Props {
   product?: Product | null;
   categories: Category[];
   variants?: ProductVariant[];
+  usedInOrderIds?: number[];
+  usedInCartIds?: number[];
 }
 
 type ActionResult = {
@@ -102,10 +105,11 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 }
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
-export function ProductForm({ product, categories, variants = [] }: Props) {
+export function ProductForm({ product, categories, variants = [], usedInOrderIds = [], usedInCartIds = [] }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ActionResult>(null);
   const [isPending, startTransition] = useTransition();
+  const [variantManagerKey, setVariantManagerKey] = useState(0);
 
   const existingImages: string[] = (() => {
     try { return product?.images ? JSON.parse(product.images) : []; } catch { return []; }
@@ -155,9 +159,17 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
 
       setState(result);
 
-      // FIX: redirect manually after variants saved
       if (result?.success) {
-        router.push('/dashboard/products');
+        if (product) {
+          toast.success('Produk berhasil diperbarui');
+          setVariantManagerKey((k) => k + 1);
+          router.refresh();
+        } else {
+          toast.success('Produk berhasil dibuat');
+          router.push(`/dashboard/products/${result.productId}/edit`);
+        }
+      } else if (result && !result.success) {
+        toast.error('Gagal menyimpan produk');
       }
     });
   };
@@ -256,7 +268,7 @@ export function ProductForm({ product, categories, variants = [] }: Props) {
       </div>
 
       {/* ── Varian Produk ─────────────────────────────────── */}
-      <VariantManager initial={variants} onChange={setVariantRows} />
+      <VariantManager key={variantManagerKey} initial={variants} onChange={setVariantRows} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
 
       {/* ── Pengaturan ──────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">

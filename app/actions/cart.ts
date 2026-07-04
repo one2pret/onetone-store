@@ -79,6 +79,12 @@ export async function addToCart(
         .limit(1);
       const variant = variantRows[0];
       if (!variant) return { success: false, error: 'Varian tidak ditemukan' };
+
+      // Check if variant is active
+      if (!variant.isActive) {
+        return { success: false, error: 'Varian ini tidak aktif dan tidak dapat ditambahkan ke keranjang' };
+      }
+
       if (variant.stock < quantity)
         return { success: false, error: 'Stok varian tidak mencukupi' };
     } else {

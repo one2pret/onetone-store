@@ -1,5 +1,5 @@
 import { getProduct, getCategories } from '@/app/actions/products';
-import { getProductVariants } from '@/app/actions/product-variants';
+import { getProductVariants, getVariantIdsUsedInOrders, getVariantIdsUsedInCarts } from '@/app/actions/product-variants';
 import { getProductImages } from '@/app/actions/product-images';
 import { ProductForm } from '../../_components/ProductForm';
 import { ProductImageUploader } from '@/components/admin/ProductImageUploader';
@@ -15,11 +15,13 @@ export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
   const productId = Number(id);
 
-  const [product, categories, variants, images] = await Promise.all([
+  const [product, categories, variants, images, usedInOrderIds, usedInCartIds] = await Promise.all([
     getProduct(productId),
     getCategories(),
     getProductVariants(productId),
     getProductImages(productId),
+    getVariantIdsUsedInOrders(productId),
+    getVariantIdsUsedInCarts(productId),
   ]);
 
   if (!product) notFound();
@@ -39,7 +41,7 @@ export default async function EditProductPage({ params }: Props) {
       </div>
 
       <div className="max-w-2xl space-y-8">
-        <ProductForm product={product} categories={categories} variants={variants} />
+        <ProductForm product={product} categories={categories} variants={variants} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
 
         <div>
           <h2 className="text-base font-semibold mb-3">Foto Produk</h2>

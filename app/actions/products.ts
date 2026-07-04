@@ -68,8 +68,9 @@ export async function getProductBySlug(slug: string) {
   const rows = await db.select()
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
-    .where(eq(products.slug, slug))
+    .where(and(eq(products.slug, slug), eq(products.isActive, true)))
     .limit(1);
+
   if (rows.length === 0) return null;
   return { ...rows[0].products, category: rows[0].categories };
 }
@@ -127,9 +128,9 @@ export async function createProduct(prevState: any, formData: FormData) {
         images,
         price: String(validated.data.price),
       })
-      .returning({ id: products.id });
+      .$returningId(); // Use $returningId without specific selection for simplicity
 
-    const productId = inserted[0]?.id;
+    const productId = inserted[0]?.id; // Access id from the first element of the returned array
     revalidatePath('/dashboard/products');
     revalidatePath('/products');
     // FIX: return productId so caller can save variants, then redirect

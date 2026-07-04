@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { productVariants, cartItems } from '@/lib/db/schema'; // Import cartItems
-import { eq } from 'drizzle-orm'; // Remove notIn and inArray as they are not used or not exported
+import { productVariants, cartItems, orderItems } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -22,11 +22,16 @@ const variantSchema = z.object({
 export type VariantInput = z.infer<typeof variantSchema>;
 
 // ----- Get variants for a product -----
-export async function getProductVariants(productId: number) {
+export async function getProductVariants(productId: number, onlyActive = false) {
+  const whereConditions = [eq(productVariants.productId, productId)];
+  if (onlyActive) {
+    whereConditions.push(eq(productVariants.isActive, true));
+  }
+
   const rows = await db
     .select()
     .from(productVariants)
-    .where(eq(productVariants.productId, productId));
+    .where(and(...whereConditions));
 
   return rows.sort((a, b) => {
     const si = SIZES_ORDER.indexOf(a.size.toUpperCase());
@@ -40,7 +45,7 @@ export async function getProductVariants(productId: number) {
 export async function upsertProductVariants(
   productId: number,
   variants: VariantInput[]
-): Promise<void> {
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const existingVariants = await db
     .select()
     .from(productVariants)
@@ -61,15 +66,35 @@ export async function upsertProductVariants(
       .where(eq(cartItems.variantId, variant.id))
       .limit(1);
 
-    if (hasCartItems.length > 0) {
-      // Soft delete: set isActive to false
+    const hasOrderItems = await db
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(eq(orderItems.variantId, variant.id))
+      .limit(1);
+
+    if (hasOrderItems.length > 0) {
+      // Rule 3: If variant used in orderItems -> archive (set isActive = false)
       await db
         .update(productVariants)
         .set({ isActive: false, updatedAt: new Date() })
         .where(eq(productVariants.id, variant.id));
     } else {
-      // Hard delete: no cart items reference this variant
-      await db.delete(productVariants).where(eq(productVariants.id, variant.id));
+      const hasCartItems = await db
+        .select({ id: cartItems.id })
+        .from(cartItems)
+        .where(eq(cartItems.variantId, variant.id))
+        .limit(1);
+
+      if (hasCartItems.length > 0) {
+        // Rule 2: If variant used in cartItems -> archive (set isActive = false)
+        await db
+          .update(productVariants)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(productVariants.id, variant.id));
+      } else {
+        // Rule 1: If variant not used in cartItems and orderItems -> hard delete
+        await db.delete(productVariants).where(eq(productVariants.id, variant.id));
+      }
     }
   }
 
@@ -86,7 +111,7 @@ export async function upsertProductVariants(
           stock: variant.stock,
           priceModifier: String(variant.priceModifier ?? 0),
           sku: variant.sku?.trim() || null,
-          isActive: variant.isActive ?? true,
+          isActive: variant.isActive ?? true, // Ensure isActive is updated
           updatedAt: new Date(),
         })
         .where(eq(productVariants.id, variant.id));
@@ -106,6 +131,27 @@ export async function upsertProductVariants(
   }
 
   revalidatePath('/dashboard/products');
+  return { success: true, message: 'Varian produk berhasil diperbarui.' };
+}
+
+// ----- Get variant IDs yang sudah dipakai di order items -----
+export async function getVariantIdsUsedInOrders(productId: number): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ variantId: orderItems.variantId })
+    .from(orderItems)
+    .innerJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+    .where(eq(productVariants.productId, productId));
+  return rows.map((r) => r.variantId).filter((id): id is number => id !== null);
+}
+
+// ----- Get variant IDs yang ada di cart aktif -----
+export async function getVariantIdsUsedInCarts(productId: number): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ variantId: cartItems.variantId })
+    .from(cartItems)
+    .innerJoin(productVariants, eq(cartItems.variantId, productVariants.id))
+    .where(eq(productVariants.productId, productId));
+  return rows.map((r) => r.variantId).filter((id): id is number => id !== null);
 }
 
 // ----- Update single variant stock (quick edit) -----

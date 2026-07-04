@@ -67,8 +67,20 @@ export async function validateStock(
         .where(eq(productVariants.id, item.variantId))
         .limit(1);
 
-      const available = rows.length > 0 ? (rows[0].stock ?? 0) : 0;
-      if (rows.length === 0 || available < item.quantity) {
+      const variant = rows[0];
+
+      if (!variant) {
+        errors.push(`Varian ${item.productName} tidak ditemukan.`);
+        continue;
+      }
+
+      if (!variant.isActive) {
+        errors.push(`Varian ${item.productName} tidak aktif.`);
+        continue;
+      }
+
+      const available = variant.stock ?? 0;
+      if (available < item.quantity) {
         errors.push(
           `Stok ${item.productName} tidak cukup (tersedia: ${available}, diminta: ${item.quantity})`
         );
@@ -81,8 +93,20 @@ export async function validateStock(
         .where(eq(products.id, item.productId))
         .limit(1);
 
-      const available = rows.length > 0 ? (rows[0].stock ?? 0) : 0;
-      if (rows.length === 0 || available < item.quantity) {
+      const product = rows[0];
+
+      if (!product) {
+        errors.push(`Produk ${item.productName} tidak ditemukan.`);
+        continue;
+      }
+
+      if (!product.isActive) {
+        errors.push(`Produk ${item.productName} tidak aktif.`);
+        continue;
+      }
+
+      const available = product.stock ?? 0;
+      if (available < item.quantity) {
         errors.push(
           `Stok ${item.productName} tidak cukup (tersedia: ${available}, diminta: ${item.quantity})`
         );
