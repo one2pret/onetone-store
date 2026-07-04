@@ -234,6 +234,29 @@ export const banners = mysqlTable('banners', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ PRODUCT IMAGES ============
+export const productImages = mysqlTable("product_images", {
+  id: int("id").primaryKey().autoincrement(),
+  productId: int("product_id")
+    .references(() => products.id, { onDelete: "cascade" })
+    .notNull(),
+  objectKey: varchar("object_key", { length: 500 }).notNull(),
+  objectKeyOriginal: varchar("object_key_original", { length: 500 }),
+  objectKeyThumb: varchar("object_key_thumb", { length: 500 }),
+  filenameOriginal: varchar("filename_original", { length: 255 }),
+  mime: varchar("mime", { length: 100 }).default("image/webp"),
+  width: int("width"),
+  height: int("height"),
+  filesize: int("filesize"),
+  checksum: varchar("checksum", { length: 64 }),
+  sortOrder: int("sort_order").default(0),
+  isPrimary: boolean("is_primary").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ProductImage = InferSelectModel<typeof productImages>;
+export type NewProductImage = InferInsertModel<typeof productImages>;
+
 // ============ RELATIONS ============
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
@@ -254,6 +277,14 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   variants: many(productVariants),
   cartItems: many(cartItems),
   orderItems: many(orderItems),
+  images: many(productImages),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  product: one(products, {
+    fields: [productImages.productId],
+    references: [products.id],
+  }),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({

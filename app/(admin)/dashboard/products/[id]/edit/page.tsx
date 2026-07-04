@@ -1,7 +1,8 @@
-// app/(admin)/dashboard/products/[id]/edit/page.tsx
 import { getProduct, getCategories } from '@/app/actions/products';
 import { getProductVariants } from '@/app/actions/product-variants';
+import { getProductImages } from '@/app/actions/product-images';
 import { ProductForm } from '../../_components/ProductForm';
+import { ProductImageUploader } from '@/components/admin/ProductImageUploader';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -12,10 +13,13 @@ interface Props {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, categories, variants] = await Promise.all([
-    getProduct(Number(id)),
+  const productId = Number(id);
+
+  const [product, categories, variants, images] = await Promise.all([
+    getProduct(productId),
     getCategories(),
-    getProductVariants(Number(id)),  // FIX: fetch variants
+    getProductVariants(productId),
+    getProductImages(productId),
   ]);
 
   if (!product) notFound();
@@ -34,9 +38,13 @@ export default async function EditProductPage({ params }: Props) {
         <p className="text-sm text-muted-foreground mt-0.5">{product.name}</p>
       </div>
 
-      <div className="max-w-2xl">
-        {/* FIX: pass variants so form shows existing data */}
+      <div className="max-w-2xl space-y-8">
         <ProductForm product={product} categories={categories} variants={variants} />
+
+        <div>
+          <h2 className="text-base font-semibold mb-3">Foto Produk</h2>
+          <ProductImageUploader productId={productId} initialImages={images} />
+        </div>
       </div>
     </div>
   );
