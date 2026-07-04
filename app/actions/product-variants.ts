@@ -1,14 +1,15 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { productVariants } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { productVariants, cartItems } from '@/lib/db/schema'; // Import cartItems
+import { eq } from 'drizzle-orm'; // Remove notIn and inArray as they are not used or not exported
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 const SIZES_ORDER = ['FREE SIZE', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 const variantSchema = z.object({
+  id: z.number().optional(), // Add optional ID for existing variants
   size: z.string().min(1, 'Ukuran wajib diisi'),
   color: z.string().min(1, 'Warna wajib diisi'),
   colorHex: z.string().optional(),
@@ -40,25 +41,69 @@ export async function upsertProductVariants(
   productId: number,
   variants: VariantInput[]
 ): Promise<void> {
-  // Delete removed variants
-  await db
-    .delete(productVariants)
+  const existingVariants = await db
+    .select()
+    .from(productVariants)
     .where(eq(productVariants.productId, productId));
 
-  if (variants.length === 0) return;
+  const incomingVariantIds = variants.filter(v => v.id).map(v => v.id!);
+  const existingVariantIds = existingVariants.map(v => v.id);
 
-  await db.insert(productVariants).values(
-    variants.map((v) => ({
-      productId,
-      size: v.size.trim(),
-      color: v.color.trim(),
-      colorHex: v.colorHex?.trim() || null,
-      stock: v.stock,
-      priceModifier: String(v.priceModifier ?? 0),
-      sku: v.sku?.trim() || null,
-      isActive: v.isActive ?? true,
-    }))
+  // 1. Handle variants removed from the UI (soft delete or hard delete)
+  const variantsToRemove = existingVariants.filter(
+    (existing) => !incomingVariantIds.includes(existing.id)
   );
+
+  for (const variant of variantsToRemove) {
+    const hasCartItems = await db
+      .select({ id: cartItems.id })
+      .from(cartItems)
+      .where(eq(cartItems.variantId, variant.id))
+      .limit(1);
+
+    if (hasCartItems.length > 0) {
+      // Soft delete: set isActive to false
+      await db
+        .update(productVariants)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(productVariants.id, variant.id));
+    } else {
+      // Hard delete: no cart items reference this variant
+      await db.delete(productVariants).where(eq(productVariants.id, variant.id));
+    }
+  }
+
+  // 2. Handle new and updated variants
+  for (const variant of variants) {
+    if (variant.id && existingVariantIds.includes(variant.id)) {
+      // Update existing variant
+      await db
+        .update(productVariants)
+        .set({
+          size: variant.size.trim(),
+          color: variant.color.trim(),
+          colorHex: variant.colorHex?.trim() || null,
+          stock: variant.stock,
+          priceModifier: String(variant.priceModifier ?? 0),
+          sku: variant.sku?.trim() || null,
+          isActive: variant.isActive ?? true,
+          updatedAt: new Date(),
+        })
+        .where(eq(productVariants.id, variant.id));
+    } else {
+      // Insert new variant
+      await db.insert(productVariants).values({
+        productId,
+        size: variant.size.trim(),
+        color: variant.color.trim(),
+        colorHex: variant.colorHex?.trim() || null,
+        stock: variant.stock,
+        priceModifier: String(variant.priceModifier ?? 0),
+        sku: variant.sku?.trim() || null,
+        isActive: variant.isActive ?? true,
+      });
+    }
+  }
 
   revalidatePath('/dashboard/products');
 }

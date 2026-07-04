@@ -33,6 +33,13 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'placehold.co',
       },
+      // Cloudflare R2 (CDN)
+      {
+        protocol: "https",
+        hostname: "pub-5773464375cb4608b5f31ee707c465e8.r2.dev",
+      },
+      // opsional: kalau nanti pakai custom domain CDN sendiri
+      // { protocol: "https", hostname: "cdn.onetone-store.com" },
     ],
   },
 };
