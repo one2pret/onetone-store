@@ -1,8 +1,8 @@
-# Next Olshop — NextElektronik
+# Onetone Store
 
-Online Shop single-store untuk UMKM/bisnis personal, dibangun dengan Next.js 16 & Flutter.
+Online Shop single-store untuk Onetone Store dibangun dengan Next.js 16 & Flutter.
 
-**JagoFlutter Academy** — @codewithbahri
+**Kanuraga.id** — @ndil_one2pret
 
 ## Tech Stack
 
