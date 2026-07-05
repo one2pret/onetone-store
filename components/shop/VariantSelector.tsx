@@ -15,9 +15,10 @@ interface Props {
   variants: Variant[];
   basePrice: number;
   onVariantChange: (variantId: number | null, price: number, stock: number) => void;
+  onColorChange?: (color: string | null) => void;
 }
 
-export function VariantSelector({ variants, basePrice, onVariantChange }: Props) {
+export function VariantSelector({ variants, basePrice, onVariantChange, onColorChange }: Props) {
   const activeVariants = useMemo(() => variants.filter((v) => v.stock >= 0), [variants]);
 
   // Unique sizes & colors
@@ -128,7 +129,12 @@ export function VariantSelector({ variants, basePrice, onVariantChange }: Props)
               return (
                 <button
                   key={color}
-                  onClick={() => !outOfStock && setSelectedColor(active ? null : color)}
+                  onClick={() => {
+                    if (outOfStock) return;
+                    const next = active ? null : color;
+                    setSelectedColor(next);
+                    onColorChange?.(next);
+                  }}
                   disabled={outOfStock}
                   title={color}
                   className={[

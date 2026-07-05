@@ -45,7 +45,11 @@ export default async function EditProductPage({ params }: Props) {
 
         <div>
           <h2 className="text-base font-semibold mb-3">Foto Produk</h2>
-          <ProductImageUploader productId={productId} initialImages={images} />
+          <ProductImageUploader
+            productId={productId}
+            initialImages={images}
+            variantColors={[...new Set(variants.map((v) => v.color).filter(Boolean))] as string[]}
+          />
         </div>
       </div>
     </div>

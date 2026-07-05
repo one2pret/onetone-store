@@ -22,9 +22,10 @@ interface Props {
   basePrice: number;
   variants: Variant[];
   initialStock: number;
+  onColorChange?: (color: string | null) => void;
 }
 
-export function AddToCartButton({ productId, basePrice, variants, initialStock }: Props) {
+export function AddToCartButton({ productId, basePrice, variants, initialStock, onColorChange }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
@@ -98,6 +99,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock }
           variants={variants}
           basePrice={basePrice}
           onVariantChange={handleVariantChange}
+          onColorChange={onColorChange}
         />
       )}
 

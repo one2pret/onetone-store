@@ -371,7 +371,7 @@ function VariantRowItem({
           )}
           {isUsedInCart && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-              <ShoppingCart className="w-2.5 h-2.5" /> Ada di keranjang pembeli
+              <ShoppingCart className="w-2.5 h-2.5" /> Ada di keranjang pembeli — nonaktifkan saja kalau ingin tidak tampil, jangan hapus
             </span>
           )}
         </div>

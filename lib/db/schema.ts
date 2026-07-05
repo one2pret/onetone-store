@@ -251,6 +251,7 @@ export const productImages = mysqlTable("product_images", {
   checksum: varchar("checksum", { length: 64 }),
   sortOrder: int("sort_order").default(0),
   isPrimary: boolean("is_primary").default(false),
+  variantColor: varchar("variant_color", { length: 100 }), // null = gambar umum, isi = gambar untuk warna tertentu
   createdAt: timestamp("created_at").defaultNow(),
 });
 

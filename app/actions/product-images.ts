@@ -8,6 +8,14 @@ import { processProductImage, detectMimeFromBuffer } from "@/lib/image-processor
 import { eq, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+// Sync products.image dengan CDN URL dari primary image R2
+async function syncProductPrimaryImage(productId: number, cdnUrl: string | null) {
+  await db
+    .update(products)
+    .set({ image: cdnUrl ?? "" })
+    .where(eq(products.id, productId));
+}
+
 export async function uploadProductImage(productId: number, formData: FormData) {
   const session = await auth();
   if (session?.user?.role !== "admin") {
@@ -60,8 +68,14 @@ export async function uploadProductImage(productId: number, formData: FormData) 
       isPrimary,
     }).$returningId();
 
+    // Jika ini gambar pertama (otomatis primary), sync ke products.image
+    if (isPrimary) {
+      await syncProductPrimaryImage(productId, mainResult.url);
+    }
+
     revalidatePath(`/dashboard/products/${productId}/edit`);
     revalidatePath("/dashboard/products");
+    revalidatePath(`/products/${product.slug}`);
 
     return {
       success: true,
@@ -85,10 +99,25 @@ export async function setImageAsPrimary(imageId: number, productId: number) {
     return { success: false, error: "Forbidden" };
   }
 
+  // Ambil URL gambar yang dipilih
+  const image = await db.query.productImages.findFirst({
+    where: eq(productImages.id, imageId),
+  });
+  if (!image) return { success: false, error: "Gambar tidak ditemukan" };
+
   await db.update(productImages).set({ isPrimary: false }).where(eq(productImages.productId, productId));
   await db.update(productImages).set({ isPrimary: true }).where(eq(productImages.id, imageId));
 
+  // Sync products.image dengan CDN URL gambar primary baru
+  await syncProductPrimaryImage(productId, storage.getUrl(image.objectKey));
+
+  // Ambil slug untuk revalidate customer page
+  const product = await db.query.products.findFirst({ where: eq(products.id, productId) });
+
   revalidatePath(`/dashboard/products/${productId}/edit`);
+  revalidatePath("/dashboard/products");
+  if (product) revalidatePath(`/products/${product.slug}`);
+
   return { success: true };
 }
 
@@ -110,6 +139,43 @@ export async function deleteProductImage(imageId: number) {
   ]);
 
   await db.delete(productImages).where(eq(productImages.id, imageId));
+
+  // Jika yang dihapus adalah primary, promosi gambar berikutnya
+  if (image.isPrimary) {
+    const next = await db.query.productImages.findFirst({
+      where: eq(productImages.productId, image.productId),
+      orderBy: asc(productImages.sortOrder),
+    });
+    if (next) {
+      await db.update(productImages).set({ isPrimary: true }).where(eq(productImages.id, next.id));
+      await syncProductPrimaryImage(image.productId, storage.getUrl(next.objectKey));
+    } else {
+      // Tidak ada gambar lagi, kosongkan products.image
+      await syncProductPrimaryImage(image.productId, null);
+    }
+  }
+
+  const product = await db.query.products.findFirst({ where: eq(products.id, image.productId) });
+
+  revalidatePath(`/dashboard/products/${image.productId}/edit`);
+  revalidatePath("/dashboard/products");
+  if (product) revalidatePath(`/products/${product.slug}`);
+
+  return { success: true };
+}
+
+export async function updateImageVariantColor(imageId: number, variantColor: string | null) {
+  const session = await auth();
+  if (session?.user?.role !== "admin") {
+    return { success: false, error: "Forbidden" };
+  }
+
+  const image = await db.query.productImages.findFirst({
+    where: eq(productImages.id, imageId),
+  });
+  if (!image) return { success: false, error: "Gambar tidak ditemukan" };
+
+  await db.update(productImages).set({ variantColor }).where(eq(productImages.id, imageId));
 
   revalidatePath(`/dashboard/products/${image.productId}/edit`);
   return { success: true };

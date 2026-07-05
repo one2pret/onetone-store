@@ -1,13 +1,12 @@
-// app/(shop)/products/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { getProductBySlug, getActiveProducts } from '@/app/actions/products';
 import { getProductVariants } from '@/app/actions/product-variants';
+import { getProductImages } from '@/app/actions/product-images';
 import { formatRupiah } from '@/lib/utils';
-import { AddToCartButton } from './AddToCartButton';
+import { ProductDetail } from './ProductDetail';
 import { ProductCard } from '@/components/shop/ProductCard';
-import { ShoppingBag, Truck, Shield } from 'lucide-react';
+import { Truck, Shield } from 'lucide-react';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -15,25 +14,32 @@ interface Props {
 
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
+
   const product = await getProductBySlug(slug);
+  if (!product) notFound();
 
-  if (!product) {
-    notFound();
-  }
+  const [variants, images, relatedProducts] = await Promise.all([
+    getProductVariants(product.id, true),
+    getProductImages(product.id),
+    getActiveProducts({ categorySlug: product.category?.slug, limit: 5 }),
+  ]);
 
-  // Fetch only active variants for customer view
-  const variants = await getProductVariants(product.id, true);
-
-  // Get related products
-  const relatedProducts = await getActiveProducts({
-    categorySlug: product.category?.slug,
-    limit: 5,
-  });
-  const related = relatedProducts.filter(p => p.id !== product.id).slice(0, 4);
-
+  const related = relatedProducts.filter((p) => p.id !== product.id).slice(0, 4);
   const hasVariants = variants.length > 0;
-  // For non-variant products, fall back to product.stock
   const initialStock = hasVariants ? 0 : (product.stock ?? 0);
+
+  // Map ke shape GalleryImage, fallback ke products.image jika belum ada R2 images
+  const galleryImages = images.length > 0
+    ? images.map((img) => ({
+        id: img.id,
+        url: img.url,
+        thumbUrl: img.thumbUrl,
+        isPrimary: img.isPrimary ?? false,
+        variantColor: img.variantColor ?? null,
+      }))
+    : product.image
+      ? [{ id: 0, url: product.image, thumbUrl: null, isPrimary: true, variantColor: null }]
+      : [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -46,25 +52,16 @@ export default async function ProductDetailPage({ params }: Props) {
         <span className="text-slate-800">{product.name}</span>
       </nav>
 
-      {/* Product Detail */}
+      {/* Product Detail — gallery + variant selector share selectedColor state */}
       <div className="grid md:grid-cols-2 gap-8 mb-12">
-        {/* Image */}
-        <div className="aspect-square bg-slate-100 rounded-xl relative overflow-hidden">
-          {product.image ? (
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <ShoppingBag className="w-24 h-24 text-slate-300" />
-            </div>
-          )}
-        </div>
+        <ProductDetail
+          productId={product.id}
+          basePrice={parseFloat(String(product.price))}
+          variants={variants}
+          initialStock={initialStock}
+          images={galleryImages}
+          productName={product.name}
+        />
 
         {/* Info */}
         <div>
@@ -75,16 +72,13 @@ export default async function ProductDetailPage({ params }: Props) {
             <p>{product.description || 'Tidak ada deskripsi.'}</p>
           </div>
 
-          {/* AddToCartButton handles variants, price, stock display */}
-          <AddToCartButton
-            productId={product.id}
-            basePrice={parseFloat(String(product.price))}
-            variants={variants}
-            initialStock={initialStock}
-          />
+          {/* Harga (static fallback — price dinamis ada di AddToCartButton) */}
+          <p className="text-2xl font-bold text-primary mb-6">
+            {formatRupiah(parseFloat(String(product.price)))}
+          </p>
 
           {/* Features */}
-          <div className="border-t border-slate-100 pt-6 space-y-3 mt-6">
+          <div className="border-t border-slate-100 pt-6 space-y-3">
             <div className="flex items-center gap-3 text-sm text-slate-600">
               <Truck className="w-5 h-5 text-primary" />
               <span>Pengiriman ke seluruh Indonesia</span>
