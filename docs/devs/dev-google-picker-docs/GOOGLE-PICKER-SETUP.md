@@ -148,6 +148,9 @@ import { GoogleDrivePicker } from "@/components/admin/GoogleDrivePicker";
 | "Missing required parameter client_id" | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` belum ada di `.env.local` | Tambah variabel ke `.env.local`, restart dev server |
 | Error 401: invalid_client — "The OAuth client was not found" | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` diisi dengan Client **Secret** bukan Client **ID** | Ambil nilai yang berakhiran `.apps.googleusercontent.com`, bukan `GOCSPX-...` |
 | Error 401: invalid_client — setelah Client ID benar | `http://localhost:3000` belum terdaftar di Authorized JavaScript Origins | Google Cloud Console → Credentials → edit OAuth Client → tambah `http://localhost:3000` di Authorized JS Origins → tunggu 5–10 menit |
+| Foto masuk R2 tapi tampil **blank putih** di admin/customer | `next/image` optimizer gagal fetch dari R2 CDN (server-side fetch) | Tambah `unoptimized` prop di semua `<Image>` yang menampilkan gambar R2 (lihat bagian di bawah) |
+| Foto di product list (dashboard) tetap kosong setelah import Drive | `products.image` tidak diupdate karena `syncProductPrimaryImage` tidak dipanggil di drive-import | Bug sudah diperbaiki di `app/actions/drive-import.ts` — pastikan pakai versi terbaru |
+| Galeri tidak refresh otomatis setelah import Drive | `router.refresh()` tidak dipanggil setelah import sukses | Bug sudah diperbaiki di `GoogleDrivePicker.tsx` — pastikan pakai versi terbaru |
 
 ### Cara membedakan Client ID vs Client Secret
 
@@ -167,6 +170,29 @@ Pastikan copy dari kolom **"Your Client ID"**, bukan **"Your Client Secret"**.
 4. [ ] Email kamu ada di **Test users** (jika consent screen masih mode Testing)
 5. [ ] Sudah tunggu 5–10 menit setelah simpan perubahan di Google Console
 6. [ ] Dev server sudah di-restart setelah update `.env.local`
+
+### Kenapa gambar R2 harus pakai `unoptimized`
+
+`next/image` secara default melakukan **server-side optimization**:
+browser → Next.js server → fetch dari R2 → resize/convert → kirim ke browser.
+
+Jika Next.js dev server tidak bisa fetch dari R2 CDN (network issue, CDN policy, dll),
+gambar gagal tampil — ditampilkan sebagai blank putih tanpa error di browser.
+
+Karena gambar di R2 **sudah diproses sharp** (sudah WebP, sudah ukuran benar),
+optimizer tidak dibutuhkan. Solusinya: tambah prop `unoptimized` agar browser
+load langsung dari CDN tanpa lewat Next.js.
+
+```tsx
+// Semua <Image> yang src-nya dari R2 CDN:
+<Image src={url} alt="..." fill unoptimized className="object-cover" />
+```
+
+File yang sudah diperbaiki:
+- `components/admin/ProductImageUploader.tsx` — galeri gambar di edit produk
+- `components/shop/ProductGallery.tsx` — galeri di halaman produk customer
+- `components/shop/ProductCard.tsx` — thumbnail di listing produk
+- `app/(admin)/dashboard/products/_components/ProductsTable.tsx` — thumbnail di tabel admin
 
 ---
 

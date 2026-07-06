@@ -4,6 +4,7 @@
 // Tombol "Import dari Google Drive" + Google Picker popup
 
 import { useState, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { importFromDrive } from "@/app/actions/drive-import";
 
@@ -38,6 +39,7 @@ function loadScript(src: string): Promise<void> {
 }
 
 export function GoogleDrivePicker({ productId, onImported }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isLoadingPicker, setIsLoadingPicker] = useState(false);
 
@@ -81,6 +83,7 @@ export function GoogleDrivePicker({ productId, onImported }: Props) {
                   console.warn("Import errors:", result.errors);
                 }
                 onImported?.();
+                router.refresh();
               } else {
                 toast.error(result.errors[0] ?? "Gagal import dari Drive");
               }

@@ -185,7 +185,7 @@ export function ProductsTable({ data, categories }: Props) {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center">
                     {isValidImageUrl(product.image) ? (
-                      <Image src={product.image!} alt={product.name} fill className="object-cover" />
+                      <Image src={product.image!} alt={product.name} fill unoptimized className="object-cover" />
                     ) : (
                       <ShoppingBag className="w-5 h-5 text-muted-foreground" />
                     )}

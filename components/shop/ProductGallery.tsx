@@ -56,6 +56,7 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
             src={displayUrl}
             alt={productName}
             fill
+            unoptimized
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover transition-all duration-300"
             priority
@@ -85,6 +86,7 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
                 src={img.thumbUrl ?? img.url}
                 alt={img.variantColor ?? productName}
                 fill
+                unoptimized
                 className="object-cover"
                 sizes="64px"
               />

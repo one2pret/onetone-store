@@ -12,6 +12,13 @@ import { downloadBatchFromDrive } from "@/lib/drive-import";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+async function syncProductPrimaryImage(productId: number, cdnUrl: string | null) {
+  await db
+    .update(products)
+    .set({ image: cdnUrl ?? "" })
+    .where(eq(products.id, productId));
+}
+
 interface ImportResult {
   success: boolean;
   imported: number;
@@ -91,6 +98,8 @@ export async function importFromDrive(
         ),
       ]);
 
+      const wasPrimary = isFirstImage;
+
       await db.insert(productImages).values({
         productId,
         objectKey: mainResult.objectKey,
@@ -103,8 +112,13 @@ export async function importFromDrive(
         filesize: processed.main.filesize,
         checksum: mainResult.checksum,
         sortOrder: sortOrder++,
-        isPrimary: isFirstImage,
+        isPrimary: wasPrimary,
       });
+
+      // Sync products.image ke CDN URL primary image (sama seperti uploadProductImage)
+      if (wasPrimary) {
+        await syncProductPrimaryImage(productId, mainResult.url);
+      }
 
       isFirstImage = false;
       imported++;
@@ -116,6 +130,7 @@ export async function importFromDrive(
 
   revalidatePath(`/dashboard/products/${productId}/edit`);
   revalidatePath("/dashboard/products");
+  revalidatePath(`/products/${product.slug}`);
 
   return {
     success: imported > 0,
