@@ -3,6 +3,7 @@ import { getProductVariants, getVariantIdsUsedInOrders, getVariantIdsUsedInCarts
 import { getProductImages } from '@/app/actions/product-images';
 import { ProductForm } from '../../_components/ProductForm';
 import { ProductImageUploader } from '@/components/admin/ProductImageUploader';
+import { GoogleDrivePicker } from '@/components/admin/GoogleDrivePicker';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -43,8 +44,11 @@ export default async function EditProductPage({ params }: Props) {
       <div className="max-w-2xl space-y-8">
         <ProductForm product={product} categories={categories} variants={variants} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
 
-        <div>
-          <h2 className="text-base font-semibold mb-3">Foto Produk</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">Foto Produk</h2>
+            <GoogleDrivePicker productId={productId} />
+          </div>
           <ProductImageUploader
             productId={productId}
             initialImages={images}
