@@ -6,7 +6,6 @@ import { ShoppingCart, Minus, Plus, Check, CreditCard } from 'lucide-react';
 import { addToCart } from '@/app/actions/cart';
 import { useRouter } from 'next/navigation';
 import { VariantSelector } from '@/components/shop/VariantSelector';
-import { formatRupiah } from '@/lib/utils';
 
 interface Variant {
   id: number;
@@ -23,9 +22,10 @@ interface Props {
   variants: Variant[];
   initialStock: number;
   onColorChange?: (color: string | null) => void;
+  onVariantPriceChange?: (variantId: number | null, price: number, stock: number) => void;
 }
 
-export function AddToCartButton({ productId, basePrice, variants, initialStock, onColorChange }: Props) {
+export function AddToCartButton({ productId, basePrice, variants, initialStock, onColorChange, onVariantPriceChange }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
@@ -45,6 +45,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
     setFinalPrice(price);
     setCurrentStock(stock);
     setQuantity(1);
+    onVariantPriceChange?.(variantId, price, stock);
   };
 
   // Disabled logic
@@ -88,11 +89,6 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
 
   return (
     <div className="space-y-5">
-      {/* Price — dynamic */}
-      <div className="text-3xl font-bold text-primary">
-        {formatRupiah(finalPrice)}
-      </div>
-
       {/* Variant Selector */}
       {hasVariants && (
         <VariantSelector
