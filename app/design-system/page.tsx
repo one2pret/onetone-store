@@ -1327,7 +1327,7 @@ export default function DesignSystemPage() {
           {[
             { icon: Truck, title: 'Gratis Ongkir', desc: 'Min. Rp 500rb', color: 'bg-emerald-50 text-emerald-600' },
             { icon: Shield, title: 'Garansi Resmi', desc: '100% original', color: 'bg-blue-50 text-blue-600' },
-            { icon: Headphones, title: 'Support 24/7', desc: 'Chat & WA', color: 'bg-purple-50 text-purple-600' },
+            // { icon: Headphones, title: 'Support 24/7', desc: 'Chat & WA', color: 'bg-purple-50 text-purple-600' },
             { icon: CreditCard, title: 'Bayar Mudah', desc: 'VA, QRIS, eWallet', color: 'bg-amber-50 text-amber-600' },
           ].map((f) => (
             <div key={f.title} className="bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-4 hover:shadow-md transition">

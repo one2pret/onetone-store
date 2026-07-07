@@ -1,18 +1,20 @@
 // app/(shop)/page.tsx
 import Link from 'next/link';
-import { getFeaturedProducts, getActiveProducts } from '@/app/actions/products';
+import { getFeaturedProducts, getActiveProducts, getBestSellerProducts } from '@/app/actions/products';
 import { getActiveBanners } from '@/app/actions/banners';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
 import {
-  ArrowRight, Truck, Shield, Headphones, CreditCard,
-  RotateCcw, Tag, ShoppingBag,
+  ArrowRight, Truck, Shield, CreditCard,
+  RotateCcw, Tag, ShoppingBag, Flame, Dumbbell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default async function HomePage() {
-  const [featuredProducts, newProducts, banners] = await Promise.all([
+  const [featuredProducts, newArrivalProducts, bestSellerProducts, sportProducts, banners] = await Promise.all([
     getFeaturedProducts(8),
+    getActiveProducts({ limit: 4 }),
+    getBestSellerProducts(4),
     getActiveProducts({ limit: 4 }),
     getActiveBanners(),
   ]);
@@ -21,7 +23,7 @@ export default async function HomePage() {
     { icon: Truck,      title: 'Gratis Ongkir',     desc: 'Pesanan Rp200rb+'        },
     { icon: Shield,     title: 'Garansi Resmi',      desc: '100% Produk Original'    },
     { icon: CreditCard, title: 'Pembayaran Aman',    desc: 'Transfer & E-Wallet'     },
-    { icon: Headphones, title: 'Support 24/7',       desc: 'Siap Bantu Kamu'         },
+    // { icon: Headphones, title: 'Support 24/7',       desc: 'Siap Bantu Kamu'         },
   ];
 
   const whyFeatures = [
@@ -70,10 +72,16 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
-          {/* Desktop: 4 cols separated by dividers */}
-          <div className="hidden md:grid grid-cols-4 divide-x divide-border">
-            {trustFeatures.map((feature) => (
-              <div key={feature.title} className="flex items-center gap-3 px-6 first:pl-0 last:pr-0 py-2">
+          {/* Desktop: 3 cols separated by dividers */}
+          <div className="hidden md:grid grid-cols-3 divide-x divide-border">
+            {trustFeatures.map((feature, i) => (
+              <div
+                key={feature.title}
+                className={[
+                  'flex items-center gap-3 py-2 px-6',
+                  i === 0 ? 'pl-0 justify-start' : i === trustFeatures.length - 1 ? 'pr-0 justify-end' : 'justify-center',
+                ].join(' ')}
+              >
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <feature.icon className="w-4 h-4" />
                 </div>
@@ -159,17 +167,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════ KOLEKSI TERBARU ══════════════ */}
-      {/* Visually distinct from Produk Unggulan: bg-card (#141414) surface,
-          4-col desktop (no 3-col step), different sub-copy and link target */}
+      {/* ══════════════ NEW ARRIVAL ══════════════ */}
       <section className="py-10 md:py-16 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-6 md:mb-10">
             <div>
               <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
-                Koleksi Terbaru
+                New Arrival
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">Baru masuk minggu ini</p>
+              <p className="text-sm text-muted-foreground mt-1">Koleksi baru minggu ini</p>
             </div>
             <Button
               asChild variant="ghost" size="sm"
@@ -181,9 +187,9 @@ export default async function HomePage() {
             </Button>
           </div>
 
-          {newProducts.length > 0 ? (
+          {newArrivalProducts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-              {newProducts.map((product) => (
+              {newArrivalProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
@@ -201,6 +207,86 @@ export default async function HomePage() {
                   Lihat Semua Produk <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Link>
               </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ══════════════ BEST SELLER ══════════════ */}
+      <section className="py-10 md:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-6 md:mb-10">
+            <div>
+              <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
+                Best Seller
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Paling banyak dibeli</p>
+            </div>
+            <Button
+              asChild variant="ghost" size="sm"
+              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
+            >
+              <Link href="/products">
+                Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Link>
+            </Button>
+          </div>
+
+          {bestSellerProducts.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
+              {bestSellerProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Flame className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk best seller.</p>
+                <p className="text-xs text-muted-foreground">Tandai produk sebagai best seller di dashboard admin.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ══════════════ KOLEKSI OLAHRAGA ══════════════ */}
+      <section className="py-10 md:py-16 bg-card">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-6 md:mb-10">
+            <div>
+              <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
+                Koleksi Olahraga
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Tampil aktif setiap hari</p>
+            </div>
+            <Button
+              asChild variant="ghost" size="sm"
+              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
+            >
+              <Link href="/products?category=olahraga">
+                Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Link>
+            </Button>
+          </div>
+
+          {sportProducts.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
+              {sportProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Dumbbell className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk di kategori ini.</p>
+                <p className="text-xs text-muted-foreground">Tambahkan produk olahraga lewat dashboard admin.</p>
+              </div>
             </div>
           )}
         </div>

@@ -64,6 +64,14 @@ export async function getFeaturedProducts(limit = 8) {
   return getActiveProducts({ featured: true, limit });
 }
 
+export async function getBestSellerProducts(limit = 4) {
+  const whereConditions: any[] = [
+    eq(products.isActive, true),
+    eq(products.isBestSeller, true),
+  ];
+  return queryProductsWithCategory(whereConditions, { limit });
+}
+
 export async function getProductBySlug(slug: string) {
   const rows = await db.select()
     .from(products)

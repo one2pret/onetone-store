@@ -89,6 +89,7 @@ export const products = mysqlTable('products', {
   images: text('images'), // JSON array of image URLs
   isActive: boolean('is_active').default(true),
   isFeatured: boolean('is_featured').default(false),
+  isBestSeller: boolean('is_best_seller').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Onetone Store",
-    template: "%s | Onetone Store",
+    default: "ONETONE Store — Sportswear Premium Indonesia",
+    template: "%s | ONETONE Store",
   },
-  description: "Premium Online Store — Onetone Brand",
+  description: "ONETONE Store — Sportswear Premium Indonesia. Koleksi fashion sport terbaik, dikirim ke seluruh Indonesia.",
 };
 
 export default function RootLayout({
