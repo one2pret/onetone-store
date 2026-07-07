@@ -49,9 +49,11 @@ export default async function HomePage() {
     <div className="bg-background">
 
       {/* ══════════════ BANNER SLIDER ══════════════ */}
-      <section>
-        <BannerSlider banners={banners} />
-      </section>
+      {banners.length > 0 && (
+        <section>
+          <BannerSlider banners={banners} />
+        </section>
+      )}
 
       {/* ══════════════ TRUST BAR ══════════════ */}
       {/* Unified gold icons, no independent accent colors, divider-based layout */}
@@ -113,9 +115,19 @@ export default async function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="py-16 flex flex-col items-center gap-3 text-center">
-              <ShoppingBag className="w-10 h-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Koleksi unggulan segera hadir.</p>
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk unggulan.</p>
+                <p className="text-xs text-muted-foreground">Jelajahi seluruh koleksi di halaman produk.</p>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary-hover hover:bg-primary/5">
+                <Link href="/products">
+                  Jelajahi Semua Produk <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
             </div>
           )}
         </div>
@@ -176,9 +188,19 @@ export default async function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="py-16 flex flex-col items-center gap-3 text-center">
-              <ShoppingBag className="w-10 h-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Koleksi terbaru segera hadir.</p>
+            <div className="py-16 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Belum ada koleksi terbaru.</p>
+                <p className="text-xs text-muted-foreground">Lihat semua produk yang tersedia sekarang.</p>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary-hover hover:bg-primary/5">
+                <Link href="/products">
+                  Lihat Semua Produk <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
             </div>
           )}
         </div>

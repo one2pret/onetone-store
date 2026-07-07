@@ -54,7 +54,7 @@ export function BannerSlider({ banners }: BannerSliderProps) {
   const hasValidImage = isValidImageUrl(banner.image) && !imgErrors[banner.id];
 
   const content = (
-    <div className="relative w-full aspect-[4/3] sm:aspect-[2.5/1] md:aspect-[3/1] lg:aspect-[3.5/1] overflow-hidden bg-slate-900">
+    <div className="relative w-full aspect-4/3 sm:aspect-2.5/1 md:aspect-3/1 lg:aspect-3.5/1 overflow-hidden bg-card">
 
       {/* Gambar banner — hanya render jika URL valid */}
       {hasValidImage ? (
@@ -69,13 +69,13 @@ export function BannerSlider({ banners }: BannerSliderProps) {
         />
       ) : (
         // Fallback: gradient background + icon jika gambar tidak tersedia
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-          <ImageOff className="w-12 h-12 text-slate-600" />
+        <div className="absolute inset-0 bg-surface flex items-center justify-center">
+          <ImageOff className="w-12 h-12 text-muted-foreground" />
         </div>
       )}
 
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 sm:bg-gradient-to-r sm:from-black/60 sm:via-black/30 sm:to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-black/10 sm:bg-linear-to-r sm:from-black/60 sm:via-black/30 sm:to-transparent" />
 
       {/* Text content */}
       <div className="absolute inset-0 flex items-end sm:items-center pb-12 sm:pb-0">
@@ -98,15 +98,17 @@ export function BannerSlider({ banners }: BannerSliderProps) {
         <>
           <button
             onClick={(e) => { e.preventDefault(); prev(); }}
+            aria-label="Banner sebelumnya"
             className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center text-white transition"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
           </button>
           <button
             onClick={(e) => { e.preventDefault(); next(); }}
+            aria-label="Banner berikutnya"
             className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-sm flex items-center justify-center text-white transition"
           >
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
           </button>
         </>
       )}
@@ -114,10 +116,12 @@ export function BannerSlider({ banners }: BannerSliderProps) {
       {/* Dots indicator */}
       {total > 1 && (
         <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2">
-          {banners.map((_, i) => (
+          {banners.map((b, i) => (
             <button
               key={i}
               onClick={(e) => { e.preventDefault(); setCurrent(i); }}
+              aria-label={`Tampilkan banner: ${b.title}`}
+              aria-current={i === current ? 'true' : undefined}
               className={cn(
                 'h-1.5 sm:h-2 rounded-full transition-all duration-300',
                 i === current ? 'bg-white w-5 sm:w-6' : 'bg-white/40 w-1.5 sm:w-2 hover:bg-white/60'
