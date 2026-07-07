@@ -1,30 +1,21 @@
 // app/(shop)/page.tsx
 import Link from 'next/link';
-import { getFeaturedProducts, getActiveProducts, getCategories } from '@/app/actions/products';
+import { getFeaturedProducts, getActiveProducts } from '@/app/actions/products';
 import { getActiveBanners } from '@/app/actions/banners';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
 import {
   ArrowRight, Truck, Shield, Headphones, CreditCard,
-  Zap, BadgePercent, Flame, Sparkles, Heart,
+  BadgePercent, Flame, Sparkles, Heart, RotateCcw, Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default async function HomePage() {
-  const [featuredProducts, newProducts, categories, banners] = await Promise.all([
+  const [featuredProducts, newProducts, banners] = await Promise.all([
     getFeaturedProducts(8),
     getActiveProducts({ limit: 4 }),
-    getCategories(),
     getActiveBanners(),
   ]);
-
-  const categoryIcons: Record<string, string> = {
-    'smartphone-tablet': '📱',
-    'laptop-komputer': '💻',
-    'audio-headphone': '🎧',
-    'wearable-smartwatch': '⌚',
-    'aksesoris-gadget': '🔌',
-  };
 
   return (
     <div>
@@ -75,49 +66,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════ CATEGORIES ═══════════ */}
-      <section className="py-8 md:py-16 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 md:mb-10">
-            <h2 className="text-xl md:text-3xl font-bold text-slate-900">Belanja Berdasarkan Kategori</h2>
-            <p className="text-slate-500 mt-1 text-sm md:text-base">Temukan produk sesuai kebutuhanmu</p>
-          </div>
-          {/* Mobile: horizontal scroll */}
-          <div className="flex md:hidden gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/products?category=${category.slug}`}
-                className="flex flex-col items-center gap-2 shrink-0 w-20"
-              >
-                <div className="w-14 h-14 bg-white rounded-2xl border border-slate-100 flex items-center justify-center shadow-sm">
-                  <span className="text-2xl">{categoryIcons[category.slug] || '📦'}</span>
-                </div>
-                <p className="text-[11px] font-medium text-slate-600 text-center leading-tight line-clamp-2">{category.name}</p>
-              </Link>
-            ))}
-          </div>
-          {/* Desktop: grid */}
-          <div className="hidden md:grid grid-cols-3 md:grid-cols-5 gap-4">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/products?category=${category.slug}`}
-                className="group relative p-6 bg-white rounded-2xl border border-slate-100 hover:border-primary/30 hover:shadow-lg transition-all duration-300 text-center overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-primary-light/40 rounded-2xl flex items-center justify-center group-hover:bg-primary-light group-hover:scale-110 transition-all duration-300">
-                    <span className="text-3xl">{categoryIcons[category.slug] || '📦'}</span>
-                  </div>
-                  <p className="font-semibold text-sm text-slate-700 group-hover:text-primary transition">{category.name}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ═══════════ FEATURED PRODUCTS ═══════════ */}
       <section className="py-8 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -163,7 +111,7 @@ export default async function HomePage() {
                   Untuk Member Baru
                 </h2>
                 <p className="text-slate-400 mt-3 md:mt-4 max-w-md text-sm md:text-base">
-                  Daftar sekarang dan nikmati potongan harga eksklusif untuk pembelian gadget pertamamu.
+                  Daftar sekarang dan nikmati potongan harga eksklusif untuk pembelian fashion pertamamu.
                 </p>
                 <div className="mt-5 md:mt-8">
                   <Button asChild size="default" className="bg-primary hover:bg-primary-hover text-white rounded-full px-6 md:px-8 shadow-lg shadow-primary/25 text-sm md:text-base">
@@ -224,28 +172,28 @@ export default async function HomePage() {
       <section className="py-8 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 md:mb-12">
-            <h2 className="text-xl md:text-3xl font-bold text-slate-900">Kenapa Pilih NextElektronik?</h2>
-            <p className="text-slate-500 mt-1 md:mt-2 text-sm md:text-base">Kami berkomitmen memberikan pengalaman belanja terbaik</p>
+            <h2 className="text-xl md:text-3xl font-bold text-slate-900">Kenapa Belanja di Onetone?</h2>
+            <p className="text-slate-500 mt-1 md:mt-2 text-sm md:text-base">Pengalaman belanja fashion yang menyenangkan, aman, dan terpercaya</p>
           </div>
           {/* Mobile: compact horizontal cards, Desktop: 3-col grid */}
           <div className="space-y-3 md:hidden">
             {[
               {
-                icon: Shield,
-                title: 'Produk 100% Original',
-                desc: 'Dijamin keasliannya dengan garansi resmi dari distributor.',
-                color: 'bg-emerald-50 text-emerald-600',
+                icon: Tag,
+                title: 'Koleksi Selalu Update',
+                desc: 'Tren fashion terbaru hadir setiap minggu. Tampil modis setiap hari.',
+                color: 'bg-violet-50 text-violet-600',
               },
               {
-                icon: Zap,
-                title: 'Pengiriman Super Cepat',
-                desc: 'Proses dalam hitungan jam. Didukung JNE, SiCepat, J&T.',
+                icon: Truck,
+                title: 'Pengiriman Cepat & Aman',
+                desc: 'Dikemas rapi, dikirim 1x24 jam via JNE, SiCepat, J&T.',
                 color: 'bg-amber-50 text-amber-600',
               },
               {
-                icon: Heart,
-                title: 'Layanan Sepenuh Hati',
-                desc: 'Support 24/7, retur 7 hari jika tidak sesuai.',
+                icon: RotateCcw,
+                title: 'Gratis Retur 7 Hari',
+                desc: 'Tidak pas atau tidak sesuai? Kembalikan tanpa ribet.',
                 color: 'bg-rose-50 text-rose-600',
               },
             ].map((item) => (
@@ -266,21 +214,21 @@ export default async function HomePage() {
           <div className="hidden md:grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: Shield,
-                title: 'Produk 100% Original',
-                desc: 'Semua produk dijamin keasliannya dengan garansi resmi dari distributor. Beli dengan tenang tanpa khawatir barang palsu.',
-                color: 'bg-emerald-50 text-emerald-600',
+                icon: Tag,
+                title: 'Koleksi Selalu Update',
+                desc: 'Tren fashion terbaru hadir setiap minggu. Dari pakaian kasual hingga olahraga — semua ada untuk tampil modis setiap hari.',
+                color: 'bg-violet-50 text-violet-600',
               },
               {
-                icon: Zap,
-                title: 'Pengiriman Super Cepat',
-                desc: 'Proses pesanan dalam hitungan jam. Didukung JNE, SiCepat, J&T dan kurir terpercaya lainnya ke seluruh Indonesia.',
+                icon: Truck,
+                title: 'Pengiriman Cepat & Aman',
+                desc: 'Pesanan dikemas rapi dengan pelindung khusus dan dikirim dalam 1x24 jam. Didukung JNE, SiCepat, J&T ke seluruh Indonesia.',
                 color: 'bg-amber-50 text-amber-600',
               },
               {
-                icon: Heart,
-                title: 'Layanan Sepenuh Hati',
-                desc: 'Tim support kami siap membantu 24/7 via chat dan telepon. Kembalikan produk dalam 7 hari jika tidak sesuai.',
+                icon: RotateCcw,
+                title: 'Gratis Retur 7 Hari',
+                desc: 'Ukuran tidak pas atau warna tidak sesuai foto? Kembalikan dalam 7 hari, kami proses pengembalian tanpa pertanyaan.',
                 color: 'bg-rose-50 text-rose-600',
               },
             ].map((item) => (
@@ -306,10 +254,10 @@ export default async function HomePage() {
         <div className="absolute bottom-0 right-1/4 w-48 md:w-80 h-48 md:h-80 bg-white/5 rounded-full blur-3xl" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl md:text-4xl font-bold text-white mb-3 md:mb-4">
-            Siap Upgrade Gadgetmu?
+            Siap Tampil Stylish Hari Ini?
           </h2>
           <p className="text-white/80 mb-6 md:mb-10 max-w-lg mx-auto text-sm md:text-lg">
-            Bergabung dengan ribuan tech enthusiast yang sudah belanja di NextElektronik.
+            Bergabung dengan ribuan fashion lover yang sudah berbelanja di Onetone. Koleksi baru setiap minggu!
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-3 md:gap-4">
             <Button asChild size="lg" className="bg-white text-primary hover:bg-slate-100 rounded-full px-8 md:px-10 h-11 md:h-12 text-sm md:text-base font-semibold shadow-xl">

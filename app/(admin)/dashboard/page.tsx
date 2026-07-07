@@ -1,24 +1,32 @@
 // app/(admin)/dashboard/page.tsx
 import { getDashboardStats, getAllOrders } from '@/app/actions/orders';
+import { getTodayPosSales } from '@/app/actions/pos-sessions';
 import { formatRupiah, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import {
   ShoppingCart, Package, TrendingUp, Clock,
   Truck, PackageCheck, DollarSign, BarChart3,
-  ArrowUpRight, ArrowRight,
+  ArrowUpRight, ArrowRight, Calculator,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
 export default async function AdminDashboardPage() {
-  const [stats, recentOrders] = await Promise.all([
+  const [stats, recentOrders, todayPos] = await Promise.all([
     getDashboardStats(),
     getAllOrders(),
+    getTodayPosSales(),
   ]);
 
   const statCards = [
     { title: 'Pesanan Hari Ini', value: stats.todayOrders, icon: ShoppingCart, iconBg: 'bg-blue-500' },
     { title: 'Pendapatan Hari Ini', value: formatRupiah(stats.todayRevenue), icon: TrendingUp, iconBg: 'bg-emerald-500' },
-    { title: 'Menunggu Pembayaran', value: stats.waitingPaymentOrders, icon: Clock, iconBg: 'bg-amber-500', href: '/dashboard/orders?status=waiting_payment' },
+    {
+      title: 'POS Hari Ini',
+      value: `${formatRupiah(todayPos.totalSales)} · ${todayPos.transactions} tx`,
+      icon: Calculator,
+      iconBg: 'bg-amber-500',
+      href: '/dashboard/pos/sessions',
+    },
     { title: 'Perlu Dikemas', value: stats.packingOrders, icon: PackageCheck, iconBg: 'bg-violet-500', href: '/dashboard/orders?status=packing' },
   ];
 

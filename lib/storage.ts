@@ -55,6 +55,9 @@ export const storage = {
         Key: objectKey,
         Body: body,
         ContentType: contentType,
+        // Filename UUID = immutable per URL → aman cache selamanya di browser & CDN edge.
+        // Setelah first load, gambar diambil dari cache (0 request ke R2).
+        CacheControl: "public, max-age=31536000, immutable",
         Metadata: { checksum },
       })
     );

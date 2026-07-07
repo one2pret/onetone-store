@@ -119,11 +119,30 @@ export const cartItems = mysqlTable('cart_items', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ POS SESSIONS ============
+// Konsep Odoo POS: kasir buka sesi (opening cash), transaksi terjadi selama sesi
+// aktif, kasir tutup sesi (closing cash) → Z-report hitung selisih.
+export const posSessions = mysqlTable('pos_sessions', {
+  id: int('id').primaryKey().autoincrement(),
+  cashierId: int('cashier_id').references(() => users.id).notNull(),
+  openedAt: timestamp('opened_at').defaultNow(),
+  closedAt: timestamp('closed_at'),
+  openingCash: decimal('opening_cash', { precision: 12, scale: 2 }).notNull(),
+  closingCash: decimal('closing_cash', { precision: 12, scale: 2 }),      // hitungan fisik saat tutup
+  expectedCash: decimal('expected_cash', { precision: 12, scale: 2 }),    // openingCash + total cash sales
+  cashDifference: decimal('cash_difference', { precision: 12, scale: 2 }),// closingCash - expectedCash
+  status: mysqlEnum('pos_session_status', ['open', 'closed']).default('open'),
+  notes: text('notes'),
+});
+
 // ============ ORDERS ============
+// Channel 'online' = order dari web/mobile (butuh alamat, kirim via kurir).
+// Channel 'pos' = transaksi kasir offline (langsung delivered, cash/QRIS/transfer).
 export const orders = mysqlTable('orders', {
   id: int('id').primaryKey().autoincrement(),
-  userId: int('user_id').references(() => users.id).notNull(),
+  userId: int('user_id').references(() => users.id), // nullable — walk-in customer POS tanpa akun
   orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
+  channel: mysqlEnum('order_channel', ['online', 'pos']).default('online'),
   status: mysqlEnum('status', [
     'waiting_payment',
     'packing',
@@ -135,10 +154,16 @@ export const orders = mysqlTable('orders', {
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
   shippingCost: decimal('shipping_cost', { precision: 12, scale: 2 }).default('0'),
   total: decimal('total', { precision: 12, scale: 2 }).notNull(),
-  shippingAddress: text('shipping_address').notNull(),
-  shippingPhone: varchar('shipping_phone', { length: 20 }).notNull(),
-  shippingName: varchar('shipping_name', { length: 255 }).notNull(),
+  // Shipping fields — nullable karena POS tidak perlu alamat pengiriman
+  shippingAddress: text('shipping_address'),
+  shippingPhone: varchar('shipping_phone', { length: 20 }),
+  shippingName: varchar('shipping_name', { length: 255 }),
   notes: text('notes'),
+  // POS-specific fields
+  posSessionId: int('pos_session_id').references(() => posSessions.id),
+  posPaymentMethod: mysqlEnum('pos_payment_method', ['cash', 'qris', 'transfer']),
+  cashReceived: decimal('cash_received', { precision: 12, scale: 2 }),
+  cashChange: decimal('cash_change', { precision: 12, scale: 2 }),
   willExpiredAt: timestamp('will_expired_at'),
   paidAt: timestamp('paid_at'),
   shippingAt: timestamp('shipping_at'),
@@ -263,6 +288,12 @@ export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
   cartItems: many(cartItems),
   addresses: many(addresses),
+  posSessions: many(posSessions),
+}));
+
+export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
+  cashier: one(users, { fields: [posSessions.cashierId], references: [users.id] }),
+  orders: many(orders),
 }));
 
 export const addressesRelations = relations(addresses, ({ one }) => ({
@@ -302,6 +333,7 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  posSession: one(posSessions, { fields: [orders.posSessionId], references: [posSessions.id] }),
   items: many(orderItems),
   invoices: many(invoices),
   shippings: many(shippings),
@@ -370,6 +402,9 @@ export type OrderStatusLog = InferSelectModel<typeof orderStatusLogs>;
 
 export type Banner = InferSelectModel<typeof banners>;
 export type NewBanner = InferInsertModel<typeof banners>;
+
+export type PosSession = InferSelectModel<typeof posSessions>;
+export type NewPosSession = InferInsertModel<typeof posSessions>;
 
 // Product with relations
 export type ProductWithCategory = Product & {

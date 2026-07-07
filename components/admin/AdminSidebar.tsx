@@ -6,13 +6,15 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Package, ShoppingCart,
   FolderOpen, Image as ImageIcon, Settings,
-  ExternalLink, X, Menu, Store,
+  ExternalLink, X, Menu, Store, Calculator, Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const navigation = [
   { name: 'Dashboard',   href: '/dashboard',            icon: LayoutDashboard },
+  { name: 'Kasir (POS)', href: '/pos',                  icon: Calculator },
+  { name: 'Sesi POS',    href: '/dashboard/pos/sessions', icon: Receipt },
   { name: 'Banner',      href: '/dashboard/banners',    icon: ImageIcon },
   { name: 'Produk',      href: '/dashboard/products',   icon: Package },
   { name: 'Kategori',    href: '/dashboard/categories', icon: FolderOpen },
