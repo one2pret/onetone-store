@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-07T00:00:00.000Z",
+  "title": "Design System: Onetone Store",
+  "extensions": {
+    "colorMeta": {
+      "vault-black": {
+        "role": "neutral",
+        "displayName": "Vault Black",
+        "canonical": "oklch(9% 0 0)",
+        "tonalRamp": [
+          "#050505",
+          "#0A0A0A",
+          "#141414",
+          "#1C1C1C",
+          "#1E1E1E",
+          "#2A2520",
+          "#3A3020",
+          "#7A7468"
+        ]
+      },
+      "panel-black": {
+        "role": "neutral",
+        "displayName": "Panel Black",
+        "canonical": "oklch(13% 0.002 60)"
+      },
+      "surface-black": {
+        "role": "neutral",
+        "displayName": "Surface Black",
+        "canonical": "oklch(17% 0.003 60)"
+      },
+      "studio-black": {
+        "role": "neutral",
+        "displayName": "Studio Black",
+        "canonical": "oklch(16% 0.003 60)"
+      },
+      "warm-coal": {
+        "role": "neutral",
+        "displayName": "Warm Coal",
+        "canonical": "oklch(21% 0.008 60)"
+      },
+      "warm-paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "oklch(94% 0.015 80)"
+      },
+      "weathered-bronze": {
+        "role": "neutral",
+        "displayName": "Weathered Bronze",
+        "canonical": "oklch(52% 0.02 70)"
+      },
+      "signature-gold": {
+        "role": "primary",
+        "displayName": "Signature Gold",
+        "canonical": "oklch(73% 0.13 85)",
+        "tonalRamp": [
+          "#1E1A10",
+          "#3D2E0E",
+          "#5A4415",
+          "#7B5F1E",
+          "#9E7F2E",
+          "#B89442",
+          "#C9A84C",
+          "#E0BC6A",
+          "#F0D080"
+        ]
+      },
+      "signature-gold-hover": {
+        "role": "primary",
+        "displayName": "Signature Gold Hover",
+        "canonical": "oklch(80% 0.11 85)"
+      },
+      "signature-gold-shadow": {
+        "role": "primary",
+        "displayName": "Signature Gold Shadow",
+        "canonical": "oklch(28% 0.05 85)"
+      },
+      "gilt-shadow": {
+        "role": "primary",
+        "displayName": "Gilt Shadow",
+        "canonical": "oklch(15% 0.02 85)"
+      },
+      "onetone-red": {
+        "role": "tertiary",
+        "displayName": "Onetone Red",
+        "canonical": "oklch(65% 0.24 25)"
+      },
+      "onetone-green": {
+        "role": "tertiary",
+        "displayName": "Onetone Green",
+        "canonical": "oklch(72% 0.19 145)"
+      },
+      "onetone-amber": {
+        "role": "tertiary",
+        "displayName": "Onetone Amber",
+        "canonical": "oklch(75% 0.17 65)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero titles on landing pages. Bounded 2.5rem ceiling; Onetone doesn't shout."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles. One per section, not one per subsection."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, dialog titles, dense heading contexts."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading text. Line length capped at 65–75ch on prose."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Tracked uppercase eyebrow — status pills and metric callouts only, NOT section scaffolding."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Order numbers, receipt lines, monetary tables. Never for prose or headings."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting",
+        "value": "0 1px 2px rgba(0, 0, 0, 0.05)",
+        "purpose": "Default card resting state. Carries tonal separation without drama."
+      },
+      {
+        "name": "lifted",
+        "value": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
+        "purpose": "Hover on interactive cards, dropdown menus, dialogs."
+      },
+      {
+        "name": "gold-glow",
+        "value": "0 10px 15px -3px rgba(201, 168, 76, 0.2)",
+        "purpose": "Warm gold glow under primary CTA. Only shadow that carries a color."
+      },
+      {
+        "name": "sticky-footer-up",
+        "value": "0 -4px 12px -4px rgba(0, 0, 0, 0.06)",
+        "purpose": "Upward-facing subtle shadow for sticky POS cart footer. Separates BAYAR bar from scrolling list."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-standard",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for hover/focus transitions. Exponential ease-out; no bounce."
+      },
+      {
+        "name": "duration-quick",
+        "value": "150ms",
+        "purpose": "Hover state changes on buttons, chips."
+      },
+      {
+        "name": "duration-standard",
+        "value": "300ms",
+        "purpose": "Card hover, dropdown open, dialog fade."
+      },
+      {
+        "name": "fadeInUp",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1) 500ms",
+        "purpose": "Entrance for section content on landing. Must degrade on prefers-reduced-motion."
+      },
+      {
+        "name": "gold-shimmer",
+        "value": "linear 3s infinite",
+        "purpose": "Brand mark shimmer. Only permitted gradient text. Pauses on prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one gold CTA. Solid Signature Gold fill on Vault Black text. Reserved for the single primary action per screen.",
+      "html": "<button class=\"ds-btn-primary\">BAYAR Rp 175.000</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.25rem; padding: 0 1rem; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; color: #0A0A0A; background: #C9A84C; border: none; border-radius: 0.625rem; box-shadow: 0 10px 15px -3px rgba(201, 168, 76, 0.2); cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), transform 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #E0BC6A; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.5), 0 10px 15px -3px rgba(201, 168, 76, 0.2); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary confirm or destructive-cancel. Warm Coal border on transparent bg.",
+      "html": "<button class=\"ds-btn-outline\">Batal</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.25rem; padding: 0 1rem; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; color: #F5F0E8; background: transparent; border: 1px solid #2A2520; border-radius: 0.625rem; cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-outline:hover { background: #1E1A10; color: #C9A84C; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.5); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Table row action, icon-only action, quantity stepper. No border, no fill until hover.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Hapus\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; color: #7A7468; background: transparent; border: none; border-radius: 0.5rem; cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-ghost:hover { background: #1E1A10; color: #EF4444; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.5); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Container with Panel Black fill and Warm Coal border. Sits one step above the vault background.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-eyebrow\">SESI KASIR</div><div class=\"ds-card-title\">Sesi #12 aktif</div><div class=\"ds-card-body\">Dibuka 07:30 · modal Rp 500.000 · kasir Wawan</div></div>",
+      "css": ".ds-card { padding: 1.5rem; background: #141414; color: #F5F0E8; border: 1px solid #2A2520; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); transition: box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; } .ds-card:hover { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); } .ds-card-eyebrow { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7A7468; margin-bottom: 0.375rem; } .ds-card-title { font-size: 1.125rem; font-weight: 600; line-height: 1.35; color: #F5F0E8; margin-bottom: 0.375rem; } .ds-card-body { font-size: 0.875rem; line-height: 1.55; color: #7A7468; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Studio Black fill, Warm Coal border, gold focus ring. Placeholder is Weathered Bronze at 4.5:1 contrast.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Cari produk...\">",
+      "css": ".ds-input { display: block; width: 100%; height: 2.25rem; padding: 0.25rem 0.75rem; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; color: #F5F0E8; background: #1C1C1C; border: 1px solid #2A2520; border-radius: 0.625rem; outline: none; transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-input::placeholder { color: #7A7468; } .ds-input:focus-visible { border-color: #C9A84C; box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.5); }"
+    },
+    {
+      "name": "Gold Badge",
+      "kind": "chip",
+      "refersTo": "badge-gold",
+      "description": "Gold-hinted status pill on Gilt Shadow bg. The 'utama' badge, featured tag, brand-emphasis marker.",
+      "html": "<span class=\"ds-badge-gold\">Utama</span>",
+      "css": ".ds-badge-gold { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 600; color: #C9A84C; background: rgba(201, 168, 76, 0.1); border: 1px solid rgba(201, 168, 76, 0.3); border-radius: 0.625rem; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "Category filter chip in POS and product listing. Pill radius, Studio Black at rest, Signature Gold when active.",
+      "html": "<button class=\"ds-chip\">Semua</button><button class=\"ds-chip ds-chip-active\">Sportswear</button><button class=\"ds-chip\">Aksesoris</button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 0.375rem 0.75rem; margin-right: 0.5rem; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; color: #F5F0E8; background: #1C1C1C; border: none; border-radius: 9999px; cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-chip:hover { background: #2A2520; } .ds-chip-active { background: #C9A84C; color: #0A0A0A; } .ds-chip-active:hover { background: #E0BC6A; } .ds-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.5); }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Admin sidebar navigation. Active state uses Signature Gold with gold-glow shadow; inactive is Weathered Bronze hovering to Warm Paper.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\">Kasir (POS)</a><a class=\"ds-nav-item\" href=\"#\">Sesi POS</a><a class=\"ds-nav-item\" href=\"#\">Produk</a><a class=\"ds-nav-item\" href=\"#\">Pesanan</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.75rem; background: #1E1E1E; border-right: 1px solid #2A2520; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #7A7468; text-decoration: none; border-radius: 0.5rem; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-nav-item:hover { background: #1E1A10; color: #F5F0E8; } .ds-nav-active { background: #C9A84C; color: #0A0A0A; box-shadow: 0 4px 6px -1px rgba(201, 168, 76, 0.2); } .ds-nav-active:hover { background: #C9A84C; color: #0A0A0A; }"
+    },
+    {
+      "name": "POS Cart Footer",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "The signature sticky BAYAR bar. Sits at the bottom of the cashier cart panel with an upward shadow separating it from the scrolling item list above.",
+      "html": "<div class=\"ds-cart-footer\"><div class=\"ds-cart-total-row\"><span class=\"ds-cart-total-label\">Total</span><span class=\"ds-cart-total-value\">Rp 175.000</span></div><button class=\"ds-cart-bayar\">BAYAR Rp 175.000</button></div>",
+      "css": ".ds-cart-footer { flex-shrink: 0; padding: 0.75rem 1rem; background: #141414; border-top: 1px solid #2A2520; box-shadow: 0 -4px 12px -4px rgba(0, 0, 0, 0.06); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; } .ds-cart-total-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; } .ds-cart-total-label { font-size: 0.875rem; color: #7A7468; } .ds-cart-total-value { font-size: 1.25rem; font-weight: 700; color: #F5F0E8; } .ds-cart-bayar { display: flex; align-items: center; justify-content: center; width: 100%; padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 700; color: #0A0A0A; background: #C9A84C; border: none; border-radius: 0.625rem; box-shadow: 0 10px 15px -3px rgba(201, 168, 76, 0.2); cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-cart-bayar:hover { background: #E0BC6A; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Concierge Vitrine",
+    "overview": "Onetone is a display case, not a market stall. Everything on screen is arranged the way a flagship boutique arranges a vitrine at midnight: a controlled darkness that lets one product breathe, a signature gold accent that appears only when it means something, and typography that behaves like the tiny plaque under a museum piece — informative, restrained, never shouting. The system explicitly rejects three temptations: marketplace clutter (Shopee/Tokopedia neon), SaaS-cream landing pages (2025 paper/parchment body with huge display heading and testimonial slider), and gradient-orb dashboards (glass card floating in mesh purple). Two personas share the same visual family. Customer surfaces lean editorial — product photography as hero, generous vertical rhythm, one gold accent per screen. Admin/POS surfaces lean functional — dense tables, quick-tap actions, gold reserved for status and primary CTAs. Both breathe the same dark air.",
+    "keyCharacteristics": [
+      "Body-black canvas (#0A0A0A), warm off-white ink (#F5F0E8) — never mid-gray",
+      "Signature Gold (#C9A84C) as the one voice: primary CTA, active state, focus ring, brand accent",
+      "Tonal layering (background → surface → card → popover) instead of shadow-heavy elevation",
+      "Radius base 0.75rem (12px) — soft but architectural; no full-rounded pills except pass-through utilities",
+      "Geist Sans throughout (Geist Mono for numbers, receipts, order numbers)",
+      "Motion is a response, not a spectacle: hover/focus transitions, one branded gold-shimmer for the brand mark"
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Signature Gold appears on ≤10% of any screen. If a page has a gold primary button, gold price emphasis, and a gold section eyebrow, one of them is wrong. Its rarity is its power.", "section": "colors" },
+      { "name": "The One Border Rule", "body": "Warm Coal (#2A2520) is the only border color. No blue borders on inputs, no red borders on error states, no 'outline' variant with a novel border color. One border, everywhere.", "section": "colors" },
+      { "name": "The Never-Gray Text Rule", "body": "Muted text is Weathered Bronze (#7A7468), not a cool slate. If a warm-black background pairs with a cool-gray text, the page reads clinical — the wrong register.", "section": "colors" },
+      { "name": "The Sparing Eyebrow Rule", "body": "The 0.6875rem tracked uppercase label is legitimate for section metric callouts and status pills — not as a scaffold above every heading. If four sections in a row start with a tiny uppercase label, it's AI grammar, not brand voice.", "section": "typography" },
+      { "name": "The Balanced Heading Rule", "body": "Every h1/h2/h3 uses text-wrap: balance. Long prose (product description, article body) uses text-wrap: pretty to reduce orphans.", "section": "typography" },
+      { "name": "The Rupiah Precision Rule", "body": "Currency is rendered with formatRupiah(): 'Rp 175.000' with a thin space and dot-separated thousands. Never 'Rp175000', never 'IDR 175K', never comma-decimal (comma is decimal in id-ID).", "section": "typography" },
+      { "name": "The Tonal-First Rule", "body": "Depth via ramp before shadow. If a card needs to 'pop', the answer is to darken the background around it, not to raise its shadow.", "section": "elevation" },
+      { "name": "The Never-Neutral-Shadow Rule", "body": "No shadow larger than shadow-md on flat surfaces. If a card looks bookmarked, framed, or floating in a modal, the elevation is wrong; use tonal separation and Warm Coal border instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Signature Gold (#C9A84C) as the one primary accent per screen. Its rarity is the point.",
+      "Do carry the tonal ramp (#0A0A0A → #141414 → #1C1C1C → #1E1E1E) instead of drop shadows for depth.",
+      "Do keep body text at Warm Paper (#F5F0E8), muted text at Weathered Bronze (#7A7468). Both meet 4.5:1 contrast.",
+      "Do format currency via formatRupiah(): Rp 175.000 — thin space + dot-separated thousands.",
+      "Do use unoptimized prop on <Image> for R2-hosted product images. Next.js optimizer fails on external CDN under some conditions.",
+      "Do set focus rings on all interactive elements using Signature Gold at 50% opacity. Keyboard nav is a design surface.",
+      "Do use Geist Mono only for order numbers, receipt lines, and monetary tables — never for prose or headings.",
+      "Do respect prefers-reduced-motion: the gold shimmer, fadeInUp, and float animations must degrade to static."
+    ],
+    "donts": [
+      "Don't make it a marketplace (Shopee/Tokopedia). No neon flash-sale badges, no 'Terlaris' red banners, no five-star cluster on product cards, no bright orange CTAs.",
+      "Don't make it a SaaS-cream landing page. No warm off-white body background (paper/parchment/linen/bone), no huge display heading with testimonial slider, no 'Trusted by 10,000+' logo strip.",
+      "Don't ship a gradient hero with 3D orb/blob. No mesh gradient (purple/blue), no glassmorphism card floating over blur. The only permitted gradient text is the Gold Shimmer brand mark.",
+      "Don't use border-left greater than 1px as a colored stripe on cards, alerts, or list items. Use bg tint, leading numbers/icons, or nothing.",
+      "Don't stack a text-[10px] uppercase tracked eyebrow above every section. That's AI scaffolding. Use it for status pills and metric labels only.",
+      "Don't number sections as page scaffolding (01 · Product, 02 · Cart) unless it's a real ordered flow.",
+      "Don't introduce a second border color, second family, or second accent. One border (Warm Coal), one family (Geist), one accent (Signature Gold).",
+      "Don't use gray-500 or cool slate for muted text. It looks clinical on a warm-dark canvas. Use Weathered Bronze (#7A7468).",
+      "Don't animate layout properties (width, height, top, left, margin). Animate transform, opacity, background, box-shadow, filter.",
+      "Don't ship display heading > 2.5rem clamp ceiling. Onetone doesn't shout. If a heading feels small in a mockup, the mockup is too crowded — trim the page, don't scale the type."
+    ]
+  }
+}

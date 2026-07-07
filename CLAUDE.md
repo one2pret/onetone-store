@@ -11,6 +11,24 @@ Bukan marketplace — satu toko, dua persona: **Admin** (pemilik toko) dan **Cus
 
 ---
 
+## Design Context (impeccable)
+
+Baca `PRODUCT.md` di project root untuk strategic context (register, users, brand personality, anti-references, principles).
+Baca `DESIGN.md` di project root untuk visual system (tokens, palette, typography, komponen).
+
+**Register:** `product` (app UI melayani fungsi; POS + admin dominan, shop customer mengambil sebagian brand-flavor).
+
+**Design principles ringkas:**
+1. Single store, distinctive voice — bukan marketplace template
+2. Product photography adalah hero — layout adalah frame
+3. Effortless commerce, not effortful design — friction minimum
+4. Dual persona, one family — admin & customer beda bahasa visual tapi satu brand
+5. Indonesian context, world-class execution — Rupiah bukan alasan feels murah
+
+**Anti-references (JANGAN):** marketplace look (Shopee/Tokopedia badges/neon), SaaS-cream landing 2025, gradient hero dengan 3D orb/blob.
+
+---
+
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, Server Components, Server Actions, Turbopack)
