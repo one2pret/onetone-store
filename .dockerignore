@@ -1,0 +1,54 @@
+# =============================================================================
+# .dockerignore — onetone-store
+# File ini mencegah file tidak perlu masuk ke Docker build context
+# =============================================================================
+
+# Dependencies (akan di-install ulang saat build)
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js build output (akan di-build ulang di dalam Docker)
+.next
+out
+
+# Environment files — JANGAN pernah masuk ke image
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Editor & OS
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docs & testing (tidak dibutuhkan di production)
+README.md
+CLAUDE.md
+DESIGN.md
+PRODUCT.md
+*.md
+__tests__
+tests
+coverage
+vitest.config.ts
+
+# Docker files sendiri
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Misc
+.eslintcache
+.turbo
+prompts-wawan
+prompt-dev
