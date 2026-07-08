@@ -13,7 +13,20 @@ RUN npm install --ignore-scripts
 
 COPY . .
 
+# Build-time environment variables (dummy values, akan di-override runtime)
+ARG DATABASE_URL
+ARG AUTH_SECRET
+ARG AUTH_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_BASE_URL
+
+ENV DATABASE_URL=$DATABASE_URL
+ENV AUTH_SECRET=$AUTH_SECRET
+ENV AUTH_URL=$AUTH_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────

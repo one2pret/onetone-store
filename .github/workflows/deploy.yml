@@ -63,6 +63,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            DATABASE_URL=mysql://build:build@localhost:3306/build
+            AUTH_SECRET=build_time_dummy_secret_replace_at_runtime
+            AUTH_URL=http://localhost:3000
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
+            NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
   deploy-to-vps:
     name: 🚀 Deploy ke VPS
