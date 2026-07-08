@@ -22,7 +22,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password wajib diisi'),
 });
 
-export async function register(prevState: any, formData: FormData) {
+type RegisterState = {
+  success: boolean;
+  error?: string;
+  errors?: { name?: string[]; email?: string[]; password?: string[]; phone?: string[] };
+};
+
+export async function register(prevState: RegisterState, formData: FormData): Promise<RegisterState> {
   const validated = registerSchema.safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
@@ -72,7 +78,13 @@ export async function register(prevState: any, formData: FormData) {
   redirect('/');
 }
 
-export async function login(prevState: any, formData: FormData) {
+type LoginState = {
+  success: boolean;
+  error?: string;
+  errors?: { email?: string[]; password?: string[] };
+};
+
+export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const validated = loginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),

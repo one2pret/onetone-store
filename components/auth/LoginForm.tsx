@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
-const initialState = { success: false, error: '', errors: {} };
+const initialState = { success: false, error: '', errors: undefined };
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(login, initialState);
