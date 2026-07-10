@@ -47,3 +47,31 @@ export async function upsertStoreSetting(key: string, value: string) {
     return { success: false, error: 'Gagal menyimpan pengaturan' };
   }
 }
+
+export async function upsertStoreSettings(pairs: Record<string, string>) {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== 'admin') {
+    return { success: false, error: 'Hanya admin yang dapat mengubah pengaturan' };
+  }
+
+  try {
+    for (const [key, value] of Object.entries(pairs)) {
+      const existing = await db.select().from(storeSettings)
+        .where(eq(storeSettings.key, key)).limit(1);
+
+      if (existing.length > 0) {
+        await db.update(storeSettings)
+          .set({ value })
+          .where(eq(storeSettings.key, key));
+      } else {
+        await db.insert(storeSettings).values({ key, value });
+      }
+    }
+
+    revalidatePath('/dashboard/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('upsertStoreSettings failed:', error);
+    return { success: false, error: 'Gagal menyimpan pengaturan' };
+  }
+}

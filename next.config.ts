@@ -3,6 +3,15 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        'onetone.kanuraga.web.id',
+        'localhost:3000',
+      ],
+      bodySizeLimit: '5mb',
+    },
+  },
   images: {
     
     remotePatterns: [

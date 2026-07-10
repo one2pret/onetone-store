@@ -3,7 +3,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { upsertStoreSetting } from '@/app/actions/store-settings';
+import { upsertStoreSettings } from '@/app/actions/store-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,23 +41,25 @@ export function StoreSettingsForm({ settings }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const pairs = [
-        ['store_name', storeName],
-        ['store_phone', storePhone],
-        ['store_address', storeAddress],
-        ['store_latitude', lat],
-        ['store_longitude', lng],
-        ['payment_expiry_hours', expiryHours],
-      ];
-      for (const [key, value] of pairs) {
-        const result = await upsertStoreSetting(key, value);
+      try {
+        const result = await upsertStoreSettings({
+          store_name: storeName,
+          store_phone: storePhone,
+          store_address: storeAddress,
+          store_latitude: lat,
+          store_longitude: lng,
+          payment_expiry_hours: expiryHours,
+        });
         if (!result.success) {
-          toast.error(`Gagal menyimpan ${key}: ${result.error}`);
+          toast.error(result.error || 'Gagal menyimpan pengaturan');
           return;
         }
+        toast.success('Pengaturan toko berhasil disimpan');
+        router.refresh();
+      } catch (err) {
+        console.error(err);
+        toast.error('Terjadi kesalahan saat menyimpan');
       }
-      toast.success('Pengaturan toko berhasil disimpan');
-      router.refresh();
     });
   }
 
@@ -120,8 +122,14 @@ export function StoreSettingsForm({ settings }: Props) {
 
       <div className="flex justify-end">
         <Button type="submit" disabled={isPending} size="lg">
-          {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Simpan Pengaturan
+          <span className="inline-flex items-center">
+            {isPending ? (
+              <Loader2 key="loader" className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save key="save" className="w-4 h-4 mr-2" />
+            )}
+            <span>Simpan Pengaturan</span>
+          </span>
         </Button>
       </div>
     </form>
