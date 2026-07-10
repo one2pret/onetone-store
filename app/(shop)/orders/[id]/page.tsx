@@ -1,6 +1,6 @@
 // app/(shop)/orders/[id]/page.tsx
 import { auth } from '@/lib/auth';
-import { getOrder } from '@/app/actions/orders';
+import { getOrder, syncOrderPayment } from '@/app/actions/orders';
 import { formatRupiah, formatDate, formatShortDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -47,10 +47,19 @@ export default async function OrderDetailPage({ params }: Props) {
   }
 
   const { id } = await params;
-  const order = await getOrder(Number(id));
+  let order = await getOrder(Number(id));
 
   if (!order) {
     notFound();
+  }
+
+  // Fallback: bila webhook Xendit belum masuk, sinkron langsung ke Xendit
+  if (order.status === 'waiting_payment') {
+    const sync = await syncOrderPayment(order.id);
+    if (sync.synced) {
+      order = await getOrder(order.id);
+      if (!order) notFound();
+    }
   }
 
   // Get invoice info

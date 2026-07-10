@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { generateOrderNumber } from '@/lib/utils';
 import { validateStatusTransition } from '@/lib/order-status';
 import { deductStock, restoreStock, validateStock } from '@/lib/stock';
-import { createInvoice, expireInvoice } from '@/lib/xendit';
+import { createInvoice, expireInvoice, getInvoice } from '@/lib/xendit';
 
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
@@ -462,6 +462,70 @@ export async function getUserOrders() {
 }
 
 // Get single order
+// Fallback sync: query Xendit invoice status directly, update DB if paid/expired.
+// Digunakan bila webhook belum masuk (mis. reverse-proxy issue, token mismatch, network delay).
+const SYNC_THROTTLE_MS = 30_000;
+const _syncCache = new Map<number, number>();
+
+export async function syncOrderPayment(orderId: number): Promise<{ synced: boolean; status?: string }> {
+  try {
+    const lastSync = _syncCache.get(orderId) ?? 0;
+    if (Date.now() - lastSync < SYNC_THROTTLE_MS) {
+      return { synced: false };
+    }
+    _syncCache.set(orderId, Date.now());
+
+    const orderRows = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (orderRows.length === 0) return { synced: false };
+    const order = orderRows[0];
+    if (order.status !== 'waiting_payment') return { synced: false, status: order.status ?? undefined };
+
+    const invRows = await db.select().from(invoices).where(eq(invoices.orderId, orderId)).limit(1);
+    if (invRows.length === 0 || !invRows[0].xenditId) return { synced: false };
+    const invoice = invRows[0];
+
+    const remote = await getInvoice(invoice.xenditId!);
+    const remoteStatus = (remote as any)?.status;
+
+    if (remoteStatus === 'PAID' || remoteStatus === 'SETTLED') {
+      await db.update(invoices).set({
+        status: 'paid',
+        paymentMethod: (remote as any)?.paymentMethod ?? null,
+        paymentChannel: (remote as any)?.paymentChannel ?? null,
+        paidAt: sql`NOW()`,
+      }).where(eq(invoices.id, invoice.id));
+
+      await db.update(orders).set({ status: 'packing', paidAt: sql`NOW()` }).where(eq(orders.id, orderId));
+
+      await db.insert(orderStatusLogs).values({
+        orderId,
+        fromStatus: order.status!,
+        toStatus: 'packing',
+        changedBy: 'sync:xendit',
+      });
+      return { synced: true, status: 'packing' };
+    }
+
+    if (remoteStatus === 'EXPIRED') {
+      await db.update(invoices).set({ status: 'expired' }).where(eq(invoices.id, invoice.id));
+      await db.update(orders).set({ status: 'expired', expiredAt: sql`NOW()` }).where(eq(orders.id, orderId));
+      await restoreStock(orderId);
+      await db.insert(orderStatusLogs).values({
+        orderId,
+        fromStatus: order.status!,
+        toStatus: 'expired',
+        changedBy: 'sync:xendit',
+      });
+      return { synced: true, status: 'expired' };
+    }
+
+    return { synced: false, status: order.status ?? undefined };
+  } catch (err) {
+    console.error('syncOrderPayment error:', err);
+    return { synced: false };
+  }
+}
+
 export async function getOrder(id: number) {
   const session = await auth();
   if (!session?.user?.id) return null;

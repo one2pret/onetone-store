@@ -19,10 +19,13 @@ interface CreateInvoiceResult {
   expiryDate: string;
 }
 
+let _client: Xendit | null = null;
 function getClient() {
+  if (_client) return _client;
   const secretKey = process.env.XENDIT_SECRET_KEY;
   if (!secretKey) throw new Error('XENDIT_SECRET_KEY is not configured');
-  return new Xendit({ secretKey });
+  _client = new Xendit({ secretKey });
+  return _client;
 }
 
 export async function createInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResult> {
@@ -47,6 +50,11 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
     invoiceUrl: result.invoiceUrl!,
     expiryDate: String(result.expiryDate),
   };
+}
+
+export async function getInvoice(invoiceId: string) {
+  const client = getClient();
+  return await client.Invoice.getInvoiceById({ invoiceId });
 }
 
 export async function expireInvoice(invoiceId: string): Promise<void> {
