@@ -7,6 +7,7 @@ import {
 } from '@/app/actions/products';
 import { getActiveBanners } from '@/app/actions/banners';
 import { getHeroConfig } from '@/app/actions/store-settings';
+import { getEditorialBreaks } from '@/app/actions/editorial-settings';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
 import { HeroEditorial } from '@/components/shop/HeroEditorial';
@@ -23,9 +24,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const EDITORIAL_1_IMAGE = process.env.NEXT_PUBLIC_EDITORIAL_1_URL;
-const EDITORIAL_2_IMAGE = process.env.NEXT_PUBLIC_EDITORIAL_2_URL;
-
 export default async function HomePage() {
   const [
     featuredProducts,
@@ -34,6 +32,7 @@ export default async function HomePage() {
     sportProducts,
     banners,
     heroConfig,
+    editorialBreaks,
   ] = await Promise.all([
     getFeaturedProducts(8),
     getActiveProducts({ limit: 4 }),
@@ -41,13 +40,9 @@ export default async function HomePage() {
     getActiveProducts({ limit: 4, categorySlug: 'olahraga' }),
     getActiveBanners(),
     getHeroConfig(),
+    getEditorialBreaks(),
   ]);
-
-  // Editorial break images: pakai env override, fallback ke produk yang belum dipakai di hero
-  const break1Image =
-    EDITORIAL_1_IMAGE ?? featuredProducts[1]?.image ?? null;
-  const break2Image =
-    EDITORIAL_2_IMAGE ?? bestSellerProducts[0]?.image ?? sportProducts[0]?.image ?? null;
+  const [break1, break2] = editorialBreaks;
 
   const trustFeatures = [
     { icon: Truck, title: 'Gratis Ongkir', desc: 'Pesanan Rp200rb+' },
@@ -201,15 +196,15 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ══════════════ EDITORIAL BREAK #1 — Koleksi baru ══════════════ */}
+      {/* ══════════════ EDITORIAL BREAK #1 ══════════════ */}
       <EditorialBreak
-        eyebrow="Koleksi Baru"
-        title="Musim ini, siluet lebih tegas."
-        body="Bahan yang bergerak bersama tubuh. Warna yang tenang dipilih untuk tetap relevan di luar musim. Diproduksi dalam jumlah terbatas."
-        ctaLabel="Jelajahi New Arrival"
-        ctaHref="/products?sort=newest"
-        imageUrl={break1Image}
-        imageAlt="Koleksi baru Onetone"
+        eyebrow={break1.copy.eyebrow}
+        title={break1.copy.title}
+        body={break1.copy.body}
+        ctaLabel={break1.copy.ctaLabel}
+        ctaHref={break1.copy.ctaHref}
+        imageUrl={break1.resolvedImageUrl}
+        imageAlt={break1.copy.title}
       />
 
       {/* ══════════════ NEW ARRIVAL ══════════════ */}
@@ -260,16 +255,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════ EDITORIAL BREAK #2 — Untuk rutinitas aktif ══════════════ */}
+      {/* ══════════════ EDITORIAL BREAK #2 ══════════════ */}
       <EditorialBreak
-        eyebrow="Untuk Setiap Hari"
-        title="Dipakai di gym, nyaman ke coffee shop."
-        body="Bahan cepat kering, jahitan flat-lock, potongan yang tetap rapi setelah dicuci berkali-kali. Rutinitas aktif tanpa berganti outfit."
-        ctaLabel="Lihat Koleksi Olahraga"
-        ctaHref="/products?category=olahraga"
-        imageUrl={break2Image}
-        imageAlt="Koleksi olahraga Onetone"
-        reverse
+        eyebrow={break2.copy.eyebrow}
+        title={break2.copy.title}
+        body={break2.copy.body}
+        ctaLabel={break2.copy.ctaLabel}
+        ctaHref={break2.copy.ctaHref}
+        imageUrl={break2.resolvedImageUrl}
+        imageAlt={break2.copy.title}
+        reverse={break2.reverse}
       />
 
       {/* ══════════════ TAB: BEST SELLER + OLAHRAGA ══════════════ */}
