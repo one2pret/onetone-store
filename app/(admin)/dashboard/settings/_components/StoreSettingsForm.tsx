@@ -27,6 +27,8 @@ export function StoreSettingsForm({ settings }: Props) {
 
   const [storeName, setStoreName] = useState(settings.store_name || '');
   const [storePhone, setStorePhone] = useState(settings.store_phone || '');
+  const [storeEmail, setStoreEmail] = useState(settings.store_email || '');
+  const [storeInstagram, setStoreInstagram] = useState(settings.store_instagram || '');
   const [storeAddress, setStoreAddress] = useState(settings.store_address || '');
   const [lat, setLat] = useState(settings.store_latitude || '');
   const [lng, setLng] = useState(settings.store_longitude || '');
@@ -45,6 +47,8 @@ export function StoreSettingsForm({ settings }: Props) {
         const result = await upsertStoreSettings({
           store_name: storeName,
           store_phone: storePhone,
+          store_email: storeEmail.trim(),
+          store_instagram: storeInstagram.trim().replace(/^@/, ''),
           store_address: storeAddress,
           store_latitude: lat,
           store_longitude: lng,
@@ -67,15 +71,39 @@ export function StoreSettingsForm({ settings }: Props) {
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Info Toko */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-base font-semibold text-foreground mb-4">Informasi Toko</h2>
+        <h2 className="text-base font-semibold text-foreground mb-1">Informasi Toko</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Dipakai di halaman Contact untuk channel WhatsApp, Email, dan Instagram.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="storeName" className="text-foreground">Nama Toko</Label>
             <Input id="storeName" value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Nama toko" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="storePhone" className="text-foreground">No. Telepon</Label>
+            <Label htmlFor="storePhone" className="text-foreground">No. Telepon / WhatsApp</Label>
             <Input id="storePhone" value={storePhone} onChange={e => setStorePhone(e.target.value)} placeholder="08xxxxxxxxxx" />
+            <p className="text-xs text-muted-foreground">Digunakan untuk link WhatsApp (auto-format ke 62xxx).</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="storeEmail" className="text-foreground">Email</Label>
+            <Input
+              id="storeEmail"
+              type="email"
+              value={storeEmail}
+              onChange={e => setStoreEmail(e.target.value)}
+              placeholder="halo@onetone.id"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="storeInstagram" className="text-foreground">Instagram</Label>
+            <Input
+              id="storeInstagram"
+              value={storeInstagram}
+              onChange={e => setStoreInstagram(e.target.value)}
+              placeholder="onetone.store"
+            />
+            <p className="text-xs text-muted-foreground">Username saja (tanpa @). Contoh: onetone.store</p>
           </div>
         </div>
       </div>

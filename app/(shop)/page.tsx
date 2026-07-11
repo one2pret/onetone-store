@@ -1,92 +1,130 @@
 // app/(shop)/page.tsx
 import Link from 'next/link';
-import { getFeaturedProducts, getActiveProducts, getBestSellerProducts } from '@/app/actions/products';
+import {
+  getFeaturedProducts,
+  getActiveProducts,
+  getBestSellerProducts,
+} from '@/app/actions/products';
 import { getActiveBanners } from '@/app/actions/banners';
+import { getHeroConfig } from '@/app/actions/store-settings';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
+import { HeroEditorial } from '@/components/shop/HeroEditorial';
+import { EditorialBreak } from '@/components/shop/EditorialBreak';
+import { ProductTabs } from '@/components/shop/ProductTabs';
 import {
-  ArrowRight, Truck, Shield, CreditCard,
-  RotateCcw, Tag, ShoppingBag, Flame, Dumbbell,
+  ArrowRight,
+  Truck,
+  Shield,
+  CreditCard,
+  RotateCcw,
+  Tag,
+  ShoppingBag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const EDITORIAL_1_IMAGE = process.env.NEXT_PUBLIC_EDITORIAL_1_URL;
+const EDITORIAL_2_IMAGE = process.env.NEXT_PUBLIC_EDITORIAL_2_URL;
+
 export default async function HomePage() {
-  const [featuredProducts, newArrivalProducts, bestSellerProducts, sportProducts, banners] = await Promise.all([
+  const [
+    featuredProducts,
+    newArrivalProducts,
+    bestSellerProducts,
+    sportProducts,
+    banners,
+    heroConfig,
+  ] = await Promise.all([
     getFeaturedProducts(8),
     getActiveProducts({ limit: 4 }),
     getBestSellerProducts(4),
-    getActiveProducts({ limit: 4 }),
+    getActiveProducts({ limit: 4, categorySlug: 'olahraga' }),
     getActiveBanners(),
+    getHeroConfig(),
   ]);
 
+  // Editorial break images: pakai env override, fallback ke produk yang belum dipakai di hero
+  const break1Image =
+    EDITORIAL_1_IMAGE ?? featuredProducts[1]?.image ?? null;
+  const break2Image =
+    EDITORIAL_2_IMAGE ?? bestSellerProducts[0]?.image ?? sportProducts[0]?.image ?? null;
+
   const trustFeatures = [
-    { icon: Truck,      title: 'Gratis Ongkir',     desc: 'Pesanan Rp200rb+'        },
-    { icon: Shield,     title: 'Garansi Resmi',      desc: '100% Produk Original'    },
-    { icon: CreditCard, title: 'Pembayaran Aman',    desc: 'Transfer & E-Wallet'     },
-    // { icon: Headphones, title: 'Support 24/7',       desc: 'Siap Bantu Kamu'         },
+    { icon: Truck, title: 'Gratis Ongkir', desc: 'Pesanan Rp200rb+' },
+    { icon: Shield, title: 'Garansi Resmi', desc: '100% Produk Original' },
+    { icon: CreditCard, title: 'Pembayaran Aman', desc: 'Transfer & E-Wallet' },
   ];
 
   const whyFeatures = [
     {
       icon: Tag,
       title: 'Koleksi Selalu Update',
-      descShort: 'Tren fashion terbaru hadir setiap minggu. Tampil modis setiap hari.',
-      descLong:  'Tren fashion terbaru hadir setiap minggu. Dari pakaian kasual hingga olahraga — semua ada untuk tampil modis setiap hari.',
+      descShort:
+        'Tren fashion terbaru hadir setiap minggu. Tampil modis setiap hari.',
+      descLong:
+        'Tren fashion terbaru hadir setiap minggu. Dari pakaian kasual hingga olahraga — semua ada untuk tampil modis setiap hari.',
     },
     {
       icon: Truck,
       title: 'Pengiriman Cepat & Aman',
       descShort: 'Dikemas rapi, dikirim 1x24 jam via JNE, SiCepat, J&T.',
-      descLong:  'Pesanan dikemas rapi dengan pelindung khusus dan dikirim dalam 1x24 jam. Didukung JNE, SiCepat, J&T ke seluruh Indonesia.',
+      descLong:
+        'Pesanan dikemas rapi dengan pelindung khusus dan dikirim dalam 1x24 jam. Didukung JNE, SiCepat, J&T ke seluruh Indonesia.',
     },
     {
       icon: RotateCcw,
       title: 'Gratis Retur 7 Hari',
       descShort: 'Tidak pas atau tidak sesuai? Kembalikan tanpa ribet.',
-      descLong:  'Ukuran tidak pas atau warna tidak sesuai foto? Kembalikan dalam 7 hari, kami proses pengembalian tanpa pertanyaan.',
+      descLong:
+        'Ukuran tidak pas atau warna tidak sesuai foto? Kembalikan dalam 7 hari, kami proses pengembalian tanpa pertanyaan.',
     },
   ];
 
   return (
     <div className="bg-background">
-
-      {/* ══════════════ BANNER SLIDER ══════════════ */}
-      {banners.length > 0 && (
-        <section>
-          <BannerSlider banners={banners} />
-        </section>
-      )}
+      {/* ══════════════ HERO EDITORIAL ══════════════ */}
+      <HeroEditorial imageUrl={heroConfig.imageUrl} caption={heroConfig.caption} />
 
       {/* ══════════════ TRUST BAR ══════════════ */}
-      {/* Unified gold icons, no independent accent colors, divider-based layout */}
       <section className="py-4 md:py-5 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Mobile: 2 items */}
+          {/* Mobile */}
           <div className="flex md:hidden justify-center gap-3">
             {[trustFeatures[0], trustFeatures[1]].map((f) => (
-              <div key={f.title} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border">
+              <div
+                key={f.title}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-border"
+              >
                 <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <f.icon className="w-3 h-3" />
                 </div>
-                <span className="text-xs font-medium text-foreground">{f.title}</span>
+                <span className="text-xs font-medium text-foreground">
+                  {f.title}
+                </span>
               </div>
             ))}
           </div>
-          {/* Desktop: 3 cols separated by dividers */}
+          {/* Desktop */}
           <div className="hidden md:grid grid-cols-3 divide-x divide-border">
             {trustFeatures.map((feature, i) => (
               <div
                 key={feature.title}
                 className={[
                   'flex items-center gap-3 py-2 px-6',
-                  i === 0 ? 'pl-0 justify-start' : i === trustFeatures.length - 1 ? 'pr-0 justify-end' : 'justify-center',
+                  i === 0
+                    ? 'pl-0 justify-start'
+                    : i === trustFeatures.length - 1
+                      ? 'pr-0 justify-end'
+                      : 'justify-center',
                 ].join(' ')}
               >
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <feature.icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm text-foreground">{feature.title}</p>
+                  <p className="font-semibold text-sm text-foreground">
+                    {feature.title}
+                  </p>
                   <p className="text-xs text-muted-foreground">{feature.desc}</p>
                 </div>
               </div>
@@ -96,19 +134,22 @@ export default async function HomePage() {
       </section>
 
       {/* ══════════════ PRODUK UNGGULAN ══════════════ */}
-      {/* No eyebrow. Direct headline. bg-background (vault black) */}
-      <section className="py-10 md:py-16">
+      <section id="unggulan" className="py-10 md:py-16 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-6 md:mb-10">
             <div>
               <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
                 Produk Unggulan
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">Pilihan terbaik minggu ini</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Pilihan terbaik minggu ini
+              </p>
             </div>
             <Button
-              asChild variant="ghost" size="sm"
-              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:text-primary-hover hover:bg-accent text-xs md:text-sm shrink-0"
             >
               <Link href="/products">
                 Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -128,12 +169,22 @@ export default async function HomePage() {
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk unggulan.</p>
-                <p className="text-xs text-muted-foreground">Jelajahi seluruh koleksi di halaman produk.</p>
+                <p className="text-sm font-medium text-foreground mb-1">
+                  Belum ada produk unggulan.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Jelajahi seluruh koleksi di halaman produk.
+                </p>
               </div>
-              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary-hover hover:bg-primary/5">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-primary hover:text-primary-hover hover:bg-accent"
+              >
                 <Link href="/products">
-                  Jelajahi Semua Produk <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  Jelajahi Semua Produk{' '}
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Link>
               </Button>
             </div>
@@ -141,47 +192,45 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════ MEMBER STRIP ══════════════ */}
-      {/* Editorial replacement for flash-sale promo block.
-          No animation, no circles, no gradient — confident and restrained. */}
-      <section className="py-4 md:py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-xl border border-border bg-card px-6 py-5 md:px-10 md:py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-foreground font-semibold text-sm md:text-base text-balance">
-                Member mendapat akses lebih awal ke koleksi baru.
-              </p>
-              <p className="text-muted-foreground text-xs md:text-sm mt-1">
-                Gratis. Daftar sekali, nikmati selamanya.
-              </p>
-            </div>
-            <Button
-              asChild size="sm"
-              className="shrink-0 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg px-5 shadow-md shadow-primary/20"
-            >
-              <Link href="/register">
-                Daftar Sekarang <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-              </Link>
-            </Button>
+      {/* ══════════════ BANNER SLIDER (opsional) ══════════════ */}
+      {banners.length > 0 && (
+        <section className="pt-2 pb-6 md:pt-4 md:pb-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BannerSlider banners={banners} />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* ══════════════ EDITORIAL BREAK #1 — Koleksi baru ══════════════ */}
+      <EditorialBreak
+        eyebrow="Koleksi Baru"
+        title="Musim ini, siluet lebih tegas."
+        body="Bahan yang bergerak bersama tubuh. Warna yang tenang dipilih untuk tetap relevan di luar musim. Diproduksi dalam jumlah terbatas."
+        ctaLabel="Jelajahi New Arrival"
+        ctaHref="/products?sort=newest"
+        imageUrl={break1Image}
+        imageAlt="Koleksi baru Onetone"
+      />
 
       {/* ══════════════ NEW ARRIVAL ══════════════ */}
-      <section className="py-10 md:py-16 bg-card">
+      <section className="pb-10 md:pb-16 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-6 md:mb-10">
             <div>
               <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
                 New Arrival
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">Koleksi baru minggu ini</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Koleksi baru minggu ini
+              </p>
             </div>
             <Button
-              asChild variant="ghost" size="sm"
-              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:text-primary-hover hover:bg-accent text-xs md:text-sm shrink-0"
             >
-              <Link href="/products">
+              <Link href="/products?sort=newest">
                 Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Link>
             </Button>
@@ -199,102 +248,79 @@ export default async function HomePage() {
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground mb-1">Belum ada koleksi terbaru.</p>
-                <p className="text-xs text-muted-foreground">Lihat semua produk yang tersedia sekarang.</p>
-              </div>
-              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary-hover hover:bg-primary/5">
-                <Link href="/products">
-                  Lihat Semua Produk <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Link>
-              </Button>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ══════════════ BEST SELLER ══════════════ */}
-      <section className="py-10 md:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-6 md:mb-10">
-            <div>
-              <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
-                Best Seller
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">Paling banyak dibeli</p>
-            </div>
-            <Button
-              asChild variant="ghost" size="sm"
-              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
-            >
-              <Link href="/products">
-                Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Link>
-            </Button>
-          </div>
-
-          {bestSellerProducts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-              {bestSellerProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            <div className="py-16 flex flex-col items-center gap-4 text-center">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Flame className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk best seller.</p>
-                <p className="text-xs text-muted-foreground">Tandai produk sebagai best seller di dashboard admin.</p>
+                <p className="text-sm font-medium text-foreground mb-1">
+                  Belum ada koleksi terbaru.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Lihat semua produk yang tersedia sekarang.
+                </p>
               </div>
             </div>
           )}
         </div>
       </section>
 
-      {/* ══════════════ KOLEKSI OLAHRAGA ══════════════ */}
-      <section className="py-10 md:py-16 bg-card">
+      {/* ══════════════ EDITORIAL BREAK #2 — Untuk rutinitas aktif ══════════════ */}
+      <EditorialBreak
+        eyebrow="Untuk Setiap Hari"
+        title="Dipakai di gym, nyaman ke coffee shop."
+        body="Bahan cepat kering, jahitan flat-lock, potongan yang tetap rapi setelah dicuci berkali-kali. Rutinitas aktif tanpa berganti outfit."
+        ctaLabel="Lihat Koleksi Olahraga"
+        ctaHref="/products?category=olahraga"
+        imageUrl={break2Image}
+        imageAlt="Koleksi olahraga Onetone"
+        reverse
+      />
+
+      {/* ══════════════ TAB: BEST SELLER + OLAHRAGA ══════════════ */}
+      <ProductTabs
+        defaultTabId="best-seller"
+        tabs={[
+          {
+            id: 'best-seller',
+            label: 'Best Seller',
+            sublabel: 'Paling banyak dibeli',
+            products: bestSellerProducts,
+            ctaHref: '/products?sort=popular',
+            emptyCopy: 'Belum ada produk best seller.',
+          },
+          {
+            id: 'olahraga',
+            label: 'Koleksi Olahraga',
+            sublabel: 'Tampil aktif setiap hari',
+            products: sportProducts,
+            ctaHref: '/products?category=olahraga',
+            emptyCopy: 'Belum ada produk di kategori olahraga.',
+          },
+        ]}
+      />
+
+      {/* ══════════════ MEMBER STRIP ══════════════ */}
+      <section className="py-4 md:py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-6 md:mb-10">
+          <div className="rounded-xl border border-border bg-card px-6 py-5 md:px-10 md:py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl md:text-3xl font-bold text-foreground text-balance">
-                Koleksi Olahraga
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">Tampil aktif setiap hari</p>
+              <p className="text-foreground font-semibold text-sm md:text-base text-balance">
+                Member mendapat akses lebih awal ke koleksi baru.
+              </p>
+              <p className="text-muted-foreground text-xs md:text-sm mt-1">
+                Gratis. Daftar sekali, nikmati selamanya.
+              </p>
             </div>
             <Button
-              asChild variant="ghost" size="sm"
-              className="text-primary hover:text-primary-hover hover:bg-primary/5 text-xs md:text-sm shrink-0"
+              asChild
+              size="sm"
+              className="shrink-0 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg px-5 shadow-md shadow-primary/20"
             >
-              <Link href="/products?category=olahraga">
-                Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              <Link href="/register">
+                Daftar Sekarang <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Link>
             </Button>
           </div>
-
-          {sportProducts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-              {sportProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            <div className="py-16 flex flex-col items-center gap-4 text-center">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Dumbbell className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Belum ada produk di kategori ini.</p>
-                <p className="text-xs text-muted-foreground">Tambahkan produk olahraga lewat dashboard admin.</p>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
       {/* ══════════════ WHY CHOOSE US ══════════════ */}
-      {/* Unified gold icons (no violet/amber/rose spread).
-          Desktop: flat border cards, hover shifts border to gold tint. */}
       <section className="py-10 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-6 md:mb-10">
@@ -303,7 +329,7 @@ export default async function HomePage() {
             </h2>
           </div>
 
-          {/* Mobile: stacked compact cards */}
+          {/* Mobile: stacked */}
           <div className="space-y-3 md:hidden">
             {whyFeatures.map((item) => (
               <div
@@ -314,14 +340,18 @@ export default async function HomePage() {
                   <item.icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-0.5">{item.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{item.descShort}</p>
+                  <h3 className="text-sm font-semibold text-foreground mb-0.5">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {item.descShort}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Desktop: 3-col flat cards */}
+          {/* Desktop: 3-col */}
           <div className="hidden md:grid md:grid-cols-3 gap-5">
             {whyFeatures.map((item) => (
               <div
@@ -334,7 +364,9 @@ export default async function HomePage() {
                 <h3 className="text-base font-semibold text-foreground mb-2 text-balance">
                   {item.title}
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.descLong}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {item.descLong}
+                </p>
               </div>
             ))}
           </div>
@@ -342,8 +374,6 @@ export default async function HomePage() {
       </section>
 
       {/* ══════════════ CTA FINAL ══════════════ */}
-      {/* Solid surface — no gradient, no blur-3xl orbs.
-          Single dominant primary CTA, ghost secondary. */}
       <section className="py-14 md:py-20 bg-surface border-t border-border">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3 text-balance">
@@ -354,7 +384,8 @@ export default async function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-3">
             <Button
-              asChild size="lg"
+              asChild
+              size="lg"
               className="bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg px-8 h-11 md:h-12 font-semibold shadow-lg shadow-primary/20"
             >
               <Link href="/products">
@@ -362,17 +393,16 @@ export default async function HomePage() {
               </Link>
             </Button>
             <Button
-              asChild variant="outline" size="lg"
+              asChild
+              variant="outline"
+              size="lg"
               className="rounded-lg px-8 h-11 md:h-12 border-border text-foreground hover:bg-muted/50"
             >
-              <Link href="/register">
-                Buat Akun Gratis
-              </Link>
+              <Link href="/register">Buat Akun Gratis</Link>
             </Button>
           </div>
         </div>
       </section>
-
     </div>
   );
 }
