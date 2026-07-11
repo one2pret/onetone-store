@@ -20,9 +20,9 @@ interface Props {
 }
 
 const TYPE_BADGE: Record<string, { label: string; icon: typeof Zap; badgeColor: string }> = {
-  express: { label: 'Express', icon: Zap, badgeColor: 'bg-amber-50 text-amber-700 border-amber-200' },
-  regular: { label: 'Regular', icon: Package, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
-  economy: { label: 'Ekonomi', icon: Wallet, badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  express: { label: 'Express', icon: Zap, badgeColor: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+  regular: { label: 'Regular', icon: Package, badgeColor: 'bg-sky-500/15 text-sky-400 border-sky-500/30' },
+  economy: { label: 'Ekonomi', icon: Wallet, badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
 };
 
 function formatDuration(d: string): string {
@@ -105,14 +105,14 @@ function RateCard({
       onClick={onSelect}
       className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
         selected
-          ? 'border-primary bg-primary/5 shadow-sm'
-          : 'border-slate-100 hover:border-slate-200 bg-white'
+          ? 'border-primary bg-accent shadow-sm'
+          : 'border-border hover:border-primary/40 bg-card'
       }`}
     >
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-slate-800 truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {rate.courier_service_name}
             </p>
             {badge && (
@@ -123,20 +123,20 @@ function RateCard({
             )}
           </div>
           <div className="flex items-center gap-1 mt-0.5">
-            <Clock className="w-3 h-3 text-slate-400" />
-            <p className="text-xs text-slate-500">
+            <Clock className="w-3 h-3 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
               {formatDuration(rate.duration)}
             </p>
           </div>
         </div>
 
         <div className="shrink-0 text-right flex items-center gap-2">
-          <span className={`text-sm font-semibold ${selected ? 'text-primary' : 'text-slate-800'}`}>
+          <span className={`text-sm font-semibold ${selected ? 'text-primary' : 'text-foreground'}`}>
             {formatRupiah(rate.price)}
           </span>
           {selected && (
             <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-              <Check className="w-3 h-3 text-white" />
+              <Check className="w-3 h-3 text-primary-foreground" />
             </div>
           )}
         </div>
@@ -148,20 +148,20 @@ function RateCard({
 export function ShippingOptions({ rates, loading, selectedRate, onSelect }: Props) {
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin mb-3 text-primary" />
-        <p className="text-sm font-medium">Menghitung ongkos kirim...</p>
-        <p className="text-xs text-slate-400 mt-1">Sedang mengecek tarif dari beberapa kurir</p>
+        <p className="text-sm font-medium text-foreground">Menghitung ongkos kirim...</p>
+        <p className="text-xs text-muted-foreground mt-1">Sedang mengecek tarif dari beberapa kurir</p>
       </div>
     );
   }
 
   if (!rates) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <Truck className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-        <p className="font-medium">Pilih alamat terlebih dahulu</p>
-        <p className="text-sm text-slate-400 mt-1">Opsi pengiriman akan muncul setelah alamat dipilih</p>
+      <div className="text-center py-12 text-muted-foreground">
+        <Truck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/60" />
+        <p className="font-medium text-foreground">Pilih alamat terlebih dahulu</p>
+        <p className="text-sm text-muted-foreground mt-1">Opsi pengiriman akan muncul setelah alamat dipilih</p>
       </div>
     );
   }
@@ -171,10 +171,10 @@ export function ShippingOptions({ rates, loading, selectedRate, onSelect }: Prop
 
   if (!hasRates) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <Truck className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-        <p className="font-medium">Tidak ada opsi pengiriman</p>
-        <p className="text-sm text-slate-400 mt-1">Coba gunakan alamat lain</p>
+      <div className="text-center py-12 text-muted-foreground">
+        <Truck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/60" />
+        <p className="font-medium text-foreground">Tidak ada opsi pengiriman</p>
+        <p className="text-sm text-muted-foreground mt-1">Coba gunakan alamat lain</p>
       </div>
     );
   }
@@ -184,17 +184,17 @@ export function ShippingOptions({ rates, loading, selectedRate, onSelect }: Prop
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-teal-50 border border-purple-100/50 rounded-xl">
+      <div className="flex items-center gap-3 p-3 bg-muted border border-border rounded-xl">
         <Image src="/images/bitship-logo.png" alt="Bitship" width={100} height={28} className="h-6 w-auto shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-slate-700">Data pengiriman realtime dari <span className="font-semibold text-purple-700">Bitship</span></p>
-          <p className="text-[11px] text-slate-400">{totalOptions} opsi pengiriman tersedia</p>
+          <p className="text-xs font-medium text-foreground">Data pengiriman realtime dari <span className="font-semibold text-primary">Bitship</span></p>
+          <p className="text-[11px] text-muted-foreground">{totalOptions} opsi pengiriman tersedia</p>
         </div>
         <a
           href="https://explore.bitship.com/id/ads/api"
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-[11px] font-medium text-purple-600 hover:text-purple-800 hover:underline transition"
+          className="shrink-0 text-[11px] font-medium text-primary hover:text-primary-hover hover:underline transition"
         >
           Pelajari Bitship &rarr;
         </a>
@@ -206,10 +206,10 @@ export function ShippingOptions({ rates, loading, selectedRate, onSelect }: Prop
         return (
           <div key={group.code}>
             <div className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center justify-center w-14 h-8 rounded-lg bg-slate-100 text-xs font-bold text-slate-700">
+              <span className="inline-flex items-center justify-center w-14 h-8 rounded-lg bg-muted border border-border text-xs font-bold text-foreground">
                 {courierLabel}
               </span>
-              <span className="text-xs text-slate-400">{group.rates.length} layanan</span>
+              <span className="text-xs text-muted-foreground">{group.rates.length} layanan</span>
             </div>
             <div className="space-y-2">
               {group.rates.map((rate, i) => (

@@ -15,7 +15,7 @@ import type { LocationData } from '@/components/shop/MapPicker';
 const MapPicker = dynamic(() => import('@/components/shop/MapPicker').then(m => m.MapPicker), {
   ssr: false,
   loading: () => (
-    <div className="h-[250px] rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-sm text-slate-400">
+    <div className="h-[250px] rounded-lg border border-border bg-input flex items-center justify-center text-sm text-muted-foreground">
       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
       Memuat peta...
     </div>
@@ -83,7 +83,7 @@ function RegionSelect({
 }) {
   return (
     <div>
-      <Label htmlFor={name} className="text-sm text-slate-600">{label} *</Label>
+      <Label htmlFor={name} className="text-sm text-foreground">{label} *</Label>
       <div className="relative mt-1">
         <select
           id={name}
@@ -94,7 +94,7 @@ function RegionSelect({
             const opt = options.find((o) => o.id === e.target.value);
             onChange(e.target.value, opt ? toTitleCase(opt.name) : '');
           }}
-          className="w-full h-10 pl-3 pr-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-800 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-10 pl-3 pr-9 rounded-lg border border-border bg-input text-sm text-foreground appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">
             {loading ? 'Memuat...' : `Pilih ${label}`}
@@ -105,7 +105,7 @@ function RegionSelect({
             </option>
           ))}
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
@@ -116,7 +116,7 @@ function RegionSelect({
       {/* Hidden inputs: name (display) + ID (for re-select on edit) */}
       <input type="hidden" name={name} value={value ? (options.find(o => o.id === value) ? toTitleCase(options.find(o => o.id === value)!.name) : '') : ''} />
       <input type="hidden" name={`${name}Id`} value={value} />
-      {error && <p className="text-red-500 text-xs mt-1">{error[0]}</p>}
+      {error && <p className="text-destructive text-xs mt-1">{error[0]}</p>}
     </div>
   );
 }
@@ -159,43 +159,43 @@ function AddAddressForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-slate-800">Tambah Alamat Baru</h3>
-        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+        <h3 className="font-semibold text-foreground">Tambah Alamat Baru</h3>
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {errors._form && (
-        <p className="text-red-500 text-sm">{errors._form[0]}</p>
+        <p className="text-destructive text-sm">{errors._form[0]}</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="recipientName" className="text-sm text-slate-600">Nama Penerima *</Label>
+          <Label htmlFor="recipientName" className="text-sm text-foreground">Nama Penerima *</Label>
           <Input id="recipientName" name="recipientName" required placeholder="Nama lengkap" className="mt-1" />
-          {errors.recipientName && <p className="text-red-500 text-xs mt-1">{errors.recipientName[0]}</p>}
+          {errors.recipientName && <p className="text-destructive text-xs mt-1">{errors.recipientName[0]}</p>}
         </div>
         <div>
-          <Label htmlFor="phone" className="text-sm text-slate-600">No. HP *</Label>
+          <Label htmlFor="phone" className="text-sm text-foreground">No. HP *</Label>
           <Input id="phone" name="phone" required placeholder="08xxxxxxxxxx" className="mt-1" />
-          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone[0]}</p>}
+          {errors.phone && <p className="text-destructive text-xs mt-1">{errors.phone[0]}</p>}
         </div>
       </div>
 
       <div>
-        <Label htmlFor="address" className="text-sm text-slate-600">Alamat Lengkap *</Label>
+        <Label htmlFor="address" className="text-sm text-foreground">Alamat Lengkap *</Label>
         <Textarea id="address" name="address" required rows={2} placeholder="Jalan, RT/RW, No. Rumah..." className="mt-1" />
-        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address[0]}</p>}
+        {errors.address && <p className="text-destructive text-xs mt-1">{errors.address[0]}</p>}
       </div>
 
       <div>
-        <Label htmlFor="detail" className="text-sm text-slate-600">Detail Tambahan</Label>
+        <Label htmlFor="detail" className="text-sm text-foreground">Detail Tambahan</Label>
         <Input id="detail" name="detail" placeholder="Patokan, warna rumah, dll." className="mt-1" />
       </div>
 
       {/* Map Picker */}
       <div>
-        <Label className="text-sm text-slate-600">Pin Lokasi di Peta</Label>
+        <Label className="text-sm text-foreground">Pin Lokasi di Peta</Label>
         <div className="mt-1">
           <MapPicker
             onLocationSelect={(loc: LocationData) => {
@@ -251,20 +251,20 @@ function AddAddressForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
           error={errors.district}
         />
         <div>
-          <Label htmlFor="postalCode" className="text-sm text-slate-600">Kode Pos *</Label>
+          <Label htmlFor="postalCode" className="text-sm text-foreground">Kode Pos *</Label>
           <Input id="postalCode" name="postalCode" required placeholder="12160" className="mt-1" />
-          {errors.postalCode && <p className="text-red-500 text-xs mt-1">{errors.postalCode[0]}</p>}
+          {errors.postalCode && <p className="text-destructive text-xs mt-1">{errors.postalCode[0]}</p>}
         </div>
       </div>
 
       <div>
-        <Label htmlFor="label" className="text-sm text-slate-600">Label</Label>
+        <Label htmlFor="label" className="text-sm text-foreground">Label</Label>
         <Input id="label" name="label" placeholder="Rumah, Kantor, dll." className="mt-1" />
       </div>
 
       <div className="flex items-center gap-2">
-        <input type="checkbox" id="isDefault" name="isDefault" className="rounded border-slate-300" />
-        <Label htmlFor="isDefault" className="text-sm text-slate-600 cursor-pointer">Jadikan alamat utama</Label>
+        <input type="checkbox" id="isDefault" name="isDefault" className="rounded border-border" />
+        <Label htmlFor="isDefault" className="text-sm text-foreground cursor-pointer">Jadikan alamat utama</Label>
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
@@ -296,7 +296,7 @@ export function AddressSelector({ addresses, selectedId, onSelect, onAddressCrea
 
   if (showForm) {
     return (
-      <div className="border border-slate-200 rounded-xl p-5">
+      <div className="border border-border rounded-xl p-5">
         <AddAddressForm onSuccess={handleAddressCreated} onCancel={() => setShowForm(false)} />
       </div>
     );
@@ -305,9 +305,9 @@ export function AddressSelector({ addresses, selectedId, onSelect, onAddressCrea
   if (addresses.length === 0) {
     return (
       <div className="text-center py-8">
-        <MapPin className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-        <p className="text-slate-600 font-medium">Belum ada alamat tersimpan</p>
-        <p className="text-sm text-slate-400 mt-1 mb-5">Tambahkan alamat pengiriman untuk melanjutkan</p>
+        <MapPin className="w-10 h-10 mx-auto mb-3 text-muted-foreground/60" />
+        <p className="text-foreground font-medium">Belum ada alamat tersimpan</p>
+        <p className="text-sm text-muted-foreground mt-1 mb-5">Tambahkan alamat pengiriman untuk melanjutkan</p>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="w-4 h-4 mr-1.5" />
           Tambah Alamat
@@ -325,31 +325,31 @@ export function AddressSelector({ addresses, selectedId, onSelect, onAddressCrea
           onClick={() => onSelect(addr.id)}
           className={`w-full text-left p-4 rounded-lg border-2 transition ${
             selectedId === addr.id
-              ? 'border-primary bg-primary/5'
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-primary bg-accent'
+              : 'border-border hover:border-border'
           }`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-slate-800">{addr.recipientName}</span>
+                <span className="font-medium text-foreground">{addr.recipientName}</span>
                 {addr.isDefault && (
                   <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                     Default
                   </span>
                 )}
                 {addr.label && (
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-muted text-foreground px-2 py-0.5 rounded-full">
                     {addr.label}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-slate-600">{addr.phone}</p>
-              <p className="text-sm text-slate-500 mt-1">{addr.address}</p>
+              <p className="text-sm text-foreground">{addr.phone}</p>
+              <p className="text-sm text-muted-foreground mt-1">{addr.address}</p>
               {addr.detail && (
-                <p className="text-sm text-slate-400">{addr.detail}</p>
+                <p className="text-sm text-muted-foreground">{addr.detail}</p>
               )}
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {addr.district}, {addr.city}, {addr.province} {addr.postalCode}
               </p>
             </div>
@@ -363,7 +363,7 @@ export function AddressSelector({ addresses, selectedId, onSelect, onAddressCrea
       <button
         type="button"
         onClick={() => setShowForm(true)}
-        className="w-full p-4 rounded-lg border-2 border-dashed border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-primary"
+        className="w-full p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-accent transition flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
         <Plus className="w-4 h-4" />
         Tambah Alamat Baru

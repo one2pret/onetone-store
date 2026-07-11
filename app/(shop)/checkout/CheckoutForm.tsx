@@ -136,17 +136,17 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
             <div
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition ${
                 step === s.id
-                  ? 'bg-primary text-white'
+                  ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
                   : step > s.id
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-slate-100 text-slate-400'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-muted text-muted-foreground'
               }`}
             >
               <s.icon className="w-4 h-4" />
               {s.label}
             </div>
             {i < STEPS.length - 1 && (
-              <ChevronRight className="w-4 h-4 text-slate-300" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             )}
           </div>
         ))}
@@ -154,15 +154,15 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-100 text-red-700 rounded-lg mb-6">
+        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg mb-6 text-sm">
           {error}
         </div>
       )}
 
       {/* Step 1: Address */}
       {step === 1 && (
-        <div className="bg-white rounded-xl border border-slate-100 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
             Pilih Alamat Pengiriman
           </h2>
           <AddressSelector
@@ -184,18 +184,18 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
       {step === 2 && (
         <>
         {routeInfo && (
-          <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/10 rounded-xl mb-4">
+          <div className="flex items-center gap-3 p-4 bg-accent border border-border rounded-xl mb-4">
             <Store className="w-5 h-5 text-primary shrink-0" />
             <div className="flex items-center gap-2 min-w-0 text-sm">
-              <span className="text-slate-700 truncate">{routeInfo.originCity}</span>
+              <span className="text-muted-foreground truncate">{routeInfo.originCity}</span>
               <ArrowRight className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-slate-900 font-semibold truncate">{routeInfo.destinationCity}</span>
+              <span className="text-foreground font-semibold truncate">{routeInfo.destinationCity}</span>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-100 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
             Pilih Kurir Pengiriman
           </h2>
 
@@ -204,11 +204,11 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
             const addr = addressList.find(a => a.id === selectedAddressId);
             if (!addr) return null;
             return (
-              <div className="mb-5 p-3 bg-slate-50 rounded-lg flex items-start gap-3">
+              <div className="mb-5 p-3 bg-muted rounded-lg flex items-start gap-3">
                 <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800">{addr.recipientName} <span className="text-slate-400 font-normal">{addr.phone}</span></p>
-                  <p className="text-sm text-slate-500 mt-0.5">{addr.address}, {addr.district}, {addr.city}, {addr.province}</p>
+                  <p className="text-sm font-medium text-foreground">{addr.recipientName} <span className="text-muted-foreground font-normal">{addr.phone}</span></p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{addr.address}, {addr.district}, {addr.city}, {addr.province}</p>
                 </div>
                 <button
                   type="button"
@@ -245,23 +245,23 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
       {step === 3 && (
         <div className="space-y-6">
           {/* Summary */}
-          <div className="bg-white rounded-xl border border-slate-100 p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               Review Pesanan
             </h2>
 
             {/* Selected Address */}
             {selectedAddressId && (
-              <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs text-slate-500 mb-1">Alamat Pengiriman</p>
+              <div className="mb-4 p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Alamat Pengiriman</p>
                 {(() => {
                   const addr = addressList.find(a => a.id === selectedAddressId);
                   if (!addr) return null;
                   return (
                     <>
-                      <p className="text-sm font-medium">{addr.recipientName}</p>
-                      <p className="text-sm text-slate-600">{addr.phone}</p>
-                      <p className="text-sm text-slate-500">{addr.address}</p>
+                      <p className="text-sm font-medium text-foreground">{addr.recipientName}</p>
+                      <p className="text-sm text-muted-foreground">{addr.phone}</p>
+                      <p className="text-sm text-muted-foreground">{addr.address}</p>
                     </>
                   );
                 })()}
@@ -270,37 +270,37 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
 
             {/* Selected Courier */}
             {selectedRate && (
-              <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-                <p className="text-xs text-slate-500 mb-1">Kurir</p>
-                <p className="text-sm font-medium">
+              <div className="mb-4 p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Kurir</p>
+                <p className="text-sm font-medium text-foreground">
                   {selectedRate.courier_name} {selectedRate.courier_service_name}
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   Estimasi {formatDuration(selectedRate.duration)} — {formatRupiah(selectedRate.price)}
                 </p>
               </div>
             )}
 
             {/* Price Summary */}
-            <div className="border-t border-slate-100 pt-4 space-y-2">
-              <div className="flex justify-between text-sm text-slate-600">
+            <div className="border-t border-border pt-4 space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Subtotal ({cart.length} item)</span>
-                <span>{formatRupiah(subtotal)}</span>
+                <span className="text-foreground">{formatRupiah(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Ongkos Kirim</span>
-                <span>{formatRupiah(shippingCost)}</span>
+                <span className="text-foreground">{formatRupiah(shippingCost)}</span>
               </div>
-              <div className="border-t border-slate-100 pt-2 flex justify-between font-semibold text-lg">
-                <span>Total</span>
+              <div className="border-t border-border pt-2 flex justify-between font-semibold text-lg">
+                <span className="text-foreground">Total</span>
                 <span className="text-primary">{formatRupiah(total)}</span>
               </div>
             </div>
           </div>
 
           {/* Notes */}
-          <div className="bg-white rounded-xl border border-slate-100 p-6">
-            <Label htmlFor="notes" className="text-sm font-medium text-slate-700">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <Label htmlFor="notes" className="text-sm font-medium text-foreground">
               Catatan (Opsional)
             </Label>
             <Textarea
