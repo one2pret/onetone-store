@@ -144,7 +144,7 @@ export function GoogleDrivePicker({ productId, onImported }: Props) {
       type="button"
       onClick={openPicker}
       disabled={busy}
-      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-[#51B1A6] hover:text-[#51B1A6] transition-colors disabled:opacity-50 disabled:pointer-events-none"
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:pointer-events-none"
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
         <path d="M7.71 3.5L1.15 15l3.43 6 6.56-11.5L7.71 3.5z" fill="#0066DA" />

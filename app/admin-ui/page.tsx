@@ -62,8 +62,8 @@ export default function DashboardUIPage() {
             <aside className="bg-gradient-to-b from-slate-800 to-slate-900 h-[520px] flex flex-col">
               {/* Logo */}
               <div className="flex h-16 items-center gap-3 px-6 border-b border-slate-700/50">
-                <div className="w-8 h-8 bg-[#51B1A6] rounded-lg flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-primary-foreground" />
                 </div>
                 <span className="text-lg font-semibold text-white">Admin Panel</span>
               </div>
@@ -93,7 +93,7 @@ export default function DashboardUIPage() {
                     <li key={item.name}>
                       <div className={`flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-medium transition cursor-pointer ${
                         item.active
-                          ? 'bg-[#51B1A6] text-white shadow-lg shadow-[#51B1A6]/20'
+                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                           : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
                       }`}>
                         <div className="flex items-center gap-3">
@@ -168,8 +168,8 @@ export default function DashboardUIPage() {
 
                   {/* User */}
                   <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
-                    <div className="w-8 h-8 rounded-full bg-[#51B1A6]/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-[#51B1A6]" />
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
                     </div>
                     <div className="hidden sm:block">
                       <p className="text-sm font-medium text-slate-800">Admin Store</p>
@@ -249,7 +249,7 @@ export default function DashboardUIPage() {
             { title: 'Total Produk', value: '17', accent: 'border-l-purple-500', icon: Package },
             { title: 'Produk Aktif', value: '15', accent: 'border-l-emerald-500', icon: CheckCircle2 },
             { title: 'Sedang Dikirim', value: '4', accent: 'border-l-blue-500', icon: Truck },
-            { title: 'Selesai Bulan Ini', value: '28', accent: 'border-l-[#51B1A6]', icon: Star },
+            { title: 'Selesai Bulan Ini', value: '28', accent: 'border-l-primary', icon: Star },
           ].map((card) => (
             <div key={card.title} className={`bg-white rounded-xl p-5 shadow-sm border border-slate-200 border-l-4 ${card.accent}`}>
               <div className="flex items-center gap-3">
@@ -284,7 +284,7 @@ export default function DashboardUIPage() {
               <div className="flex gap-1">
                 {['Hari', 'Minggu', 'Bulan'].map((t, i) => (
                   <button key={t} className={`px-3 py-1 text-xs font-medium rounded-lg transition ${
-                    i === 2 ? 'bg-[#51B1A6] text-white' : 'text-slate-500 hover:bg-slate-100'
+                    i === 2 ? 'bg-primary text-primary-foreground' : 'text-slate-500 hover:bg-slate-100'
                   }`}>{t}</button>
                 ))}
               </div>
@@ -337,7 +337,7 @@ export default function DashboardUIPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#51B1A6] rounded-full"
+                        className="h-full bg-primary rounded-full"
                         style={{ width: `${Math.min(item.pct, 100)}%` }}
                       />
                     </div>
@@ -401,7 +401,7 @@ export default function DashboardUIPage() {
                 key={tab.label}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
                   tab.active
-                    ? 'bg-[#51B1A6] text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -436,7 +436,7 @@ export default function DashboardUIPage() {
                 ].map((row) => (
                   <tr key={row.no} className="hover:bg-slate-50/50 transition">
                     <td className="px-5 py-4">
-                      <span className="font-mono text-sm font-medium text-[#51B1A6]">{row.no}</span>
+                      <span className="font-mono text-sm font-medium text-primary">{row.no}</span>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2.5">
@@ -481,7 +481,7 @@ export default function DashboardUIPage() {
             <p className="text-sm text-slate-500">Menampilkan 1-5 dari 43 pesanan</p>
             <div className="flex items-center gap-1">
               <button className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition">Prev</button>
-              <button className="px-3 py-1.5 text-sm bg-[#51B1A6] text-white rounded-lg">1</button>
+              <button className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg">1</button>
               <button className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition">2</button>
               <button className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition">3</button>
               <button className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition">Next</button>
@@ -539,7 +539,7 @@ export default function DashboardUIPage() {
                 </div>
                 <div className="flex justify-between text-base font-bold pt-2 border-t border-slate-100">
                   <span className="text-slate-800">Total</span>
-                  <span className="text-[#51B1A6]">{formatRp(22817000)}</span>
+                  <span className="text-primary">{formatRp(22817000)}</span>
                 </div>
               </div>
             </div>
@@ -569,7 +569,7 @@ export default function DashboardUIPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <span className="text-slate-500">Resi</span>
-                  <span className="col-span-2 font-mono text-[#51B1A6]">JNE1234567890</span>
+                  <span className="col-span-2 font-mono text-primary">JNE1234567890</span>
                 </div>
               </div>
             </div>
@@ -592,11 +592,11 @@ export default function DashboardUIPage() {
                     <div key={i} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          step.active ? 'bg-[#51B1A6] text-white' : 'bg-slate-100 text-slate-400'
+                          step.active ? 'bg-primary text-primary-foreground' : 'bg-slate-100 text-slate-400'
                         }`}>
                           <step.icon className="w-4 h-4" />
                         </div>
-                        {i < 4 && <div className={`w-0.5 h-10 ${step.active ? 'bg-[#51B1A6]' : 'bg-slate-200'}`} />}
+                        {i < 4 && <div className={`w-0.5 h-10 ${step.active ? 'bg-primary' : 'bg-slate-200'}`} />}
                       </div>
                       <div className="pb-8">
                         <p className={`text-sm font-medium ${step.active ? 'text-slate-800' : 'text-slate-600'}`}>{step.status}</p>
@@ -618,8 +618,8 @@ export default function DashboardUIPage() {
               </div>
               <div className="p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-[#51B1A6]/10 flex items-center justify-center">
-                    <User className="w-5 h-5 text-[#51B1A6]" />
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-800">Rina Kartika</p>
@@ -667,7 +667,7 @@ export default function DashboardUIPage() {
                 <p className="text-xs text-slate-500 mb-3">
                   Kirim ke kurir via Bitship. Tracking ID otomatis tersimpan.
                 </p>
-                <button className="w-full py-2.5 bg-[#51B1A6] hover:bg-[#3D9A8F] text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
+                <button className="w-full py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium rounded-lg transition flex items-center justify-center gap-2">
                   <Truck className="w-4 h-4" />
                   Kirim via Bitship
                 </button>
@@ -726,7 +726,7 @@ export default function DashboardUIPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Produk</label>
               <input
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#51B1A6] focus:border-transparent transition"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 placeholder="Masukkan nama produk"
                 defaultValue="iPhone 15 Pro Max 256GB"
               />
@@ -739,7 +739,7 @@ export default function DashboardUIPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Kategori</label>
               <div className="relative">
-                <select className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#51B1A6] focus:border-transparent transition">
+                <select className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition">
                   <option>Smartphone & Tablet</option>
                   <option>Laptop & Komputer</option>
                   <option>Audio & Headphone</option>
@@ -753,7 +753,7 @@ export default function DashboardUIPage() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Stok</label>
               <input
                 type="number"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#51B1A6] focus:border-transparent transition"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                 defaultValue="12"
               />
               <p className="text-xs text-slate-400 mt-1">Masukkan jumlah stok tersedia</p>
@@ -764,7 +764,7 @@ export default function DashboardUIPage() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Deskripsi</label>
               <textarea
                 rows={3}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#51B1A6] focus:border-transparent transition resize-none"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition resize-none"
                 defaultValue="iPhone 15 Pro Max dengan chip A17 Pro, kamera 48MP..."
               />
             </div>
@@ -775,7 +775,7 @@ export default function DashboardUIPage() {
                 <p className="text-sm font-medium text-slate-700">Produk Aktif</p>
                 <p className="text-xs text-slate-500">Tampilkan di katalog</p>
               </div>
-              <div className="w-11 h-6 bg-[#51B1A6] rounded-full relative cursor-pointer">
+              <div className="w-11 h-6 bg-primary rounded-full relative cursor-pointer">
                 <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm" />
               </div>
             </div>
@@ -793,7 +793,7 @@ export default function DashboardUIPage() {
 
           {/* Form Actions */}
           <div className="flex items-center gap-3 mt-6 pt-6 border-t border-slate-100">
-            <button className="px-6 py-2.5 bg-[#51B1A6] hover:bg-[#3D9A8F] text-white text-sm font-medium rounded-lg transition">
+            <button className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium rounded-lg transition">
               Simpan Produk
             </button>
             <button className="px-6 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition">
@@ -857,7 +857,7 @@ export default function DashboardUIPage() {
             <ShoppingCart className="w-12 h-12 text-slate-200 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-slate-700 mb-1">Belum ada pesanan</h3>
             <p className="text-xs text-slate-400 mb-4">Pesanan akan muncul saat customer mulai berbelanja.</p>
-            <button className="px-4 py-2 bg-[#51B1A6] text-white text-xs font-medium rounded-lg">
+            <button className="px-4 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-lg">
               Lihat Produk
             </button>
           </div>
@@ -865,7 +865,7 @@ export default function DashboardUIPage() {
             <Package className="w-12 h-12 text-slate-200 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-slate-700 mb-1">Tidak ada produk</h3>
             <p className="text-xs text-slate-400 mb-4">Mulai tambahkan produk ke toko Anda.</p>
-            <button className="px-4 py-2 bg-[#51B1A6] text-white text-xs font-medium rounded-lg flex items-center gap-1.5 mx-auto">
+            <button className="px-4 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-lg flex items-center gap-1.5 mx-auto">
               <Plus className="w-3.5 h-3.5" /> Tambah Produk
             </button>
           </div>
@@ -884,7 +884,7 @@ export default function DashboardUIPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-semibold text-slate-800">Produk</h3>
-            <button className="flex items-center gap-1.5 px-4 py-2 bg-[#51B1A6] hover:bg-[#3D9A8F] text-white text-sm font-medium rounded-lg transition">
+            <button className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium rounded-lg transition">
               <Plus className="w-4 h-4" />
               Tambah Produk
             </button>

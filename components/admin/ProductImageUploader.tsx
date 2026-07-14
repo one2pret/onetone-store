@@ -156,8 +156,8 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
         className={cn(
           "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors",
           isDragging
-            ? "border-[#51B1A6] bg-[#51B1A6]/5"
-            : "border-gray-200 hover:border-[#51B1A6] hover:bg-gray-50",
+            ? "border-primary bg-primary/5"
+            : "border-gray-200 hover:border-primary hover:bg-gray-50",
           isPending && "opacity-50 pointer-events-none"
         )}
       >
@@ -193,7 +193,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
               key={img.id}
               className={cn(
                 "rounded-xl border-2 transition-colors overflow-hidden",
-                img.isPrimary ? "border-[#51B1A6]" : "border-transparent"
+                img.isPrimary ? "border-primary" : "border-transparent"
               )}
             >
               {/* Gambar */}
@@ -204,7 +204,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                 />
 
                 {img.isPrimary && (
-                  <div className="absolute top-1.5 left-1.5 bg-[#51B1A6] text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full z-10">
+                  <div className="absolute top-1.5 left-1.5 bg-primary text-primary-foreground text-[10px] font-medium px-1.5 py-0.5 rounded-full z-10">
                     Utama
                   </div>
                 )}
@@ -221,7 +221,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                     <button
                       onClick={() => handleSetPrimary(img.id)}
                       disabled={isPending}
-                      className="bg-white text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-[#51B1A6] hover:text-white transition-colors"
+                      className="bg-white text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
                     >
                       Utama
                     </button>

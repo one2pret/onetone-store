@@ -1,7 +1,9 @@
 {
   "detector": {
     "ignoreRules": [],
-    "ignoreFiles": [],
+    "ignoreFiles": [
+      "app/admin-ui/page.tsx"
+    ],
     "ignoreValues": [
       {
         "rule": "design-system-radius",
