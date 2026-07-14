@@ -1,8 +1,11 @@
 # onetone-store — Project Rules & AI Context
 
 ## Active Sprint
-Phase 0: Rebrand gold-dark → white-dark. Spec: docs/marketplace/01-rebrand-white-dark.md
-Opsi yang dipilih: [A / B] ← isi ini dulu
+Phase 0: Rebrand gold-dark → white-dark — ✅ SELESAI (2026-07-14)
+Opsi dipilih: B (monokrom + micro-gold untuk premium badge)
+Commit: c674632 — semua token, hex replacement, build clean, docs updated
+
+Phase 1: Next — TBD
 
 ## Project Overview
 
