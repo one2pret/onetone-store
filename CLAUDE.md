@@ -20,7 +20,11 @@ Commit: 997a5de — /account hub, /profile, /membership, /points, /vouchers
 BottomNav mobile, AccountNav sidebar, actions membership.ts + profile.ts
 Auth protected /account. 46 halaman build clean.
 
-Phase 4: Next — Membership mechanics di checkout (voucher apply, gratis ongkir, earn/redeem poin)
+Phase 4: Membership mechanics di checkout — ✅ SELESAI (2026-07-14)
+Commit: beb9381 — validateVoucher, calculatePoints, free shipping tier, xendit webhook earn+upgrade
+lib/membership-utils.ts (pure), 22 unit tests pass, build clean (46 halaman)
+
+Phase 5+: PPOB + seller onboarding — DEFERRED (out of scope MVP)
 
 ## Project Overview
 
