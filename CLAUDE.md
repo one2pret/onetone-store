@@ -15,7 +15,12 @@ Commit: 0c7f9c6 — (marketplace)/ + (checkout)/ route groups, 41 halaman, zero 
 Routes baru: / (marketplace home), /stores/[slug], /categories, /search
 Moves: cart/checkout/orders/addresses → (checkout)/, URL tidak berubah
 
-Phase 3: Next — Account area ("Saya"): profil, membership, poin, voucher, history
+Phase 3: Account area ("Saya") — ✅ SELESAI (2026-07-14)
+Commit: 997a5de — /account hub, /profile, /membership, /points, /vouchers
+BottomNav mobile, AccountNav sidebar, actions membership.ts + profile.ts
+Auth protected /account. 46 halaman build clean.
+
+Phase 4: Next — Membership mechanics di checkout (voucher apply, gratis ongkir, earn/redeem poin)
 
 ## Project Overview
 
