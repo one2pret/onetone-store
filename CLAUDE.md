@@ -5,7 +5,12 @@ Phase 0: Rebrand gold-dark → white-dark — ✅ SELESAI (2026-07-14)
 Opsi dipilih: B (monokrom + micro-gold untuk premium badge)
 Commit: c674632 — semua token, hex replacement, build clean, docs updated
 
-Phase 1: Next — TBD
+Phase 1: Data Model Additive — ✅ SELESAI (2026-07-14)
+Commit: cf42445 — stores, member_tiers, memberships, vouchers, points_ledger
+Kolom additive: products.store_id, orders.store_id/voucher_id/discount_amount/points_earned/points_redeemed
+Seed: 1 store onetone, 3 tiers, 4 memberships, 3 vouchers, 5 points ledger entries
+
+Phase 2: Next — Marketplace shell + routing
 
 ## Project Overview
 
