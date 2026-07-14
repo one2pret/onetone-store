@@ -3,7 +3,8 @@ import { db } from './index';
 import {
   users, categories, products, addresses, storeSettings, couriers,
   orders, orderItems, invoices, shippings, shippingHistories,
-  orderStatusLogs, cartItems, banners,
+  orderStatusLogs, cartItems, banners, posSessions,
+  stores, memberTiers, memberships, vouchers, pointsLedger,
 } from './schema';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
@@ -26,6 +27,7 @@ async function seed() {
   // CLEAN ALL TABLES (in FK order)
   // ==========================================
   console.log('🗑️  Cleaning tables...');
+  await db.delete(pointsLedger);
   await db.delete(shippingHistories);
   await db.delete(orderStatusLogs);
   await db.delete(invoices);
@@ -33,12 +35,17 @@ async function seed() {
   await db.delete(orderItems);
   await db.delete(orders);
   await db.delete(cartItems);
+  await db.delete(posSessions);
+  await db.delete(memberships);
+  await db.delete(vouchers);
   await db.delete(products);
   await db.delete(categories);
   await db.delete(addresses);
   await db.delete(couriers);
   await db.delete(storeSettings);
   await db.delete(banners);
+  await db.delete(stores);
+  await db.delete(memberTiers);
   await db.delete(users);
 
   // Reset auto-increment
@@ -46,6 +53,7 @@ async function seed() {
     'users', 'addresses', 'store_settings', 'couriers', 'categories',
     'products', 'cart_items', 'orders', 'order_items', 'invoices',
     'shippings', 'shipping_histories', 'order_status_logs', 'banners',
+    'stores', 'member_tiers', 'memberships', 'vouchers', 'points_ledger',
   ];
   for (const table of tables) {
     await db.execute(sql.raw(`ALTER TABLE ${table} AUTO_INCREMENT = 1`));
@@ -231,6 +239,51 @@ async function seed() {
     { key: 'payment_expiry_hours', value: '24' },
   ]);
   console.log('⚙️  6 store settings created');
+
+  // ==========================================
+  // Phase 1: STORES (1 official store)
+  // ==========================================
+  await db.insert(stores).values([
+    {
+      slug: 'onetone',
+      name: 'Onetone Store',
+      logoUrl: null,
+      isOfficial: true,
+      isActive: true,
+    },
+  ]);
+  console.log('🏪 1 store created (onetone — official)');
+
+  // ==========================================
+  // Phase 1: MEMBER TIERS (3 tiers)
+  // ==========================================
+  await db.insert(memberTiers).values([
+    { // id: 1 — Silver
+      name: 'Silver',
+      minSpend: 0,
+      discountPct: 0,
+      freeShippingThreshold: null,
+      pointMultiplier: 1,
+      sortOrder: 1,
+    },
+    { // id: 2 — Gold
+      name: 'Gold',
+      minSpend: 5000000,         // setelah total spend 5 juta
+      discountPct: 5,             // 5% diskon
+      freeShippingThreshold: 300000, // gratis ongkir jika order >= 300K
+      pointMultiplier: 2,
+      sortOrder: 2,
+    },
+    { // id: 3 — Platinum
+      name: 'Platinum',
+      minSpend: 20000000,        // setelah total spend 20 juta
+      discountPct: 10,            // 10% diskon
+      freeShippingThreshold: 0,  // selalu gratis ongkir
+      pointMultiplier: 3,
+      sortOrder: 3,
+    },
+  ]);
+  console.log('⭐ 3 member tiers created (Silver / Gold / Platinum)');
 
   // ==========================================
   // 4. COURIERS
@@ -931,14 +984,112 @@ async function seed() {
   ]);
   console.log('🖼️  4 banners created');
 
+  // ==========================================
+  // Phase 1: BACKFILL store_id → Onetone (id: 1)
+  // ==========================================
+  await db.execute(sql`UPDATE products SET store_id = 1 WHERE store_id IS NULL`);
+  await db.execute(sql`UPDATE orders SET store_id = 1 WHERE store_id IS NULL`);
+  console.log('🔗 Backfill: semua products + orders → store_id = 1 (onetone)');
+
+  // ==========================================
+  // Phase 1: MEMBERSHIPS (4 customers)
+  // Tier assignment berdasar total spend dari paid orders.
+  // Platinum ≥ 20jt | Gold ≥ 5jt | Silver = 0
+  // ==========================================
+  await db.insert(memberships).values([
+    { // Rina (user 2): order1(23.3jt delivered)+order10(7.2jt packing) → Platinum
+      userId: 2,
+      tierId: 3,
+      points: 3056,
+      totalSpend: 30566000,
+    },
+    { // Andi (user 3): order2(23jt shipping) → Platinum (paid, in transit)
+      userId: 3,
+      tierId: 3,
+      points: 2305,
+      totalSpend: 23054000,
+    },
+    { // Siti (user 4): order3(8.3jt packing, paid) → Gold
+      userId: 4,
+      tierId: 2,
+      points: 834,
+      totalSpend: 8340000,
+    },
+    { // Dimas (user 5): order9(4.3jt delivered) → Silver
+      userId: 5,
+      tierId: 1,
+      points: 427,
+      totalSpend: 4276000,
+    },
+  ]);
+  console.log('💳 4 memberships created (2 Platinum, 1 Gold, 1 Silver)');
+
+  // ==========================================
+  // Phase 1: VOUCHERS (sample)
+  // ==========================================
+  await db.insert(vouchers).values([
+    {
+      code: 'WELCOME10',
+      type: 'percent',
+      value: 10,
+      minSpend: 100000,
+      storeId: null,
+      tierId: null,
+      quota: 100,
+      usedCount: 0,
+      isActive: true,
+    },
+    {
+      code: 'GOLDONGKIR',
+      type: 'free_shipping',
+      value: 0,
+      minSpend: 200000,
+      storeId: null,
+      tierId: 2,               // hanya Gold ke atas
+      quota: null,
+      usedCount: 0,
+      isActive: true,
+    },
+    {
+      code: 'PLAT20',
+      type: 'percent',
+      value: 20,
+      minSpend: 1000000,
+      storeId: null,
+      tierId: 3,               // hanya Platinum
+      quota: null,
+      usedCount: 0,
+      isActive: true,
+    },
+  ]);
+  console.log('🎟️  3 vouchers created (WELCOME10 / GOLDONGKIR / PLAT20)');
+
+  // ==========================================
+  // Phase 1: POINTS LEDGER (earn dari delivered orders)
+  // membership id: Rina=1, Andi=2, Siti=3, Dimas=4
+  // ==========================================
+  await db.insert(pointsLedger).values([
+    { membershipId: 1, orderId: 1, delta: 2333, reason: 'order_earn' },   // Rina, order 1 delivered
+    { membershipId: 1, orderId: 10, delta: 723, reason: 'order_earn' },   // Rina, order 10 packing (seed preview)
+    { membershipId: 2, orderId: 2, delta: 2305, reason: 'order_earn' },   // Andi, order 2 shipping
+    { membershipId: 3, orderId: 3, delta: 834, reason: 'order_earn' },    // Siti, order 3 packing
+    { membershipId: 4, orderId: 9, delta: 427, reason: 'order_earn' },    // Dimas, order 9 delivered
+  ]);
+  console.log('💰 5 points ledger entries created');
+
   console.log('\n✅ Seeding completed!\n');
   console.log('📊 Summary:');
+  console.log('   Stores:    1 (onetone — official)');
+  console.log('   Tiers:     3 (Silver / Gold / Platinum)');
   console.log('   Users:     5 (1 admin, 4 customers)');
+  console.log('   Members:   4 (2 Platinum, 1 Gold, 1 Silver)');
   console.log('   Addresses: 6');
-  console.log('   Products:  17 (16 active, 1 inactive)');
-  console.log('   Orders:    10 (2 delivered, 1 shipping, 2 packing, 2 waiting, 1 expired, 2 cancelled)');
+  console.log('   Products:  17 (16 active, 1 inactive) — semua storeId=1');
+  console.log('   Orders:    10 (2 delivered, 1 shipping, 2 packing, 2 waiting, 1 expired, 2 cancelled) — semua storeId=1');
   console.log('   Invoices:  10');
   console.log('   Shippings: 10');
+  console.log('   Vouchers:  3');
+  console.log('   Points:    5 ledger entries');
   console.log('   Cart:      4 items');
   console.log('\n🔑 Login:');
   console.log('   Admin:    admin@store.com / password123');

@@ -56,6 +56,31 @@ export const storeSettings = mysqlTable('store_settings', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ STORES ============
+// Phase 1: Fondasi marketplace. Onetone = row pertama (isOfficial=true).
+// MVP: struktural saja, tanpa onboarding/payout seller.
+export const stores = mysqlTable('stores', {
+  id: int('id').primaryKey().autoincrement(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 150 }).notNull(),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  isOfficial: boolean('is_official').default(false),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============ MEMBER TIERS ============
+// Phase 1: Silver / Gold / Platinum — benefit dikontrol lewat kolom ini.
+export const memberTiers = mysqlTable('member_tiers', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 50 }).notNull(),              // "Silver", "Gold", "Platinum"
+  minSpend: int('min_spend').default(0),                         // ambang total spend untuk naik tier (Rupiah)
+  discountPct: int('discount_pct').default(0),                   // diskon default tier (%)
+  freeShippingThreshold: int('free_shipping_threshold'),          // null = tidak dapat gratis ongkir
+  pointMultiplier: int('point_multiplier').default(1),            // earn = subtotal × multiplier / 1000
+  sortOrder: int('sort_order').default(0),
+});
+
 // ============ COURIERS ============
 export const couriers = mysqlTable('couriers', {
   id: int('id').primaryKey().autoincrement(),
@@ -78,6 +103,7 @@ export const categories = mysqlTable('categories', {
 // ============ PRODUCTS ============
 export const products = mysqlTable('products', {
   id: int('id').primaryKey().autoincrement(),
+  storeId: int('store_id').references(() => stores.id),          // Phase 1: nullable, backfill ke Onetone
   categoryId: int('category_id').references(() => categories.id),
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
@@ -136,12 +162,42 @@ export const posSessions = mysqlTable('pos_sessions', {
   notes: text('notes'),
 });
 
+// ============ MEMBERSHIPS ============
+// Phase 1: 1 user : 1 membership row. Auto-create saat register atau order pertama.
+export const memberships = mysqlTable('memberships', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').references(() => users.id).notNull().unique(),
+  tierId: int('tier_id').references(() => memberTiers.id).notNull(),
+  points: int('points').default(0),
+  totalSpend: int('total_spend').default(0),                     // akumulasi spend (Rupiah) untuk auto-upgrade tier
+  joinedAt: timestamp('joined_at').defaultNow(),
+});
+
+// ============ VOUCHERS ============
+// Phase 1: Struktural. Mechanic diterapkan di Phase 4 (checkout integration).
+export const vouchers = mysqlTable('vouchers', {
+  id: int('id').primaryKey().autoincrement(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  type: mysqlEnum('voucher_type', ['fixed', 'percent', 'free_shipping']).notNull(),
+  value: int('value').default(0),                                // nominal/pct diskon; 0 untuk free_shipping
+  minSpend: int('min_spend').default(0),                         // minimum order untuk bisa pakai voucher
+  storeId: int('store_id').references(() => stores.id),          // null = berlaku lintas store
+  tierId: int('tier_id').references(() => memberTiers.id),       // null = berlaku semua tier
+  quota: int('quota'),                                           // null = unlimited
+  usedCount: int('used_count').default(0),
+  startsAt: timestamp('starts_at'),
+  endsAt: timestamp('ends_at'),
+  isActive: boolean('is_active').default(true),
+});
+
 // ============ ORDERS ============
 // Channel 'online' = order dari web/mobile (butuh alamat, kirim via kurir).
 // Channel 'pos' = transaksi kasir offline (langsung delivered, cash/QRIS/transfer).
 export const orders = mysqlTable('orders', {
   id: int('id').primaryKey().autoincrement(),
   userId: int('user_id').references(() => users.id), // nullable — walk-in customer POS tanpa akun
+  storeId: int('store_id').references(() => stores.id),          // Phase 1: nullable, backfill ke Onetone
+  voucherId: int('voucher_id').references(() => vouchers.id),    // Phase 1: nullable
   orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
   channel: mysqlEnum('order_channel', ['online', 'pos']).default('online'),
   status: mysqlEnum('status', [
@@ -153,8 +209,11 @@ export const orders = mysqlTable('orders', {
     'cancelled',
   ]).default('waiting_payment'),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
+  discountAmount: decimal('discount_amount', { precision: 12, scale: 2 }).default('0'), // Phase 1
   shippingCost: decimal('shipping_cost', { precision: 12, scale: 2 }).default('0'),
   total: decimal('total', { precision: 12, scale: 2 }).notNull(),
+  pointsEarned: int('points_earned').default(0),                 // Phase 1: poin didapat dari order ini
+  pointsRedeemed: int('points_redeemed').default(0),             // Phase 1: poin dipakai di order ini
   // Shipping fields — nullable karena POS tidak perlu alamat pengiriman
   shippingAddress: text('shipping_address'),
   shippingPhone: varchar('shipping_phone', { length: 20 }),
@@ -281,15 +340,26 @@ export const productImages = mysqlTable("product_images", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export type ProductImage = InferSelectModel<typeof productImages>;
-export type NewProductImage = InferInsertModel<typeof productImages>;
+// ============ POINTS LEDGER ============
+// Phase 1: Audit trail semua mutasi poin. Jangan simpan saldo saja.
+// delta > 0 = earn, delta < 0 = redeem. Saldo = SUM(delta) per membershipId.
+export const pointsLedger = mysqlTable('points_ledger', {
+  id: int('id').primaryKey().autoincrement(),
+  membershipId: int('membership_id').references(() => memberships.id).notNull(),
+  orderId: int('order_id').references(() => orders.id),          // nullable: poin bisa diberikan manual
+  delta: int('delta').notNull(),
+  reason: varchar('reason', { length: 100 }),                    // "order_earn", "order_redeem", "manual_adjust"
+  createdAt: timestamp('created_at').defaultNow(),
+});
 
 // ============ RELATIONS ============
-export const usersRelations = relations(users, ({ many }) => ({
+
+export const usersRelations = relations(users, ({ one, many }) => ({
   orders: many(orders),
   cartItems: many(cartItems),
   addresses: many(addresses),
   posSessions: many(posSessions),
+  membership: one(memberships, { fields: [users.id], references: [memberships.userId] }),
 }));
 
 export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
@@ -301,11 +371,35 @@ export const addressesRelations = relations(addresses, ({ one }) => ({
   user: one(users, { fields: [addresses.userId], references: [users.id] }),
 }));
 
+export const storesRelations = relations(stores, ({ many }) => ({
+  products: many(products),
+  orders: many(orders),
+  vouchers: many(vouchers),
+}));
+
+export const memberTiersRelations = relations(memberTiers, ({ many }) => ({
+  memberships: many(memberships),
+  vouchers: many(vouchers),
+}));
+
+export const membershipsRelations = relations(memberships, ({ one, many }) => ({
+  user: one(users, { fields: [memberships.userId], references: [users.id] }),
+  tier: one(memberTiers, { fields: [memberships.tierId], references: [memberTiers.id] }),
+  ledger: many(pointsLedger),
+}));
+
+export const vouchersRelations = relations(vouchers, ({ one, many }) => ({
+  store: one(stores, { fields: [vouchers.storeId], references: [stores.id] }),
+  tier: one(memberTiers, { fields: [vouchers.tierId], references: [memberTiers.id] }),
+  orders: many(orders),
+}));
+
 export const categoriesRelations = relations(categories, ({ many }) => ({
   products: many(products),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
+  store: one(stores, { fields: [products.storeId], references: [stores.id] }),
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   variants: many(productVariants),
   cartItems: many(cartItems),
@@ -334,6 +428,8 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
+  voucher: one(vouchers, { fields: [orders.voucherId], references: [vouchers.id] }),
   posSession: one(posSessions, { fields: [orders.posSessionId], references: [posSessions.id] }),
   items: many(orderItems),
   invoices: many(invoices),
@@ -364,6 +460,11 @@ export const orderStatusLogsRelations = relations(orderStatusLogs, ({ one }) => 
   order: one(orders, { fields: [orderStatusLogs.orderId], references: [orders.id] }),
 }));
 
+export const pointsLedgerRelations = relations(pointsLedger, ({ one }) => ({
+  membership: one(memberships, { fields: [pointsLedger.membershipId], references: [memberships.id] }),
+  order: one(orders, { fields: [pointsLedger.orderId], references: [orders.id] }),
+}));
+
 // ============ TYPE INFERENCE ============
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -372,6 +473,21 @@ export type Address = InferSelectModel<typeof addresses>;
 export type NewAddress = InferInsertModel<typeof addresses>;
 
 export type StoreSetting = InferSelectModel<typeof storeSettings>;
+
+export type Store = InferSelectModel<typeof stores>;
+export type NewStore = InferInsertModel<typeof stores>;
+
+export type MemberTier = InferSelectModel<typeof memberTiers>;
+export type NewMemberTier = InferInsertModel<typeof memberTiers>;
+
+export type Membership = InferSelectModel<typeof memberships>;
+export type NewMembership = InferInsertModel<typeof memberships>;
+
+export type Voucher = InferSelectModel<typeof vouchers>;
+export type NewVoucher = InferInsertModel<typeof vouchers>;
+
+export type PointsLedgerEntry = InferSelectModel<typeof pointsLedger>;
+export type NewPointsLedgerEntry = InferInsertModel<typeof pointsLedger>;
 
 export type Courier = InferSelectModel<typeof couriers>;
 
@@ -407,6 +523,9 @@ export type NewBanner = InferInsertModel<typeof banners>;
 export type PosSession = InferSelectModel<typeof posSessions>;
 export type NewPosSession = InferInsertModel<typeof posSessions>;
 
+export type ProductImage = InferSelectModel<typeof productImages>;
+export type NewProductImage = InferInsertModel<typeof productImages>;
+
 // Product with relations
 export type ProductWithCategory = Product & {
   category: Category | null;
@@ -427,4 +546,9 @@ export type CartItemWithProduct = CartItem & {
 export type OrderWithItems = Order & {
   items: OrderItem[];
   user?: User;
+};
+
+// Membership with tier
+export type MembershipWithTier = Membership & {
+  tier: MemberTier;
 };
