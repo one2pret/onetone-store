@@ -10,7 +10,12 @@ Commit: cf42445 — stores, member_tiers, memberships, vouchers, points_ledger
 Kolom additive: products.store_id, orders.store_id/voucher_id/discount_amount/points_earned/points_redeemed
 Seed: 1 store onetone, 3 tiers, 4 memberships, 3 vouchers, 5 points ledger entries
 
-Phase 2: Next — Marketplace shell + routing
+Phase 2: Marketplace shell + routing — ✅ SELESAI (2026-07-14)
+Commit: 0c7f9c6 — (marketplace)/ + (checkout)/ route groups, 41 halaman, zero error
+Routes baru: / (marketplace home), /stores/[slug], /categories, /search
+Moves: cart/checkout/orders/addresses → (checkout)/, URL tidak berubah
+
+Phase 3: Next — Account area ("Saya"): profil, membership, poin, voucher, history
 
 ## Project Overview
 
