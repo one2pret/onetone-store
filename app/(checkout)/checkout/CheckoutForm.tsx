@@ -4,6 +4,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createOrder } from '@/app/actions/orders';
+import { validateVoucher, type VoucherValidationResult } from '@/app/actions/voucher';
 import { calculateShippingRates, type ShippingRouteInfo } from '@/app/actions/shipping';
 import { getUserAddresses } from '@/app/actions/addresses';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { ShippingOptions } from '@/components/shop/ShippingOptions';
 import { formatRupiah } from '@/lib/utils';
 import type { Address, CartItemWithProduct } from '@/lib/db/schema';
 import type { BitshipRate } from '@/lib/bitship';
-import { MapPin, Truck, CreditCard, ChevronRight, ChevronLeft, Loader2, Store, ArrowRight } from 'lucide-react';
+import { MapPin, Truck, CreditCard, ChevronRight, ChevronLeft, Loader2, Store, ArrowRight, Tag, X, Check } from 'lucide-react';
 
 function formatDuration(d: string): string {
   const cleaned = d.replace(/\s*days?\s*/gi, '').trim();
@@ -31,6 +32,7 @@ interface Props {
   addresses: Address[];
   cart: CartItemWithProduct[];
   subtotal: number;
+  tierFreeShipping: boolean;
 }
 
 const STEPS = [
@@ -39,7 +41,7 @@ const STEPS = [
   { id: 3, label: 'Bayar', icon: CreditCard },
 ];
 
-export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Props) {
+export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tierFreeShipping }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [addressList, setAddressList] = useState<Address[]>(initialAddresses);
@@ -54,8 +56,16 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const shippingCost = selectedRate?.price ?? 0;
-  const total = subtotal + shippingCost;
+  // Voucher state
+  const [voucherInput, setVoucherInput] = useState('');
+  const [voucherResult, setVoucherResult] = useState<VoucherValidationResult | null>(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+
+  const rawShippingCost = selectedRate?.price ?? 0;
+  const freeShipping = tierFreeShipping || (voucherResult?.valid && voucherResult.freeShipping);
+  const shippingCost = freeShipping ? 0 : rawShippingCost;
+  const discountAmount = voucherResult?.valid ? voucherResult.discountAmount : 0;
+  const total = subtotal - discountAmount + shippingCost;
 
   async function handleAddressCreated() {
     const fresh = await getUserAddresses();
@@ -99,6 +109,19 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
     setStep(3);
   }
 
+  async function handleApplyVoucher() {
+    if (!voucherInput.trim()) return;
+    setVoucherLoading(true);
+    const result = await validateVoucher(voucherInput.trim(), subtotal);
+    setVoucherResult(result);
+    setVoucherLoading(false);
+  }
+
+  function handleRemoveVoucher() {
+    setVoucherResult(null);
+    setVoucherInput('');
+  }
+
   function handleSubmit() {
     if (!selectedAddressId || !selectedRate) return;
 
@@ -111,6 +134,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
       formData.set('courierType', selectedRate.courier_service_code);
       formData.set('courierPrice', String(selectedRate.price));
       formData.set('notes', notes);
+      if (voucherResult?.valid) formData.set('voucherCode', voucherResult.code);
 
       const result = await createOrder(null, formData);
 
@@ -281,19 +305,71 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal }: Pr
               </div>
             )}
 
+            {/* Voucher Input */}
+            <div className="border-t border-border pt-4">
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
+                <Tag className="w-4 h-4" /> Kode Voucher
+              </p>
+              {voucherResult?.valid ? (
+                <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/30 rounded-lg text-sm">
+                  <Check className="w-4 h-4 text-success shrink-0" />
+                  <span className="text-success flex-1">{voucherResult.message}</span>
+                  <button onClick={handleRemoveVoucher} className="text-muted-foreground hover:text-foreground transition">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={voucherInput}
+                    onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
+                    placeholder="Masukkan kode voucher"
+                    className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleApplyVoucher}
+                    disabled={voucherLoading || !voucherInput.trim()}
+                    className="shrink-0"
+                  >
+                    {voucherLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Pakai'}
+                  </Button>
+                </div>
+              )}
+              {voucherResult && !voucherResult.valid && (
+                <p className="text-xs text-destructive mt-1.5">{voucherResult.error}</p>
+              )}
+            </div>
+
             {/* Price Summary */}
             <div className="border-t border-border pt-4 space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Subtotal ({cart.length} item)</span>
                 <span className="text-foreground">{formatRupiah(subtotal)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-success">Diskon Voucher</span>
+                  <span className="text-success">-{formatRupiah(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Ongkos Kirim</span>
-                <span className="text-foreground">{formatRupiah(shippingCost)}</span>
+                {freeShipping ? (
+                  <span className="text-success font-medium">GRATIS</span>
+                ) : (
+                  <span className="text-foreground">{formatRupiah(rawShippingCost)}</span>
+                )}
               </div>
+              {tierFreeShipping && (
+                <p className="text-xs text-success">✓ Gratis ongkir dari benefit membership</p>
+              )}
               <div className="border-t border-border pt-2 flex justify-between font-semibold text-lg">
                 <span className="text-foreground">Total</span>
-                <span className="text-primary">{formatRupiah(total)}</span>
+                <span className="text-foreground">{formatRupiah(total)}</span>
               </div>
             </div>
           </div>

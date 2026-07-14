@@ -5,8 +5,10 @@ import { db } from '@/lib/db';
 import {
   orders, orderItems, cartItems, products, productVariants, users,
   orderStatusLogs, addresses, shippings, shippingHistories, invoices,
+  vouchers, memberships, memberTiers,
 } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, and } from 'drizzle-orm';
+import { calculateDiscount, isFreeShippingEligible } from '@/lib/membership-utils';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { generateOrderNumber } from '@/lib/utils';
@@ -41,6 +43,7 @@ export async function createOrder(prevState: any, formData: FormData) {
   const courierType = formData.get('courierType') as string || '';
   const courierPrice = Number(formData.get('courierPrice') || 0);
   const notes = (formData.get('notes') as string) || '';
+  const voucherCode = ((formData.get('voucherCode') as string) || '').trim().toUpperCase() || null;
 
   try {
     // 1. Validate address
@@ -83,16 +86,68 @@ export async function createOrder(prevState: any, formData: FormData) {
       return sum + (base + modifier) * (row.cart_items.quantity ?? 1);
     }, 0);
 
-    const total = subtotal + courierPrice;
+    // 4b. Validate voucher (if provided)
+    let voucherId: number | null = null;
+    let discountAmount = 0;
+    let voucherFreeShipping = false;
+
+    if (voucherCode) {
+      const voucher = await db
+        .select()
+        .from(vouchers)
+        .where(and(eq(vouchers.code, voucherCode), eq(vouchers.isActive, true)))
+        .limit(1)
+        .then((r) => r[0] ?? null);
+
+      if (voucher) {
+        const now = new Date();
+        const dateOk = (!voucher.startsAt || now >= new Date(voucher.startsAt)) &&
+                       (!voucher.endsAt || now <= new Date(voucher.endsAt));
+        const quotaOk = voucher.quota === null || (voucher.usedCount ?? 0) < voucher.quota;
+        const spendOk = !voucher.minSpend || subtotal >= voucher.minSpend;
+
+        if (dateOk && quotaOk && spendOk) {
+          voucherId = voucher.id;
+          discountAmount = calculateDiscount(
+            voucher.type as 'fixed' | 'percent' | 'free_shipping',
+            voucher.value ?? 0,
+            subtotal
+          );
+          voucherFreeShipping = voucher.type === 'free_shipping';
+        }
+      }
+    }
+
+    // 4c. Check free shipping from membership tier
+    const membership = await db
+      .select()
+      .from(memberships)
+      .innerJoin(memberTiers, eq(memberships.tierId, memberTiers.id))
+      .where(eq(memberships.userId, userId))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+
+    const tierFreeShipping = isFreeShippingEligible(
+      subtotal,
+      membership?.member_tiers?.freeShippingThreshold ?? null,
+      null
+    );
+
+    const freeShipping = voucherFreeShipping || tierFreeShipping;
+    const actualShippingCost = freeShipping ? 0 : courierPrice;
+    const total = subtotal - discountAmount + actualShippingCost;
     const orderNumber = generateOrderNumber();
 
     // 5. Create order
     const [result] = await db.insert(orders).values({
       userId,
+      storeId: 1,
+      voucherId,
       orderNumber,
       status: 'waiting_payment',
       subtotal: String(subtotal),
-      shippingCost: String(courierPrice),
+      discountAmount: String(discountAmount),
+      shippingCost: String(actualShippingCost),
       total: String(total),
       willExpiredAt: sql`NOW() + INTERVAL 24 HOUR`,
       shippingName: address.recipientName,

@@ -1,9 +1,13 @@
 // app/api/webhooks/xendit/route.ts — Xendit payment webhook
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { invoices, orders, orderStatusLogs } from '@/lib/db/schema';
+import {
+  invoices, orders, orderStatusLogs,
+  memberships, memberTiers, pointsLedger, vouchers,
+} from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { restoreStock } from '@/lib/stock';
+import { calculatePointsEarned } from '@/lib/membership-utils';
 
 export async function POST(request: Request) {
   // Verify callback token
@@ -71,6 +75,66 @@ export async function POST(request: Request) {
         toStatus: 'packing',
         changedBy: 'webhook:xendit',
       });
+
+      // Membership: earn points + tier upgrade + voucher usedCount
+      if (order.userId) {
+        try {
+          await db.transaction(async (tx) => {
+            const memberRow = await tx
+              .select()
+              .from(memberships)
+              .innerJoin(memberTiers, eq(memberships.tierId, memberTiers.id))
+              .where(eq(memberships.userId, order.userId!))
+              .limit(1)
+              .then((r) => r[0] ?? null);
+
+            if (memberRow) {
+              const subtotal = Number(order.subtotal);
+              const multiplier = memberRow.member_tiers.pointMultiplier ?? 1;
+              const delta = calculatePointsEarned(subtotal, multiplier);
+              const newPoints = (memberRow.memberships.points ?? 0) + delta;
+              const newTotalSpend = (memberRow.memberships.totalSpend ?? 0) + subtotal;
+
+              // Check tier upgrade
+              const allTiers = await tx
+                .select()
+                .from(memberTiers)
+                .orderBy(memberTiers.sortOrder);
+
+              let newTierId = memberRow.memberships.tierId;
+              const curIdx = allTiers.findIndex((t) => t.id === memberRow.memberships.tierId);
+              for (let i = curIdx + 1; i < allTiers.length; i++) {
+                if (newTotalSpend >= (allTiers[i].minSpend ?? 0)) newTierId = allTiers[i].id;
+                else break;
+              }
+
+              // Update membership
+              await tx
+                .update(memberships)
+                .set({ points: newPoints, totalSpend: newTotalSpend, tierId: newTierId })
+                .where(eq(memberships.id, memberRow.memberships.id));
+
+              // Write to points_ledger (audit trail)
+              await tx.insert(pointsLedger).values({
+                membershipId: memberRow.memberships.id,
+                orderId: order.id,
+                delta,
+                reason: 'order_earn',
+              });
+            }
+
+            // Increment voucher usedCount
+            if (order.voucherId) {
+              await tx
+                .update(vouchers)
+                .set({ usedCount: sql`${vouchers.usedCount} + 1` })
+                .where(eq(vouchers.id, order.voucherId));
+            }
+          });
+        } catch (memberErr) {
+          console.error('Membership update error:', memberErr);
+        }
+      }
     }
 
     if (status === 'EXPIRED') {
