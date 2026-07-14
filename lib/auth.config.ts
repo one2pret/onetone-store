@@ -31,7 +31,7 @@ export const authConfig = {
       }
 
       // Protected customer routes
-      const customerProtectedRoutes = ['/cart', '/checkout', '/orders', '/addresses'];
+      const customerProtectedRoutes = ['/cart', '/checkout', '/orders', '/addresses', '/account'];
       const isCustomerProtected = customerProtectedRoutes.some(route =>
         pathname === route || pathname.startsWith(route + '/')
       );

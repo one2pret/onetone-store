@@ -4,6 +4,7 @@ import { getCartCount } from '@/app/actions/cart';
 import { getCategories } from '@/app/actions/products';
 import { Navbar } from '@/components/shop/Navbar';
 import { Footer } from '@/components/shop/Footer';
+import { BottomNav } from '@/components/shop/BottomNav';
 
 export default async function MarketplaceLayout({
   children,
@@ -19,8 +20,9 @@ export default async function MarketplaceLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar user={session?.user} cartCount={cartCount} categories={categories} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-14 md:pb-0">{children}</main>
       <Footer />
+      <BottomNav cartCount={cartCount} isLoggedIn={!!session?.user} />
     </div>
   );
 }

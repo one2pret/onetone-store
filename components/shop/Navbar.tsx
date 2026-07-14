@@ -158,6 +158,13 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   </Link>
                 )}
                 <Link
+                  href="/account"
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
+                >
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  Akun Saya
+                </Link>
+                <Link
                   href="/orders"
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
                 >
