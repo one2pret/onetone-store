@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingCart, User, Search, Menu, X, LogOut,
   Heart, ShoppingBag, ChevronDown,
@@ -55,8 +55,20 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q) {
+      router.push(`/products?q=${encodeURIComponent(q)}`);
+      setMobileSearchOpen(false);
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -76,6 +88,16 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
   // Actions block dipakai di dua layout branch (search-enabled dan boutique-wordmark)
   const actionsBlock = (
     <div className="flex items-center gap-0.5 justify-end">
+      {/* Mobile search toggle — hanya saat SEARCH_ENABLED */}
+      {SEARCH_ENABLED && (
+        <button
+          onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+          aria-label={mobileSearchOpen ? 'Tutup pencarian' : 'Cari produk'}
+          className="md:hidden p-2.5 text-foreground hover:text-primary rounded-lg transition"
+        >
+          {mobileSearchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+        </button>
+      )}
       {/* Wishlist */}
       <button
         aria-label="Wishlist"
@@ -212,12 +234,12 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
         </div>
       )}
 
-      {/* Mobile menu toggle — hanya saat SEARCH_ENABLED (waktu disabled, hamburger di kiri) */}
+      {/* Mobile menu toggle — hanya saat SEARCH_ENABLED */}
       {SEARCH_ENABLED && (
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-          className="md:hidden p-2.5 text-foreground hover:text-primary"
+          className="md:hidden p-2.5 text-foreground hover:text-primary rounded-lg transition"
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -242,33 +264,65 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
               ─────────────────────────────────────────────────────
             */}
             {SEARCH_ENABLED ? (
-              <div className="grid items-center gap-4 grid-cols-[auto_1fr_auto]">
-                {/* Kolom 1: Logo */}
-                <Link
-                  href="/"
-                  className="shrink-0 text-xl font-bold tracking-widest uppercase"
-                >
-                  <span className="animate-gold-shimmer">ONETONE</span>
-                </Link>
+              <>
+                <div className="grid items-center gap-3 grid-cols-[auto_1fr_auto]">
+                  {/* Kolom 1: Logo */}
+                  <Link
+                    href="/"
+                    aria-label="Onetone — kembali ke beranda"
+                    className="shrink-0 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
+                  >
+                    <span className="animate-gold-shimmer">ONETONE</span>
+                  </Link>
 
-                {/* Kolom 2: Search */}
-                <div className="relative hidden md:block">
-                  <input
-                    type="text"
-                    placeholder="Cari koleksi, brand, atau gaya..."
-                    className="w-full pl-4 pr-12 py-2.5 bg-input border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
-                  />
-                  <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary-hover text-primary-foreground p-2 rounded-md transition">
-                    <Search className="w-4 h-4" />
-                  </button>
+                  {/* Kolom 2: Search form — desktop */}
+                  <form onSubmit={handleSearch} role="search" className="relative hidden md:block">
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari koleksi, brand, atau gaya..."
+                      className="w-full pl-4 pr-14 py-2.5 bg-input border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--premium)] focus:ring-2 focus:ring-[var(--premium)]/20 transition"
+                    />
+                    <button
+                      type="submit"
+                      aria-label="Cari"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[var(--premium)] hover:brightness-110 text-[var(--premium-foreground)] p-2 rounded-md transition"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <div className="md:hidden" />
+
+                  {/* Kolom 3: Actions */}
+                  {actionsBlock}
                 </div>
-                <div className="md:hidden" />
 
-                {/* Kolom 3: Actions */}
-                {actionsBlock}
-              </div>
+                {/* Mobile search bar — expands below main row */}
+                {mobileSearchOpen && (
+                  <div className="md:hidden border-t border-border/50 px-4 py-3">
+                    <form onSubmit={handleSearch} role="search" className="relative">
+                      <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Cari produk..."
+                        autoFocus
+                        className="w-full pl-4 pr-14 py-2.5 bg-input border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--premium)] focus:ring-2 focus:ring-[var(--premium)]/20 transition"
+                      />
+                      <button
+                        type="submit"
+                        aria-label="Cari"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[var(--premium)] hover:brightness-110 text-[var(--premium-foreground)] p-2 rounded-md transition"
+                      >
+                        <Search className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="relative flex items-center justify-between gap-4">
+              <div className="relative flex items-center justify-between gap-[2.1rem]">
                 {/* Kiri: hamburger mobile + top-nav desktop */}
                 <div className="flex items-center">
                   <button
@@ -276,17 +330,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                     aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
                     className="md:hidden -ml-1.5 p-2.5 text-foreground hover:text-primary transition"
                   >
-                    {mobileMenuOpen ? (
-                      <X className="w-5 h-5" />
-                    ) : (
-                      <Menu className="w-5 h-5" />
-                    )}
+                    {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                   </button>
-
-                  <nav
-                    aria-label="Menu utama"
-                    className="hidden md:flex items-center gap-5 lg:gap-7"
-                  >
+                  <nav aria-label="Menu utama" className="hidden md:flex items-center gap-[1.875rem]">
                     {TOP_NAV_LINKS.map((link) => {
                       const basePath = link.href.split('?')[0];
                       const isActive = pathname === basePath;
@@ -302,19 +348,17 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                                 ? 'text-foreground'
                                 : 'text-muted-foreground hover:text-foreground'
                           )}
-                        >
-                          {link.label}
-                        </Link>
+                        >{link.label}</Link>
                       );
                     })}
                   </nav>
                 </div>
 
-                {/* Center: logo absolute — jamin true center ke viewport */}
+                {/* Center: logo absolute */}
                 <Link
                   href="/"
                   aria-label="Onetone — kembali ke beranda"
-                  className="absolute left-1/2 -translate-x-1/2 text-xl md:text-2xl font-bold tracking-[0.28em] md:tracking-[0.32em] uppercase leading-none"
+                  className="absolute left-1/2 -translate-x-1/2 text-[1.375rem] md:text-[1.625rem] font-bold tracking-[0.32em] md:tracking-[0.38em] uppercase leading-none"
                 >
                   <span className="animate-gold-shimmer">ONETONE</span>
                 </Link>

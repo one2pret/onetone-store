@@ -4,7 +4,7 @@ import { getFeaturedProducts, getActiveProducts, getCategories } from '@/app/act
 import { getActiveBanners } from '@/app/actions/banners';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
-import { Search, ArrowRight, ShoppingBag, ChevronRight } from 'lucide-react';
+import { ArrowRight, ShoppingBag, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -21,31 +21,6 @@ export default async function MarketplacePage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* ── Search Hero ── */}
-      <section className="bg-card border-b border-border py-6 md:py-10">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2 text-balance">
-            Temukan Produk Terbaik
-          </h1>
-          <p className="text-sm text-muted-foreground mb-5">
-            Fashion sport premium, dikirim ke seluruh Indonesia.
-          </p>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Cari produk, kategori, atau brand..."
-              className="w-full pl-5 pr-14 py-3.5 bg-input border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
-            />
-            <Link
-              href="/search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary hover:bg-primary-hover text-primary-foreground p-2.5 rounded-lg transition"
-            >
-              <Search className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* ── Categories ── */}
       {categories.length > 0 && (
         <section className="py-6 md:py-8 border-b border-border">
@@ -123,9 +98,9 @@ export default async function MarketplacePage() {
       <section className="py-6 md:py-10 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base md:text-xl font-bold text-foreground">
+            <h1 className="text-base md:text-xl font-bold text-foreground">
               Produk Unggulan
-            </h2>
+            </h1>
             <Button asChild variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
               <Link href="/products">
                 Lihat Semua <ArrowRight className="w-3.5 h-3.5 ml-1" />
