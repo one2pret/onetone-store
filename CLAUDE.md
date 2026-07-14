@@ -1,5 +1,9 @@
 # onetone-store — Project Rules & AI Context
 
+## Active Sprint
+Phase 0: Rebrand gold-dark → white-dark. Spec: docs/marketplace/01-rebrand-white-dark.md
+Opsi yang dipilih: [A / B] ← isi ini dulu
+
 ## Project Overview
 
 Aplikasi **Online Shop (Olshop)** single-store untuk UMKM/bisnis personal.
