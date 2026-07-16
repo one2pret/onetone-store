@@ -40,9 +40,9 @@ export default async function MarketplacePage() {
 
       {/* ── Categories ── */}
       {categories.length > 0 && (
-        <section className="py-5 md:py-6 border-b border-border">
+        <section className={`py-5 md:py-6${banners.length > 0 ? ' border-t border-border' : ''}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-5">
               <h2 className="text-xs font-semibold tracking-wide text-muted-foreground">Kategori</h2>
               <Link
                 href="/categories"
@@ -75,12 +75,12 @@ export default async function MarketplacePage() {
       )}
 
       {/* ── Official Store ── */}
-      <section className="py-6 md:py-8 border-t border-border">
+      <section className="py-5 md:py-6 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground mb-4">Toko Resmi</h2>
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground mb-5">Toko Resmi</h2>
           <Link
             href="/stores/onetone"
-            className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-surface transition-all group max-w-sm"
+            className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-surface transition-all group max-w-md"
           >
             <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shrink-0">
               <span className="text-primary-foreground font-bold text-lg">O</span>
@@ -102,7 +102,7 @@ export default async function MarketplacePage() {
       </section>
 
       {/* ── Produk Unggulan ── */}
-      <section className="py-6 md:py-10 border-t border-border">
+      <section className="py-8 md:py-12 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-5">
             <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight [text-wrap:balance]">
@@ -135,7 +135,7 @@ export default async function MarketplacePage() {
 
       {/* ── New Arrival ── */}
       {newProducts.length > 0 && (
-        <section className="py-6 md:py-10 border-t border-border">
+        <section className="py-8 md:py-12 border-t border-border pb-16 md:pb-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-foreground tracking-tight">
