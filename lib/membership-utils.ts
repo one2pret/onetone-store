@@ -1,5 +1,16 @@
 // lib/membership-utils.ts — Pure functions, no DB deps (testable)
 
+/** 1 poin = Rp POINTS_REDEEM_VALUE saat ditukar */
+export const POINTS_REDEEM_VALUE = 100;
+
+/**
+ * Hitung nilai Rupiah dari sejumlah poin yang akan di-redeem.
+ * Dibatasi oleh subtotal setelah diskon agar total tidak negatif.
+ */
+export function calculateRedeemAmount(points: number, maxDeduction: number): number {
+  return Math.min(points * POINTS_REDEEM_VALUE, Math.max(0, maxDeduction));
+}
+
 /**
  * Earn points: 1 poin per Rp10.000, dikali tier multiplier.
  * Contoh: subtotal 500.000, multiplier 2 → 100 * 2 = 100 poin.

@@ -40,6 +40,7 @@ export default async function CheckoutPage() {
 
   const tierFreeShippingThreshold = memberRow?.member_tiers.freeShippingThreshold ?? null;
   const tierFreeShipping = isFreeShippingEligible(subtotal, tierFreeShippingThreshold, null);
+  const pointsBalance = memberRow?.memberships.points ?? 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -53,6 +54,7 @@ export default async function CheckoutPage() {
             cart={cart}
             subtotal={subtotal}
             tierFreeShipping={tierFreeShipping}
+            pointsBalance={pointsBalance}
           />
         </div>
 

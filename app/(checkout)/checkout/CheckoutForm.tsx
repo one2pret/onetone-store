@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createOrder } from '@/app/actions/orders';
 import { validateVoucher, type VoucherValidationResult } from '@/app/actions/voucher';
 import { calculateShippingRates, type ShippingRouteInfo } from '@/app/actions/shipping';
+import { POINTS_REDEEM_VALUE, calculateRedeemAmount } from '@/lib/membership-utils';
 import { getUserAddresses } from '@/app/actions/addresses';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +34,7 @@ interface Props {
   cart: CartItemWithProduct[];
   subtotal: number;
   tierFreeShipping: boolean;
+  pointsBalance: number;
 }
 
 const STEPS = [
@@ -41,7 +43,7 @@ const STEPS = [
   { id: 3, label: 'Bayar', icon: CreditCard },
 ];
 
-export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tierFreeShipping }: Props) {
+export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tierFreeShipping, pointsBalance }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [addressList, setAddressList] = useState<Address[]>(initialAddresses);
@@ -61,11 +63,19 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   const [voucherResult, setVoucherResult] = useState<VoucherValidationResult | null>(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
 
+  // Points state
+  const [usePoints, setUsePoints] = useState(false);
+
   const rawShippingCost = selectedRate?.price ?? 0;
   const freeShipping = tierFreeShipping || (voucherResult?.valid && voucherResult.freeShipping);
   const shippingCost = freeShipping ? 0 : rawShippingCost;
   const discountAmount = voucherResult?.valid ? voucherResult.discountAmount : 0;
-  const total = subtotal - discountAmount + shippingCost;
+  const afterVoucher = subtotal - discountAmount + shippingCost;
+  const redeemAmount = usePoints && pointsBalance > 0
+    ? calculateRedeemAmount(pointsBalance, afterVoucher)
+    : 0;
+  const pointsToRedeem = redeemAmount > 0 ? Math.ceil(redeemAmount / POINTS_REDEEM_VALUE) : 0;
+  const total = afterVoucher - redeemAmount;
 
   async function handleAddressCreated() {
     const fresh = await getUserAddresses();
@@ -135,6 +145,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
       formData.set('courierPrice', String(selectedRate.price));
       formData.set('notes', notes);
       if (voucherResult?.valid) formData.set('voucherCode', voucherResult.code);
+      if (pointsToRedeem > 0) formData.set('pointsToRedeem', String(pointsToRedeem));
 
       const result = await createOrder(null, formData);
 
@@ -344,6 +355,37 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
               )}
             </div>
 
+            {/* Points */}
+            {pointsBalance > 0 && (
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Gunakan Poin</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {pointsBalance} poin tersedia (senilai {formatRupiah(pointsBalance * POINTS_REDEEM_VALUE)})
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUsePoints(!usePoints)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      usePoints ? 'bg-primary' : 'bg-muted'
+                    }`}
+                    aria-pressed={usePoints}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${
+                      usePoints ? 'translate-x-4' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+                {usePoints && redeemAmount > 0 && (
+                  <p className="text-xs text-success mt-2">
+                    ✓ {pointsToRedeem} poin digunakan, hemat {formatRupiah(redeemAmount)}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Price Summary */}
             <div className="border-t border-border pt-4 space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground">
@@ -354,6 +396,12 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
                 <div className="flex justify-between text-sm">
                   <span className="text-success">Diskon Voucher</span>
                   <span className="text-success">-{formatRupiah(discountAmount)}</span>
+                </div>
+              )}
+              {redeemAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-success">Redeem Poin ({pointsToRedeem} poin)</span>
+                  <span className="text-success">-{formatRupiah(redeemAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm text-muted-foreground">

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   calculatePointsEarned,
   isFreeShippingEligible,
+  calculateRedeemAmount,
+  POINTS_REDEEM_VALUE,
 } from '@/lib/membership-utils';
 
 describe('calculatePointsEarned', () => {
@@ -60,5 +62,39 @@ describe('isFreeShippingEligible', () => {
 
   it('voucher type lain tidak memberikan free shipping', () => {
     expect(isFreeShippingEligible(500_000, null, 'percent')).toBe(false);
+  });
+});
+
+describe('POINTS_REDEEM_VALUE', () => {
+  it('1 poin = Rp 100', () => {
+    expect(POINTS_REDEEM_VALUE).toBe(100);
+  });
+});
+
+describe('calculateRedeemAmount', () => {
+  it('50 poin × 100 = Rp 5.000', () => {
+    expect(calculateRedeemAmount(50, 500_000)).toBe(5_000);
+  });
+
+  it('dibatasi oleh maxDeduction', () => {
+    // 1000 poin × 100 = 100.000, tapi total hanya 80.000
+    expect(calculateRedeemAmount(1_000, 80_000)).toBe(80_000);
+  });
+
+  it('maxDeduction 0 → redeem 0', () => {
+    expect(calculateRedeemAmount(100, 0)).toBe(0);
+  });
+
+  it('maxDeduction negatif → redeem 0', () => {
+    expect(calculateRedeemAmount(100, -10_000)).toBe(0);
+  });
+
+  it('0 poin → redeem 0', () => {
+    expect(calculateRedeemAmount(0, 500_000)).toBe(0);
+  });
+
+  it('tepat habis membayar total', () => {
+    // 200 poin × 100 = 20.000, maxDeduction = 20.000
+    expect(calculateRedeemAmount(200, 20_000)).toBe(20_000);
   });
 });

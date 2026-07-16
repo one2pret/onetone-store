@@ -164,6 +164,33 @@ export async function POST(request: Request) {
         toStatus: 'expired',
         changedBy: 'webhook:xendit',
       });
+
+      // Restore redeemed points if any
+      if ((order.pointsRedeemed ?? 0) > 0 && order.userId) {
+        try {
+          await db.transaction(async (tx) => {
+            const memberRow = await tx
+              .select()
+              .from(memberships)
+              .where(eq(memberships.userId, order.userId!))
+              .limit(1)
+              .then((r) => r[0] ?? null);
+            if (memberRow) {
+              await tx.update(memberships)
+                .set({ points: (memberRow.points ?? 0) + order.pointsRedeemed! })
+                .where(eq(memberships.id, memberRow.id));
+              await tx.insert(pointsLedger).values({
+                membershipId: memberRow.id,
+                orderId: order.id,
+                delta: order.pointsRedeemed!,
+                reason: 'order_expire_restore',
+              });
+            }
+          });
+        } catch (err) {
+          console.error('Points restore error:', err);
+        }
+      }
     }
 
     return NextResponse.json({ success: true });

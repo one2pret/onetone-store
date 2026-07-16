@@ -5,10 +5,10 @@ import { db } from '@/lib/db';
 import {
   orders, orderItems, cartItems, products, productVariants, users,
   orderStatusLogs, addresses, shippings, shippingHistories, invoices,
-  vouchers, memberships, memberTiers,
+  vouchers, memberships, memberTiers, pointsLedger,
 } from '@/lib/db/schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
-import { calculateDiscount, isFreeShippingEligible } from '@/lib/membership-utils';
+import { calculateDiscount, isFreeShippingEligible, calculateRedeemAmount } from '@/lib/membership-utils';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { generateOrderNumber } from '@/lib/utils';
@@ -44,6 +44,7 @@ export async function createOrder(prevState: any, formData: FormData) {
   const courierPrice = Number(formData.get('courierPrice') || 0);
   const notes = (formData.get('notes') as string) || '';
   const voucherCode = ((formData.get('voucherCode') as string) || '').trim().toUpperCase() || null;
+  const pointsToRedeem = Math.max(0, Number(formData.get('pointsToRedeem') || 0));
 
   try {
     // 1. Validate address
@@ -135,28 +136,62 @@ export async function createOrder(prevState: any, formData: FormData) {
 
     const freeShipping = voucherFreeShipping || tierFreeShipping;
     const actualShippingCost = freeShipping ? 0 : courierPrice;
-    const total = subtotal - discountAmount + actualShippingCost;
+
+    // 4d. Points redemption — validate dan hitung
+    let redeemAmount = 0;
+    let validatedPointsToRedeem = 0;
+    if (pointsToRedeem > 0 && membership) {
+      const memberPoints = membership.memberships.points ?? 0;
+      if (pointsToRedeem > memberPoints) {
+        return { success: false, error: 'Poin tidak cukup' };
+      }
+      const afterVoucher = subtotal - discountAmount + actualShippingCost;
+      redeemAmount = calculateRedeemAmount(pointsToRedeem, afterVoucher);
+      validatedPointsToRedeem = pointsToRedeem;
+    }
+
+    const total = subtotal - discountAmount - redeemAmount + actualShippingCost;
     const orderNumber = generateOrderNumber();
 
-    // 5. Create order
-    const [result] = await db.insert(orders).values({
-      userId,
-      storeId: 1,
-      voucherId,
-      orderNumber,
-      status: 'waiting_payment',
-      subtotal: String(subtotal),
-      discountAmount: String(discountAmount),
-      shippingCost: String(actualShippingCost),
-      total: String(total),
-      willExpiredAt: sql`NOW() + INTERVAL 24 HOUR`,
-      shippingName: address.recipientName,
-      shippingPhone: address.phone,
-      shippingAddress: address.address,
-      notes: notes || null,
+    // 5. Create order + deduct points (atomic transaction)
+    let orderId: number;
+    await db.transaction(async (tx) => {
+      const [result] = await tx.insert(orders).values({
+        userId,
+        storeId: 1,
+        voucherId,
+        orderNumber,
+        status: 'waiting_payment',
+        subtotal: String(subtotal),
+        discountAmount: String(discountAmount),
+        pointsRedeemed: validatedPointsToRedeem,
+        shippingCost: String(actualShippingCost),
+        total: String(total),
+        willExpiredAt: sql`NOW() + INTERVAL 24 HOUR`,
+        shippingName: address.recipientName,
+        shippingPhone: address.phone,
+        shippingAddress: address.address,
+        notes: notes || null,
+      });
+      orderId = Number(result.insertId);
+
+      // Deduct points immediately — restore on EXPIRED webhook
+      if (validatedPointsToRedeem > 0 && membership) {
+        const membershipId = membership.memberships.id;
+        const newPoints = (membership.memberships.points ?? 0) - validatedPointsToRedeem;
+        await tx.update(memberships)
+          .set({ points: newPoints })
+          .where(eq(memberships.id, membershipId));
+        await tx.insert(pointsLedger).values({
+          membershipId,
+          orderId,
+          delta: -validatedPointsToRedeem,
+          reason: 'order_redeem',
+        });
+      }
     });
 
-    const orderId = Number(result.insertId);
+    orderId = orderId!;
 
     // 6. Create order items — simpan variantId + variantLabel (snapshot)
     await db.insert(orderItems).values(
