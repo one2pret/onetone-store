@@ -341,7 +341,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                           key={link.href}
                           href={link.href}
                           className={cn(
-                            'text-[13px] font-medium tracking-wide transition whitespace-nowrap',
+                            'text-[13px] font-medium transition whitespace-nowrap',
                             link.accent
                               ? 'text-primary hover:text-primary-hover'
                               : isActive

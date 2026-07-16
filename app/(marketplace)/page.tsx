@@ -43,7 +43,7 @@ export default async function MarketplacePage() {
         <section className="py-5 md:py-6 border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-foreground">Kategori</h2>
+              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground">Kategori</h2>
               <Link
                 href="/categories"
                 className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition"
@@ -63,7 +63,7 @@ export default async function MarketplacePage() {
                     <div className="w-10 h-10 rounded-lg bg-surface md:bg-card flex items-center justify-center group-hover:bg-background transition-colors">
                       <Icon className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors text-center leading-tight line-clamp-2 w-full">
+                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors text-center leading-tight line-clamp-2 w-full">
                       {cat.name}
                     </span>
                   </Link>
@@ -77,7 +77,7 @@ export default async function MarketplacePage() {
       {/* ── Official Store ── */}
       <section className="py-6 md:py-8 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-sm font-medium text-foreground mb-4">Toko Resmi</h2>
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground mb-4">Toko Resmi</h2>
           <Link
             href="/stores/onetone"
             className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-surface transition-all group max-w-sm"
@@ -105,7 +105,7 @@ export default async function MarketplacePage() {
       <section className="py-6 md:py-10 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-5">
-            <h1 className="text-base md:text-xl font-bold text-foreground">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight [text-wrap:balance]">
               Produk Unggulan
             </h1>
             <Button asChild variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
@@ -138,7 +138,7 @@ export default async function MarketplacePage() {
         <section className="py-6 md:py-10 border-t border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base md:text-xl font-bold text-foreground">
+              <h2 className="text-lg font-bold text-foreground tracking-tight">
                 Semua Produk
               </h2>
               <Button asChild variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">

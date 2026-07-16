@@ -137,6 +137,11 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  /* dark canvas compensation — slight tracking for light-on-dark */
+  letter-spacing: 0.008em;
+  line-height: 1.6;
 }
 
 /* =============================================
