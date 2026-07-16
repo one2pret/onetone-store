@@ -40,30 +40,32 @@ export default async function MarketplacePage() {
 
       {/* ── Categories ── */}
       {categories.length > 0 && (
-        <section className={`py-5 md:py-6${banners.length > 0 ? ' border-t border-border' : ''}`}>
+        <section className={`py-8 md:py-10${banners.length > 0 ? ' border-t border-border' : ''}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground">Kategori</h2>
+            <div className="flex items-end justify-between mb-6">
+              <h2 className="text-lg md:text-xl font-bold text-foreground tracking-tight">
+                Kategori
+              </h2>
               <Link
                 href="/categories"
-                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition"
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition"
               >
-                Semua <ChevronRight className="w-3 h-3" />
+                Lihat Semua <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-0.5 md:overflow-x-visible md:grid md:grid-cols-5 md:gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-3 overflow-x-auto pb-1 md:overflow-x-visible md:grid md:grid-cols-5 md:gap-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {categories.map((cat) => {
                 const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
                 return (
                   <Link
                     key={cat.id}
                     href={`/products?category=${cat.slug}`}
-                    className="flex flex-col items-center gap-2.5 p-3 md:p-4 rounded-xl bg-card border border-transparent hover:border-border hover:bg-surface transition-all group shrink-0 min-w-[88px] md:min-w-0"
+                    className="flex flex-col items-center gap-3 p-4 md:p-5 rounded-xl bg-card border border-border/40 hover:border-primary/60 hover:bg-surface transition-all group shrink-0 min-w-[112px] md:min-w-0"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-surface md:bg-card flex items-center justify-center group-hover:bg-background transition-colors">
-                      <Icon className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Icon className="w-7 h-7 md:w-8 md:h-8 text-foreground group-hover:text-primary transition-colors" strokeWidth={1.75} />
                     </div>
-                    <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors text-center leading-tight line-clamp-2 w-full">
+                    <span className="text-sm font-semibold text-foreground text-center leading-tight line-clamp-2 w-full">
                       {cat.name}
                     </span>
                   </Link>
