@@ -370,43 +370,6 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
           </div>
         </div>
 
-        {/* ── Category Bar ── */}
-        <div className="bg-card hidden md:block border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-6 overflow-x-auto text-sm">
-            <Link
-              href="/products"
-              className={cn(
-                'whitespace-nowrap py-1 transition',
-                pathname === '/products' && !pathname.includes('?')
-                  ? 'text-primary font-semibold'
-                  : 'text-foreground hover:text-primary'
-              )}
-            >
-              Semua Produk
-            </Link>
-            {categories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/products?category=${cat.slug}`}
-                className={cn(
-                  'whitespace-nowrap py-1 transition',
-                  pathname.includes(cat.slug)
-                    ? 'text-primary font-semibold'
-                    : 'text-foreground hover:text-primary'
-                )}
-              >
-                {cat.name}
-              </Link>
-            ))}
-            <Link
-              href="/products?promo=true"
-              className="whitespace-nowrap py-1 text-primary font-semibold hover:text-primary-hover transition"
-            >
-              Promo
-            </Link>
-          </div>
-        </div>
-
         {/* ── Mobile Menu ── */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-card border-t border-border">

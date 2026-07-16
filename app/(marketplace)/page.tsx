@@ -4,11 +4,19 @@ import { getFeaturedProducts, getActiveProducts, getCategories } from '@/app/act
 import { getActiveBanners } from '@/app/actions/banners';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { BannerSlider } from '@/components/shop/BannerSlider';
-import { ArrowRight, ShoppingBag, ChevronRight } from 'lucide-react';
+import {
+  ArrowRight, ShoppingBag, ChevronRight,
+  Smartphone, Laptop, Headphones, Watch, Zap, Package,
+} from 'lucide-react';
+import type { LucideProps } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const CATEGORY_ICONS: Record<string, string> = {
-  default: '📦',
+const CATEGORY_ICONS: Record<string, React.ComponentType<LucideProps>> = {
+  'smartphone-tablet': Smartphone,
+  'laptop-komputer': Laptop,
+  'audio-headphone': Headphones,
+  'wearable-smartwatch': Watch,
+  'aksesoris-gadget': Zap,
 };
 
 export default async function MarketplacePage() {
@@ -23,34 +31,35 @@ export default async function MarketplacePage() {
     <div className="bg-background min-h-screen">
       {/* ── Categories ── */}
       {categories.length > 0 && (
-        <section className="py-6 md:py-8 border-b border-border">
+        <section className="py-5 md:py-6 border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                Kategori
-              </h2>
+              <h2 className="text-sm font-medium text-foreground">Kategori</h2>
               <Link
                 href="/categories"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition"
               >
-                Semua <ChevronRight className="w-3.5 h-3.5" />
+                Semua <ChevronRight className="w-3 h-3" />
               </Link>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-              {categories.map((cat) => (
-                <Link
-                  key={cat.id}
-                  href={`/products?category=${cat.slug}`}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl border border-border hover:border-primary/40 hover:bg-card transition-all group"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center text-lg">
-                    {CATEGORY_ICONS[cat.slug] ?? CATEGORY_ICONS.default}
-                  </div>
-                  <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition text-center leading-tight line-clamp-2">
-                    {cat.name}
-                  </span>
-                </Link>
-              ))}
+            <div className="flex gap-2 overflow-x-auto pb-0.5 md:overflow-x-visible md:grid md:grid-cols-5 md:gap-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {categories.map((cat) => {
+                const Icon = CATEGORY_ICONS[cat.slug] ?? Package;
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/products?category=${cat.slug}`}
+                    className="flex flex-col items-center gap-2.5 p-3 md:p-4 rounded-xl bg-card border border-transparent hover:border-border hover:bg-surface transition-all group shrink-0 min-w-[88px] md:min-w-0"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-surface md:bg-card flex items-center justify-center group-hover:bg-background transition-colors">
+                      <Icon className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors text-center leading-tight line-clamp-2 w-full">
+                      {cat.name}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -68,9 +77,7 @@ export default async function MarketplacePage() {
       {/* ── Official Store ── */}
       <section className="py-6 md:py-8 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-            Toko Resmi
-          </h2>
+          <h2 className="text-sm font-medium text-foreground mb-4">Toko Resmi</h2>
           <Link
             href="/stores/onetone"
             className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-surface transition-all group max-w-sm"
