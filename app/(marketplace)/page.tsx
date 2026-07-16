@@ -29,6 +29,15 @@ export default async function MarketplacePage() {
 
   return (
     <div className="bg-background min-h-screen">
+      {/* ── Banners ── */}
+      {banners.length > 0 && (
+        <section className="py-6 md:py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BannerSlider banners={banners} />
+          </div>
+        </section>
+      )}
+
       {/* ── Categories ── */}
       {categories.length > 0 && (
         <section className="py-5 md:py-6 border-b border-border">
@@ -61,15 +70,6 @@ export default async function MarketplacePage() {
                 );
               })}
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── Banners ── */}
-      {banners.length > 0 && (
-        <section className="py-6 md:py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <BannerSlider banners={banners} />
           </div>
         </section>
       )}
