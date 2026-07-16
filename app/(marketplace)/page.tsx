@@ -29,13 +29,6 @@ export default async function MarketplacePage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* ── Brand Statement ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 md:pt-6 pb-4 md:pb-5">
-        <p className="text-sm text-muted-foreground">
-          Fashion sport premium, dikirim ke seluruh Indonesia.
-        </p>
-      </div>
-
       {/* ── Categories ── */}
       {categories.length > 0 && (
         <section className="py-5 md:py-6 border-b border-border">
