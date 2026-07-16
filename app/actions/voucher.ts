@@ -3,8 +3,71 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { memberships, vouchers } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or, lte, gte, sql } from 'drizzle-orm';
 import { calculateDiscount } from '@/lib/membership-utils';
+
+export type AvailableVoucher = {
+  id: number;
+  code: string;
+  type: 'fixed' | 'percent' | 'free_shipping';
+  value: number;
+  discountAmount: number;
+  freeShipping: boolean;
+  endsAt: Date | null;
+  minSpend: number;
+};
+
+export async function getAvailableVouchers(subtotal: number): Promise<AvailableVoucher[]> {
+  const session = await auth();
+  const userId = session?.user?.id ? Number(session.user.id) : null;
+
+  // Get user tier
+  let userTierId: number | null = null;
+  if (userId) {
+    const membership = await db
+      .select({ tierId: memberships.tierId })
+      .from(memberships)
+      .where(eq(memberships.userId, userId))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    userTierId = membership?.tierId ?? null;
+  }
+
+  const now = new Date();
+  const allActive = await db
+    .select()
+    .from(vouchers)
+    .where(eq(vouchers.isActive, true));
+
+  return allActive
+    .filter((v) => {
+      // Tanggal
+      if (v.startsAt && now < new Date(v.startsAt)) return false;
+      if (v.endsAt && now > new Date(v.endsAt)) return false;
+      // Kuota
+      if (v.quota !== null && (v.usedCount ?? 0) >= v.quota) return false;
+      // Min spend
+      if ((v.minSpend ?? 0) > 0 && subtotal < (v.minSpend ?? 0)) return false;
+      // Tier
+      if (v.tierId !== null) {
+        if (!userTierId || userTierId < v.tierId) return false;
+      }
+      return true;
+    })
+    .map((v) => {
+      const type = v.type as 'fixed' | 'percent' | 'free_shipping';
+      return {
+        id: v.id,
+        code: v.code,
+        type,
+        value: v.value ?? 0,
+        discountAmount: calculateDiscount(type, v.value ?? 0, subtotal),
+        freeShipping: type === 'free_shipping',
+        endsAt: v.endsAt ? new Date(v.endsAt) : null,
+        minSpend: v.minSpend ?? 0,
+      };
+    });
+}
 
 export type VoucherValidationResult =
   | { valid: false; error: string }

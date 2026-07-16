@@ -4,7 +4,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createOrder } from '@/app/actions/orders';
-import { validateVoucher, type VoucherValidationResult } from '@/app/actions/voucher';
+import { validateVoucher, getAvailableVouchers, type VoucherValidationResult, type AvailableVoucher } from '@/app/actions/voucher';
 import { calculateShippingRates, type ShippingRouteInfo } from '@/app/actions/shipping';
 import { POINTS_REDEEM_VALUE, calculateRedeemAmount } from '@/lib/membership-utils';
 import { getUserAddresses } from '@/app/actions/addresses';
@@ -62,6 +62,9 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   const [voucherInput, setVoucherInput] = useState('');
   const [voucherResult, setVoucherResult] = useState<VoucherValidationResult | null>(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
+  const [availableVouchers, setAvailableVouchers] = useState<AvailableVoucher[] | null>(null);
+  const [showVoucherList, setShowVoucherList] = useState(false);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
 
   // Points state
   const [usePoints, setUsePoints] = useState(false);
@@ -130,6 +133,26 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   function handleRemoveVoucher() {
     setVoucherResult(null);
     setVoucherInput('');
+    setShowVoucherList(false);
+  }
+
+  async function handleToggleVoucherList() {
+    if (showVoucherList) { setShowVoucherList(false); return; }
+    setShowVoucherList(true);
+    if (availableVouchers !== null) return;
+    setLoadingVouchers(true);
+    const list = await getAvailableVouchers(subtotal);
+    setAvailableVouchers(list);
+    setLoadingVouchers(false);
+  }
+
+  async function handleSelectVoucher(code: string) {
+    setVoucherInput(code);
+    setShowVoucherList(false);
+    setVoucherLoading(true);
+    const result = await validateVoucher(code, subtotal);
+    setVoucherResult(result);
+    setVoucherLoading(false);
   }
 
   function handleSubmit() {
@@ -318,9 +341,72 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
 
             {/* Voucher Input */}
             <div className="border-t border-border pt-4">
-              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
-                <Tag className="w-4 h-4" /> Kode Voucher
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  <Tag className="w-4 h-4" /> Kode Voucher
+                </p>
+                <button
+                  type="button"
+                  onClick={handleToggleVoucherList}
+                  className="text-xs text-primary hover:text-primary-hover transition font-medium"
+                >
+                  {showVoucherList ? 'Tutup' : 'Pilih Voucher'}
+                </button>
+              </div>
+
+              {/* Voucher list picker */}
+              {showVoucherList && (
+                <div className="mb-3 border border-border rounded-xl overflow-hidden">
+                  {loadingVouchers ? (
+                    <div className="flex items-center justify-center gap-2 py-5 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Memuat voucher...
+                    </div>
+                  ) : availableVouchers?.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-5">
+                      Tidak ada voucher yang tersedia untuk pesanan ini.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {availableVouchers?.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => handleSelectVoucher(v.code)}
+                          className="w-full text-left px-4 py-3 hover:bg-surface transition flex items-start gap-3 group"
+                        >
+                          <div className="mt-0.5 shrink-0 px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-wide">
+                            {v.code}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">
+                              {v.freeShipping
+                                ? 'Gratis Ongkos Kirim'
+                                : v.type === 'percent'
+                                  ? `Diskon ${v.value}%`
+                                  : `Diskon Rp ${v.value.toLocaleString('id-ID')}`}
+                            </p>
+                            <p className="text-xs text-success mt-0.5">
+                              Hemat {v.freeShipping ? 'ongkir' : `Rp ${v.discountAmount.toLocaleString('id-ID')}`}
+                            </p>
+                            {v.minSpend > 0 && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Min. belanja Rp {v.minSpend.toLocaleString('id-ID')}
+                              </p>
+                            )}
+                            {v.endsAt && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Berlaku s/d {new Date(v.endsAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1 group-hover:text-foreground transition" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {voucherResult?.valid ? (
                 <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/30 rounded-lg text-sm">
                   <Check className="w-4 h-4 text-success shrink-0" />
