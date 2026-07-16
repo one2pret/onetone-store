@@ -3,8 +3,8 @@
 
 import { signIn, signOut } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, memberTiers, memberships } from '@/lib/db/schema';
+import { eq, asc } from 'drizzle-orm';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 import bcrypt from 'bcryptjs';
@@ -67,6 +67,13 @@ export async function register(prevState: RegisterState, formData: FormData): Pr
     phone,
     role: 'customer',
   });
+
+  // Auto-create Silver membership (tier dengan min_spend terendah)
+  const [newUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const [silverTier] = await db.select({ id: memberTiers.id }).from(memberTiers).orderBy(asc(memberTiers.minSpend)).limit(1);
+  if (newUser?.id && silverTier?.id) {
+    await db.insert(memberships).values({ userId: newUser.id, tierId: silverTier.id });
+  }
 
   // Auto login after register
   await signIn('credentials', {

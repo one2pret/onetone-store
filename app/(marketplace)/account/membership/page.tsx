@@ -1,7 +1,6 @@
 // app/(marketplace)/account/membership/page.tsx
 import { getMyMembership } from '@/app/actions/membership';
 import { Star, Check } from 'lucide-react';
-import { notFound } from 'next/navigation';
 
 const TIER_STYLE: Record<string, { badge: string; bar: string }> = {
   Silver: { badge: 'bg-muted text-foreground border border-border', bar: 'bg-muted-foreground' },
@@ -15,7 +14,28 @@ function formatRp(n: number) {
 
 export default async function MembershipPage() {
   const membership = await getMyMembership();
-  if (!membership) notFound();
+
+  if (!membership) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-lg font-bold text-foreground">Membership</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Status keanggotaan dan benefit aktif</p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-8 flex flex-col items-center text-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center">
+            <Star className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Belum terdaftar sebagai member</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+              Buat pesanan pertama untuk otomatis bergabung sebagai member Silver dan mulai kumpulkan poin.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const { tier, nextTier, progressPct, allTiers, totalSpend } = membership;
   const style = TIER_STYLE[tier.name] ?? TIER_STYLE.Silver;
