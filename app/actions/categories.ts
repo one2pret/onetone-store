@@ -12,11 +12,13 @@ import { slugify } from '@/lib/utils';
 const categorySchema = z.object({
   name: z.string().min(1, 'Nama kategori wajib diisi'),
   description: z.string().optional(),
+  sortOrder: z.coerce.number().int().default(0),
+  isVisible: z.boolean().default(true),
 });
 
-// Get all categories
+// Get all categories (admin — semua, visible + hidden)
 export async function getAllCategories() {
-  return await db.select().from(categories).orderBy(asc(categories.name));
+  return await db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
 }
 
 // Get single category by ID
@@ -30,6 +32,8 @@ export async function createCategory(prevState: any, formData: FormData) {
   const validated = categorySchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description'),
+    sortOrder: formData.get('sort_order') || 0,
+    isVisible: formData.get('is_visible') === 'on',
   });
 
   if (!validated.success) {
@@ -46,6 +50,8 @@ export async function createCategory(prevState: any, formData: FormData) {
       name: validated.data.name,
       slug,
       description: validated.data.description,
+      sortOrder: validated.data.sortOrder,
+      isVisible: validated.data.isVisible,
     });
   } catch (error) {
     return { success: false, errors: { _form: ['Gagal membuat kategori. Pastikan nama kategori belum digunakan.'] } };
@@ -61,6 +67,8 @@ export async function updateCategory(id: number, prevState: any, formData: FormD
   const validated = categorySchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description'),
+    sortOrder: formData.get('sort_order') || 0,
+    isVisible: formData.get('is_visible') === 'on',
   });
 
   if (!validated.success) {
@@ -78,6 +86,8 @@ export async function updateCategory(id: number, prevState: any, formData: FormD
         name: validated.data.name,
         slug,
         description: validated.data.description,
+        sortOrder: validated.data.sortOrder,
+        isVisible: validated.data.isVisible,
       })
       .where(eq(categories.id, id));
   } catch (error) {

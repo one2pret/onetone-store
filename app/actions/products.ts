@@ -94,7 +94,9 @@ export async function getProduct(id: number) {
 }
 
 export async function getCategories() {
-  return await db.select().from(categories).orderBy(asc(categories.name));
+  return await db.select().from(categories)
+    .where(eq(categories.isVisible, true))
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
 }
 
 export async function getCategoryBySlug(slug: string) {

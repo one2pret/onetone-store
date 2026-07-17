@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Pencil, Tag } from 'lucide-react';
+import { Pencil, Tag, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
 import { DeleteCategoryButton } from './DeleteCategoryButton';
@@ -28,11 +28,12 @@ export function CategoriesTable({ data }: Props) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="hidden md:grid grid-cols-[1.5fr_1fr_2fr_1fr_auto] gap-4 px-6 py-3 bg-muted/50 border-b border-border">
+      <div className="hidden md:grid grid-cols-[1.5fr_1fr_2fr_auto_auto_auto] gap-4 px-6 py-3 bg-muted/50 border-b border-border">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nama</span>
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Slug</span>
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Deskripsi</span>
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tanggal</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">Urutan</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">Tampil</span>
         <span className="sr-only">Aksi</span>
       </div>
 
@@ -40,15 +41,18 @@ export function CategoriesTable({ data }: Props) {
         {data.map((cat) => (
           <div
             key={cat.id}
-            className="flex flex-col md:grid md:grid-cols-[1.5fr_1fr_2fr_1fr_auto] gap-2 md:gap-4 items-start md:items-center px-4 md:px-6 py-4 hover:bg-muted/20 transition"
+            className="flex flex-col md:grid md:grid-cols-[1.5fr_1fr_2fr_auto_auto_auto] gap-2 md:gap-4 items-start md:items-center px-4 md:px-6 py-4 hover:bg-muted/20 transition"
           >
             <span className="font-medium text-foreground">{cat.name}</span>
             <span className="text-sm text-muted-foreground font-mono">{cat.slug}</span>
             <span className="text-sm text-muted-foreground truncate max-w-xs">
               {cat.description || <span className="italic opacity-50">Tidak ada deskripsi</span>}
             </span>
-            <span className="text-sm text-muted-foreground">
-              {cat.createdAt ? formatDate(cat.createdAt) : '-'}
+            <span className="text-sm text-muted-foreground text-center w-12">{cat.sortOrder}</span>
+            <span className="flex justify-center w-12">
+              {cat.isVisible
+                ? <Eye className="w-4 h-4 text-primary" />
+                : <EyeOff className="w-4 h-4 text-muted-foreground opacity-50" />}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               <Button variant="ghost" size="icon" asChild title="Edit kategori">

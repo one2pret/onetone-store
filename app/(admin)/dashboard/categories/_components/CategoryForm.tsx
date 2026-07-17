@@ -67,6 +67,33 @@ export function CategoryForm({ category }: Props) {
               placeholder="Deskripsi singkat kategori..."
             />
           </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex-1">
+              <Label htmlFor="sort_order" className="text-foreground">Urutan</Label>
+              <Input
+                id="sort_order"
+                name="sort_order"
+                type="number"
+                min={0}
+                defaultValue={category?.sortOrder ?? 0}
+                className="mt-1 w-28"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Angka kecil tampil lebih dulu</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="is_visible" className="text-foreground">Tampilkan</Label>
+              <input
+                id="is_visible"
+                name="is_visible"
+                type="checkbox"
+                defaultChecked={category?.isVisible ?? true}
+                className="w-5 h-5 accent-primary cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">Kategori terlihat di toko</p>
+            </div>
+          </div>
         </div>
       </div>
 
