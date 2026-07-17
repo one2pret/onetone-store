@@ -97,7 +97,7 @@ export const categories = mysqlTable('categories', {
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   description: text('description'),
   image: varchar('image', { length: 500 }),
-  sortOrder: int('sort_order').default(0).notNull(),
+  sortOrder: int('sort_order').default(99).notNull(),
   isVisible: boolean('is_visible').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 });

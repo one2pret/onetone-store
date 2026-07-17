@@ -76,7 +76,7 @@ export function CategoryForm({ category }: Props) {
                 name="sort_order"
                 type="number"
                 min={0}
-                defaultValue={category?.sortOrder ?? 0}
+                defaultValue={category?.sortOrder ?? 99}
                 className="mt-1 w-28"
               />
               <p className="text-xs text-muted-foreground mt-1">Angka kecil tampil lebih dulu</p>

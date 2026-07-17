@@ -12,7 +12,7 @@ import { slugify } from '@/lib/utils';
 const categorySchema = z.object({
   name: z.string().min(1, 'Nama kategori wajib diisi'),
   description: z.string().optional(),
-  sortOrder: z.coerce.number().int().default(0),
+  sortOrder: z.coerce.number().int().default(99),
   isVisible: z.boolean().default(true),
 });
 
@@ -59,6 +59,8 @@ export async function createCategory(prevState: any, formData: FormData) {
 
   revalidatePath('/dashboard/categories');
   revalidatePath('/products');
+  revalidatePath('/');
+  revalidatePath('/categories');
   redirect('/dashboard/categories');
 }
 
@@ -96,6 +98,8 @@ export async function updateCategory(id: number, prevState: any, formData: FormD
 
   revalidatePath('/dashboard/categories');
   revalidatePath('/products');
+  revalidatePath('/');
+  revalidatePath('/categories');
   redirect('/dashboard/categories');
 }
 
@@ -119,6 +123,8 @@ export async function deleteCategory(id: number) {
 
     revalidatePath('/dashboard/categories');
     revalidatePath('/products');
+    revalidatePath('/');
+    revalidatePath('/categories');
     return { success: true };
   } catch (error) {
     return { success: false, error: 'Gagal hapus kategori' };
