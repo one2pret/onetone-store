@@ -19,6 +19,7 @@ export const users = mysqlTable('users', {
   password: varchar('password', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }),
   address: text('address'),
+  birthdate: varchar('birthdate', { length: 10 }),                  // format: YYYY-MM-DD
   role: mysqlEnum('role', ['customer', 'admin']).default('customer'),
   deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow(),

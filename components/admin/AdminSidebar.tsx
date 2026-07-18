@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Package, ShoppingCart,
   FolderOpen, Image as ImageIcon, Settings,
-  ExternalLink, X, Menu, Store, Calculator, Receipt,
+  ExternalLink, X, Menu, Store, Calculator, Receipt, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
@@ -19,6 +19,7 @@ const navigation = [
   { name: 'Produk',      href: '/dashboard/products',   icon: Package },
   { name: 'Kategori',    href: '/dashboard/categories', icon: FolderOpen },
   { name: 'Pesanan',     href: '/dashboard/orders',     icon: ShoppingCart },
+  { name: 'Member',      href: '/dashboard/members',    icon: Users },
   { name: 'Pengaturan',  href: '/dashboard/settings',   icon: Settings },
 ];
 
