@@ -272,7 +272,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                     aria-label="Onetone — kembali ke beranda"
                     className="shrink-0 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
                   >
-                    <span className="animate-gold-shimmer">ONETONE</span>
+                    <span className="text-white font-bold tracking-widest">ONETONE</span>
                   </Link>
 
                   {/* Kolom 2: Search form — desktop */}
@@ -287,7 +287,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                     <button
                       type="submit"
                       aria-label="Cari"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[var(--premium)] hover:brightness-110 text-[var(--premium-foreground)] p-2 rounded-md transition"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-white hover:brightness-110 text-[var(--premium-foreground)] p-2 rounded-md transition"
                     >
                       <Search className="w-4 h-4" />
                     </button>
