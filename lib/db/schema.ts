@@ -118,6 +118,7 @@ export const products = mysqlTable('products', {
   isActive: boolean('is_active').default(true),
   isFeatured: boolean('is_featured').default(false),
   isBestSeller: boolean('is_best_seller').default(false),
+  channel: mysqlEnum('channel', ['all', 'store_only', 'marketplace_only']).default('all').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

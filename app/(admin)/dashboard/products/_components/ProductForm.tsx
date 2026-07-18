@@ -284,6 +284,16 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
               className="w-4 h-4 accent-primary rounded" />
             <span className="text-sm text-foreground">Produk unggulan (tampil di halaman utama)</span>
           </label>
+
+          <div className="pt-2">
+            <Label className="text-foreground text-sm mb-2 block">Tampil di Channel</Label>
+            <select name="channel" defaultValue={product?.channel ?? 'all'}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <option value="all">Semua (Marketplace + Brand Store)</option>
+              <option value="store_only">Brand Store saja</option>
+              <option value="marketplace_only">Marketplace saja</option>
+            </select>
+          </div>
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/db';
 import { products, categories } from '@/lib/db/schema';
-import { eq, desc, and, like, asc } from 'drizzle-orm';
+import { eq, desc, and, like, asc, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
@@ -17,6 +17,7 @@ const productSchema = z.object({
   weight: z.coerce.number().min(0, 'Berat tidak boleh negatif').default(0),
   isActive: z.coerce.boolean().optional(),
   isFeatured: z.coerce.boolean().optional(),
+  channel: z.enum(['all', 'store_only', 'marketplace_only']).default('all'),
 });
 
 async function queryProductsWithCategory(whereConditions: any[], options?: { limit?: number }) {
@@ -48,8 +49,13 @@ export async function getActiveProducts(options?: {
   search?: string;
   limit?: number;
   featured?: boolean;
+  forStore?: boolean;
 }) {
-  let whereConditions: any[] = [eq(products.isActive, true)];
+  const channelFilter = options?.forStore
+    ? or(eq(products.channel, 'all'), eq(products.channel, 'store_only'))!
+    : or(eq(products.channel, 'all'), eq(products.channel, 'marketplace_only'))!;
+
+  let whereConditions: any[] = [eq(products.isActive, true), channelFilter];
   if (options?.featured) whereConditions.push(eq(products.isFeatured, true));
   if (options?.search) whereConditions.push(like(products.name, `%${options.search}%`));
 
@@ -60,14 +66,18 @@ export async function getActiveProducts(options?: {
   return results;
 }
 
-export async function getFeaturedProducts(limit = 8) {
-  return getActiveProducts({ featured: true, limit });
+export async function getFeaturedProducts(limit = 8, forStore = false) {
+  return getActiveProducts({ featured: true, limit, forStore });
 }
 
-export async function getBestSellerProducts(limit = 4) {
+export async function getBestSellerProducts(limit = 4, forStore = false) {
+  const channelFilter = forStore
+    ? or(eq(products.channel, 'all'), eq(products.channel, 'store_only'))!
+    : or(eq(products.channel, 'all'), eq(products.channel, 'marketplace_only'))!;
   const whereConditions: any[] = [
     eq(products.isActive, true),
     eq(products.isBestSeller, true),
+    channelFilter,
   ];
   return queryProductsWithCategory(whereConditions, { limit });
 }
@@ -118,6 +128,7 @@ export async function createProduct(prevState: any, formData: FormData) {
     weight: formData.get('weight') || 0,
     isActive: formData.get('isActive') === 'on',
     isFeatured: formData.get('isFeatured') === 'on',
+    channel: formData.get('channel') || 'all',
   });
 
   if (!validated.success) {
@@ -168,6 +179,7 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
     weight: formData.get('weight') || 0,
     isActive: formData.get('isActive') === 'on',
     isFeatured: formData.get('isFeatured') === 'on',
+    channel: formData.get('channel') || 'all',
   });
 
   if (!validated.success) {
