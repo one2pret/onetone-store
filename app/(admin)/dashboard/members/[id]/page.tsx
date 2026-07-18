@@ -1,9 +1,11 @@
 // app/(admin)/dashboard/members/[id]/page.tsx
 import { getMember, getMemberOrders } from '@/app/actions/members';
+import { getAllTiers } from '@/app/actions/tiers';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { formatRupiah, formatDate } from '@/lib/utils';
+import { TierOverride } from '../_components/TierOverride';
 
 const tierBadge: Record<string, string> = {
   Silver:   'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
@@ -26,9 +28,10 @@ interface Props {
 
 export default async function MemberDetailPage({ params }: Props) {
   const { id } = await params;
-  const [member, recentOrders] = await Promise.all([
+  const [member, recentOrders, tiers] = await Promise.all([
     getMember(Number(id)),
     getMemberOrders(Number(id)),
+    getAllTiers(),
   ]);
 
   if (!member) notFound();
@@ -67,7 +70,10 @@ export default async function MemberDetailPage({ params }: Props) {
 
       {/* Profile */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-        <h2 className="text-sm font-semibold text-foreground mb-4">Profil</h2>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Profil</h2>
+          <TierOverride userId={member.id} currentTierId={member.tierId ?? null} tiers={tiers} />
+        </div>
         {[
           { label: 'No. HP', value: member.phone || '—' },
           { label: 'Tanggal Lahir', value: member.birthdate || '—' },

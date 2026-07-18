@@ -8,7 +8,8 @@ import { PosSettingsCard } from './_components/PosSettingsCard';
 import { DataToolsCard } from './_components/DataToolsCard';
 import { HeroSettingsCard } from './_components/HeroSettingsCard';
 import { EditorialSettingsCard } from './_components/EditorialSettingsCard';
-import { Settings } from 'lucide-react';
+import { Settings, Crown } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function SettingsPage() {
   const [settings, posSettings, heroConfig, featuredProducts, activeProducts, editorialBreaks] =
@@ -32,6 +33,17 @@ export default async function SettingsPage() {
       </div>
 
       <div className="space-y-8">
+        {/* Quick links */}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/dashboard/settings/tiers"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 transition text-sm font-medium text-foreground"
+          >
+            <Crown className="w-4 h-4 text-muted-foreground" />
+            Pengaturan Tier Member
+          </Link>
+        </div>
+
         <StoreSettingsForm settings={settings} />
         <HeroSettingsCard config={heroConfig} featuredProducts={featuredProducts} />
         <EditorialSettingsCard breaks={editorialBreaks} products={activeProducts} />
