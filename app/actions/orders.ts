@@ -721,6 +721,54 @@ export async function changeOrderStatus(
   }
 }
 
+export async function rollbackOrderStatus(
+  orderId: number,
+  targetStatus: string,
+  note: string,
+  adminId: string,
+) {
+  try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!note.trim()) {
+      return { success: false, error: 'Alasan rollback wajib diisi' };
+    }
+
+    const orderRows = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (orderRows.length === 0) return { success: false, error: 'Order tidak ditemukan' };
+
+    const order = orderRows[0];
+    const currentStatus = order.status!;
+
+    const { ROLLBACK_TRANSITIONS } = await import('@/lib/order-status');
+    if (ROLLBACK_TRANSITIONS[currentStatus as keyof typeof ROLLBACK_TRANSITIONS] !== targetStatus) {
+      return { success: false, error: 'Rollback tidak diizinkan untuk status ini' };
+    }
+
+    const updateData: Record<string, any> = { status: targetStatus as any };
+    if (targetStatus === 'packing') updateData.shippingAt = null;
+    if (targetStatus === 'shipping') updateData.deliveredAt = null;
+
+    await db.update(orders).set(updateData).where(eq(orders.id, orderId));
+
+    await db.insert(orderStatusLogs).values({
+      orderId,
+      fromStatus: currentStatus,
+      toStatus: targetStatus,
+      changedBy: `admin:${adminId}`,
+      note: `[ROLLBACK] ${note}`,
+    });
+
+    revalidatePath('/dashboard/orders');
+    revalidatePath('/orders');
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Gagal rollback status' };
+  }
+}
+
 // Get dashboard stats (admin)
 export async function getDashboardStats() {
   const allOrders = await db.select().from(orders);

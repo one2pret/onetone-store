@@ -20,6 +20,12 @@ export const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [], // terminal
 };
 
+// Rollback: mundurkan status manual oleh admin dengan alasan wajib
+export const ROLLBACK_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus>> = {
+  shipping: 'packing',    // kurir gagal pickup / salah klik
+  delivered: 'shipping',  // customer komplain belum sampai
+};
+
 export function validateStatusTransition(from: string, to: string): boolean {
   const allowed = VALID_TRANSITIONS[from as OrderStatus];
   if (!allowed) return false;
