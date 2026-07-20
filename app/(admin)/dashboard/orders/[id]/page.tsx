@@ -14,7 +14,7 @@ import { SendOrderButton } from './SendOrderButton';
 import { CancelOrderButton } from './CancelOrderButton';
 import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
 import { db } from '@/lib/db';
-import { invoices, shippings, shippingHistories } from '@/lib/db/schema';
+import { invoices, shippings, shippingHistories, orderStatusLogs } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 interface Props {
@@ -66,6 +66,10 @@ export default async function AdminOrderDetailPage({ params }: Props) {
       .where(eq(shippingHistories.shippingId, shipping.id))
       .orderBy(desc(shippingHistories.updatedAt));
   }
+
+  const statusLogs = await db.select().from(orderStatusLogs)
+    .where(eq(orderStatusLogs.orderId, order.id))
+    .orderBy(desc(orderStatusLogs.createdAt));
 
   return (
     <div className="space-y-6">
@@ -300,6 +304,54 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               />
             </div>
           </div>
+
+          {/* Audit Log */}
+          {statusLogs.length > 0 && (
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">Riwayat Status</h3>
+              </div>
+              <div className="p-5">
+                <ol className="relative border-l border-border space-y-4 ml-2">
+                  {statusLogs.map((log) => {
+                    const isRollback = log.note?.startsWith('[ROLLBACK]');
+                    return (
+                      <li key={log.id} className="pl-5 relative">
+                        <span className={`absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full border-2 ${
+                          isRollback
+                            ? 'bg-destructive/20 border-destructive'
+                            : 'bg-primary/20 border-primary'
+                        }`} />
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-sm text-foreground">
+                              <span className="text-muted-foreground">{getStatusLabel(log.fromStatus || '')}</span>
+                              {' → '}
+                              <span className="font-medium">{getStatusLabel(log.toStatus || '')}</span>
+                              {isRollback && (
+                                <span className="ml-2 text-xs text-destructive font-medium">ROLLBACK</span>
+                              )}
+                            </p>
+                            {log.note && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {isRollback ? log.note.replace('[ROLLBACK] ', '') : log.note}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              oleh {log.changedBy}
+                            </p>
+                          </div>
+                          <time className="text-xs text-muted-foreground shrink-0">
+                            {log.createdAt ? formatDate(log.createdAt) : '—'}
+                          </time>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
