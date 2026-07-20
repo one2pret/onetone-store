@@ -152,7 +152,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
               ? 'bg-[var(--success)] text-white'
               : disabled
               ? 'bg-muted text-muted-foreground cursor-not-allowed'
-              : 'border-2 border-primary text-primary hover:bg-primary/5'
+              : 'border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground'
           }`}
         >
           {loading ? 'Menambahkan...' : added ? (
@@ -168,7 +168,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
           className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
             disabled
               ? 'bg-muted text-muted-foreground cursor-not-allowed'
-              : 'bg-primary text-white hover:bg-primary-hover'
+              : 'bg-primary text-primary-foreground hover:bg-primary-hover'
           }`}
         >
           {buyNowLoading ? 'Memproses...' : (
