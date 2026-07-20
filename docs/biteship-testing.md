@@ -106,10 +106,21 @@ Sama seperti lokal, tapi:
 | Gejala | Penyebab | Fix |
 |--------|----------|-----|
 | Ongkir tidak muncul di checkout | Koordinat toko/alamat kosong, weight 0 | Cek prasyarat #2, #4, #5 |
-| "Gagal membuat pengiriman" saat klik Kirim | courier_company/type kosong di shipping record, atau API key salah | Cek log server: `docker logs onetone-app --tail 50` |
-| Order tidak muncul di Biteship dashboard | Belum klik "Kirim" di admin, atau lihat mode salah (Test vs Live) | Pastikan toggle Test mode di dashboard Biteship |
+| "Gagal membuat pengiriman" saat klik Kirim | Lihat log server | `docker logs onetone-app --tail 50` |
+| Error 40002035 "Delivery date has not been specified" | `delivery_type: 'later'` butuh delivery_date | **SUDAH DIFIX** — pakai `'now'` (commit 2797cc2) |
+| tracking_id tetap null setelah klik Kirim | createShipment gagal diam-diam | Cek log, kemungkinan API key salah atau error Biteship |
+| Order tidak muncul di Biteship dashboard | Belum klik "Kirim" di admin, atau lihat mode salah (Test vs Live) | Pastikan toggle Test mode aktif di Biteship |
 | Status tidak berubah otomatis ke delivered | Webhook belum terdaftar / URL salah | Daftar ulang webhook, cek endpoint `/api/webhooks/bitship` |
 | Tombol "Kirim" tidak muncul | Order belum berstatus `packing` (belum dibayar) | Selesaikan pembayaran dulu |
+
+## Bug yang Sudah Diperbaiki
+
+**2026-07-20 — delivery_type: 'later' → 'now' (commit 2797cc2)**
+
+Root cause: `createShipment` di `lib/bitship.ts` dikirim dengan `delivery_type: 'later'`.
+Biteship error 40002035: "Delivery date has not been specified" — tapi error ini ditangkap oleh catch block dan tidak muncul di UI, hanya di log server.
+Akibatnya: order status berubah ke `shipping` tapi `tracking_id` tetap null, dan data tidak pernah masuk Biteship.
+Fix: ganti ke `delivery_type: 'now'` = pickup segera, tidak perlu delivery_date.
 
 ---
 
