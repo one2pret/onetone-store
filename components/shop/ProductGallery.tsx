@@ -39,8 +39,8 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
 
   if (images.length === 0) {
     return (
-      <div className="aspect-square bg-slate-100 rounded-xl flex items-center justify-center">
-        <ShoppingBag className="w-24 h-24 text-slate-300" />
+      <div className="aspect-square bg-muted rounded-xl flex items-center justify-center">
+        <ShoppingBag className="w-24 h-24 text-muted-foreground" />
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
   return (
     <div className="space-y-3">
       {/* Main image */}
-      <div className="aspect-square bg-slate-100 rounded-xl relative overflow-hidden">
+      <div className="aspect-square bg-muted rounded-xl relative overflow-hidden">
         {displayUrl ? (
           <Image
             src={displayUrl}
@@ -63,7 +63,7 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <ShoppingBag className="w-24 h-24 text-slate-300" />
+            <ShoppingBag className="w-24 h-24 text-muted-foreground" />
           </div>
         )}
       </div>
@@ -79,7 +79,7 @@ export function ProductGallery({ images, productName, selectedColor }: Props) {
                 "shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden relative transition-all",
                 active?.id === img.id
                   ? "border-primary shadow-sm"
-                  : "border-transparent hover:border-slate-300",
+                  : "border-transparent hover:border-border",
               ].join(" ")}
             >
               <Image

@@ -28,7 +28,7 @@ const MapPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[250px] rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-sm text-slate-400">
+      <div className="h-[250px] rounded-lg border border-border bg-muted flex items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
         Memuat peta...
       </div>
@@ -70,7 +70,7 @@ function RegionSelect({
 }) {
   return (
     <div>
-      <Label htmlFor={name} className="text-sm text-slate-600">{label} *</Label>
+      <Label htmlFor={name} className="text-sm text-muted-foreground">{label} *</Label>
       <div className="relative mt-1">
         <select
           id={name}
@@ -78,20 +78,20 @@ function RegionSelect({
           disabled={disabled || loading}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full h-10 pl-3 pr-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-800 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-10 pl-3 pr-9 rounded-lg border border-border bg-muted text-sm text-foreground appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">{loading ? 'Memuat...' : `Pilih ${label}`}</option>
           {options.map((o) => (
             <option key={o.id} value={o.id}>{toTitleCase(o.name)}</option>
           ))}
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </div>
       <input type="hidden" name={name} value={value ? (options.find(o => o.id === value) ? toTitleCase(options.find(o => o.id === value)!.name) : '') : ''} />
       <input type="hidden" name={`${name}Id`} value={value} />
-      {error && <p className="text-red-500 text-xs mt-1">{error[0]}</p>}
+      {error && <p className="text-destructive text-xs mt-1">{error[0]}</p>}
     </div>
   );
 }
@@ -140,45 +140,45 @@ function AddressForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-slate-800">
+        <h3 className="font-semibold text-foreground">
           {isEdit ? 'Edit Alamat' : 'Tambah Alamat Baru'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-muted-foreground">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {errors._form && <p className="text-red-500 text-sm">{errors._form[0]}</p>}
+      {errors._form && <p className="text-destructive text-sm">{errors._form[0]}</p>}
 
       {isEdit && <input type="hidden" name="id" value={address.id} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="recipientName" className="text-sm text-slate-600">Nama Penerima *</Label>
+          <Label htmlFor="recipientName" className="text-sm text-muted-foreground">Nama Penerima *</Label>
           <Input id="recipientName" name="recipientName" required defaultValue={address?.recipientName} placeholder="Nama lengkap" className="mt-1" />
-          {errors.recipientName && <p className="text-red-500 text-xs mt-1">{errors.recipientName[0]}</p>}
+          {errors.recipientName && <p className="text-destructive text-xs mt-1">{errors.recipientName[0]}</p>}
         </div>
         <div>
-          <Label htmlFor="phone" className="text-sm text-slate-600">No. HP *</Label>
+          <Label htmlFor="phone" className="text-sm text-muted-foreground">No. HP *</Label>
           <Input id="phone" name="phone" required defaultValue={address?.phone} placeholder="08xxxxxxxxxx" className="mt-1" />
-          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone[0]}</p>}
+          {errors.phone && <p className="text-destructive text-xs mt-1">{errors.phone[0]}</p>}
         </div>
       </div>
 
       <div>
-        <Label htmlFor="address" className="text-sm text-slate-600">Alamat Lengkap *</Label>
+        <Label htmlFor="address" className="text-sm text-muted-foreground">Alamat Lengkap *</Label>
         <Textarea id="address" name="address" required rows={2} defaultValue={address?.address} placeholder="Jalan, RT/RW, No. Rumah..." className="mt-1" />
-        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address[0]}</p>}
+        {errors.address && <p className="text-destructive text-xs mt-1">{errors.address[0]}</p>}
       </div>
 
       <div>
-        <Label htmlFor="detail" className="text-sm text-slate-600">Detail Tambahan</Label>
+        <Label htmlFor="detail" className="text-sm text-muted-foreground">Detail Tambahan</Label>
         <Input id="detail" name="detail" defaultValue={address?.detail || ''} placeholder="Patokan, warna rumah, dll." className="mt-1" />
       </div>
 
       {/* Map Picker */}
       <div>
-        <Label className="text-sm text-slate-600">Pin Lokasi di Peta</Label>
+        <Label className="text-sm text-muted-foreground">Pin Lokasi di Peta</Label>
         <div className="mt-1">
           <MapPicker
             defaultLat={address?.latitude ? parseFloat(address.latitude) : undefined}
@@ -219,20 +219,20 @@ function AddressForm({
           error={errors.district}
         />
         <div>
-          <Label htmlFor="postalCode" className="text-sm text-slate-600">Kode Pos *</Label>
+          <Label htmlFor="postalCode" className="text-sm text-muted-foreground">Kode Pos *</Label>
           <Input id="postalCode" name="postalCode" required defaultValue={address?.postalCode} placeholder="12160" className="mt-1" />
-          {errors.postalCode && <p className="text-red-500 text-xs mt-1">{errors.postalCode[0]}</p>}
+          {errors.postalCode && <p className="text-destructive text-xs mt-1">{errors.postalCode[0]}</p>}
         </div>
       </div>
 
       <div>
-        <Label htmlFor="label" className="text-sm text-slate-600">Label</Label>
+        <Label htmlFor="label" className="text-sm text-muted-foreground">Label</Label>
         <Input id="label" name="label" defaultValue={address?.label || ''} placeholder="Rumah, Kantor, dll." className="mt-1" />
       </div>
 
       <div className="flex items-center gap-2">
-        <input type="checkbox" id="isDefault" name="isDefault" defaultChecked={address?.isDefault ?? false} className="rounded border-slate-300" />
-        <Label htmlFor="isDefault" className="text-sm text-slate-600 cursor-pointer">Jadikan alamat utama</Label>
+        <input type="checkbox" id="isDefault" name="isDefault" defaultChecked={address?.isDefault ?? false} className="rounded border-border" />
+        <Label htmlFor="isDefault" className="text-sm text-muted-foreground cursor-pointer">Jadikan alamat utama</Label>
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
@@ -265,22 +265,22 @@ function AddressCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="p-4 rounded-xl border border-slate-200 bg-white relative">
+    <div className="p-4 rounded-xl border border-border bg-card relative">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="font-medium text-slate-800">{address.recipientName}</span>
+            <span className="font-medium text-foreground">{address.recipientName}</span>
             {address.isDefault && (
               <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Default</span>
             )}
             {address.label && (
-              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{address.label}</span>
+              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{address.label}</span>
             )}
           </div>
-          <p className="text-sm text-slate-600">{address.phone}</p>
-          <p className="text-sm text-slate-500 mt-1">{address.address}</p>
-          {address.detail && <p className="text-sm text-slate-400">{address.detail}</p>}
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-sm text-muted-foreground">{address.phone}</p>
+          <p className="text-sm text-muted-foreground mt-1">{address.address}</p>
+          {address.detail && <p className="text-sm text-muted-foreground">{address.detail}</p>}
+          <p className="text-xs text-muted-foreground mt-1">
             {address.district}, {address.city}, {address.province} {address.postalCode}
           </p>
         </div>
@@ -290,17 +290,17 @@ function AddressCard({
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-muted-foreground hover:bg-muted transition"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-8 z-20 bg-white rounded-lg shadow-lg border border-slate-200 py-1 w-44">
+              <div className="absolute right-0 top-8 z-20 bg-card rounded-lg shadow-lg border border-border py-1 w-44">
                 <button
                   onClick={() => { setMenuOpen(false); onEdit(); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   Edit Alamat
@@ -308,7 +308,7 @@ function AddressCard({
                 {!address.isDefault && (
                   <button
                     onClick={() => { setMenuOpen(false); onSetDefault(); }}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted"
                   >
                     <Star className="w-3.5 h-3.5" />
                     Jadikan Default
@@ -316,7 +316,7 @@ function AddressCard({
                 )}
                 <button
                   onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Hapus
@@ -329,8 +329,8 @@ function AddressCard({
 
       {/* Delete confirmation */}
       {confirmDelete && (
-        <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
-          <p className="text-sm text-red-700 mb-2">Yakin hapus alamat ini?</p>
+        <div className="mt-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+          <p className="text-sm text-destructive mb-2">Yakin hapus alamat ini?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Batal</Button>
             <Button variant="destructive" size="sm" onClick={onDelete}>Hapus</Button>
@@ -364,7 +364,7 @@ export function AddressManager({ initialAddresses }: { initialAddresses: Address
 
   if (mode === 'add' || mode === 'edit') {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 md:p-6">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5 md:p-6">
         <AddressForm
           address={mode === 'edit' ? editingAddress! : undefined}
           onSuccess={async () => {
@@ -381,10 +381,10 @@ export function AddressManager({ initialAddresses }: { initialAddresses: Address
   return (
     <div className="space-y-3">
       {addresses.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-          <MapPin className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-600 font-medium">Belum ada alamat tersimpan</p>
-          <p className="text-sm text-slate-400 mt-1 mb-5">Tambahkan alamat pengiriman pertama Anda</p>
+        <div className="text-center py-12 bg-card rounded-xl border border-border">
+          <MapPin className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+          <p className="text-muted-foreground font-medium">Belum ada alamat tersimpan</p>
+          <p className="text-sm text-muted-foreground mt-1 mb-5">Tambahkan alamat pengiriman pertama Anda</p>
           <Button onClick={() => setMode('add')}>
             <Plus className="w-4 h-4 mr-1.5" />
             Tambah Alamat
@@ -404,7 +404,7 @@ export function AddressManager({ initialAddresses }: { initialAddresses: Address
           <button
             type="button"
             onClick={() => setMode('add')}
-            className="w-full p-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-primary"
+            className="w-full p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary"
           >
             <Plus className="w-4 h-4" />
             Tambah Alamat Baru

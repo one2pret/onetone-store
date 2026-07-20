@@ -56,9 +56,9 @@ export function OrderActions({ orderId, status, invoiceUrl }: Props) {
   if (!showActions) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t border-slate-100">
+    <div className="mt-4 pt-4 border-t border-border">
       {error && (
-        <p className="text-sm text-red-500 mb-3">{error}</p>
+        <p className="text-sm text-destructive mb-3">{error}</p>
       )}
 
       <div className="flex flex-wrap gap-3">

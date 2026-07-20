@@ -49,14 +49,14 @@ function CountdownTimer({ expiredAt }: { expiredAt: Date }) {
     return () => clearInterval(interval);
   }, [expiredAt]);
 
-  if (timeLeft <= 0) return <span className="text-red-500 text-xs">Waktu habis</span>;
+  if (timeLeft <= 0) return <span className="text-destructive text-xs">Waktu habis</span>;
 
   const hours = Math.floor(timeLeft / 3600);
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
 
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-orange-600 font-medium">
+    <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-medium">
       <Clock className="w-3 h-3" />
       {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
     </span>
@@ -70,7 +70,7 @@ function getTimeLeft(expiredAt: Date): number {
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   if (src) {
     return (
-      <div className="w-12 h-12 rounded-md overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+      <div className="w-12 h-12 rounded-md overflow-hidden shrink-0 border border-border bg-muted">
         <Image
           src={src}
           alt={alt}
@@ -83,8 +83,8 @@ function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
     );
   }
   return (
-    <div className="w-12 h-12 rounded-md shrink-0 bg-slate-100 flex items-center justify-center">
-      <ShoppingBag className="w-5 h-5 text-slate-400" />
+    <div className="w-12 h-12 rounded-md shrink-0 bg-muted flex items-center justify-center">
+      <ShoppingBag className="w-5 h-5 text-muted-foreground" />
     </div>
   );
 }
@@ -116,13 +116,13 @@ export function OrdersList({ orders }: Props) {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 isActive
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
               {tab.label}
               <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold ${
-                isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                isActive ? 'bg-primary/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 {count}
               </span>
@@ -134,8 +134,8 @@ export function OrdersList({ orders }: Props) {
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12">
-          <Package className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">Tidak ada pesanan {activeTab !== 'all' ? `berstatus "${getStatusLabel(activeTab)}"` : ''}</p>
+          <Package className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+          <p className="text-muted-foreground">Tidak ada pesanan {activeTab !== 'all' ? `berstatus "${getStatusLabel(activeTab)}"` : ''}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -143,16 +143,16 @@ export function OrdersList({ orders }: Props) {
             <Link
               key={order.id}
               href={`/orders/${order.id}`}
-              className="block bg-white rounded-xl border border-slate-100 p-5 hover:border-slate-200 transition"
+              className="block bg-card rounded-xl border border-border p-5 hover:border-border transition"
             >
               <div className="flex items-center justify-between mb-1">
-                <p className="font-mono font-semibold text-sm text-slate-800">{order.orderNumber}</p>
+                <p className="font-mono font-semibold text-sm text-foreground">{order.orderNumber}</p>
                 <Badge className={getStatusColor(order.status || 'waiting_payment')}>
                   {getStatusLabel(order.status || 'waiting_payment')}
                 </Badge>
               </div>
 
-              <p className="text-xs text-slate-400 mb-3">
+              <p className="text-xs text-muted-foreground mb-3">
                 {order.createdAt && formatDate(order.createdAt)}
                 {order.status === 'waiting_payment' && order.willExpiredAt && (
                   <> &middot; <CountdownTimer expiredAt={new Date(order.willExpiredAt)} /></>
@@ -166,7 +166,7 @@ export function OrdersList({ orders }: Props) {
                     <ProductThumb key={item.id} src={item.productImage} alt={item.productName} />
                   ))}
                   {order.items.length > 4 && (
-                    <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center text-xs text-slate-500 font-medium shrink-0">
+                    <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium shrink-0">
                       +{order.items.length - 4}
                     </div>
                   )}
@@ -176,12 +176,12 @@ export function OrdersList({ orders }: Props) {
               <div className="flex items-center justify-between text-sm">
                 <div className="flex flex-col gap-0.5">
                   {order.items.map((item) => (
-                    <span key={item.id} className="text-slate-500 text-xs">
+                    <span key={item.id} className="text-muted-foreground text-xs">
                       {item.productName}
                       {item.variantLabel && (
-                        <span className="text-slate-400"> · {item.variantLabel}</span>
+                        <span className="text-muted-foreground"> · {item.variantLabel}</span>
                       )}
-                      <span className="text-slate-400"> ×{item.quantity}</span>
+                      <span className="text-muted-foreground"> ×{item.quantity}</span>
                     </span>
                   ))}
                 </div>

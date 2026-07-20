@@ -21,7 +21,7 @@ interface Props {
 function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
   if (src) {
     return (
-      <div className="w-14 h-14 rounded-md overflow-hidden shrink-0 border border-slate-100 bg-slate-50">
+      <div className="w-14 h-14 rounded-md overflow-hidden shrink-0 border border-border bg-muted">
         <Image
           src={src}
           alt={alt}
@@ -34,8 +34,8 @@ function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
     );
   }
   return (
-    <div className="w-14 h-14 rounded-md shrink-0 bg-slate-100 flex items-center justify-center">
-      <ShoppingBag className="w-6 h-6 text-slate-400" />
+    <div className="w-14 h-14 rounded-md shrink-0 bg-muted flex items-center justify-center">
+      <ShoppingBag className="w-6 h-6 text-muted-foreground" />
     </div>
   );
 }
@@ -85,19 +85,19 @@ export default async function OrderDetailPage({ params }: Props) {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
         href="/orders"
-        className="flex items-center gap-2 text-slate-600 hover:text-slate-800 mb-6 transition"
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition"
       >
         <ArrowLeft className="w-4 h-4" />
         Kembali ke Pesanan
       </Link>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-100 p-6 mb-6">
+      <div className="bg-card rounded-xl border border-border p-6 mb-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-500">No. Pesanan</p>
-            <p className="text-xl font-mono font-bold text-slate-800">{order.orderNumber}</p>
-            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">No. Pesanan</p>
+            <p className="text-xl font-mono font-bold text-foreground">{order.orderNumber}</p>
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
               <Clock className="w-4 h-4" />
               {order.createdAt && formatDate(order.createdAt)}
             </p>
@@ -115,7 +115,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
 
         {/* Order Progress Stepper */}
-        <div className="mt-6 pt-6 border-t border-slate-100">
+        <div className="mt-6 pt-6 border-t border-border">
           <OrderStepper
             status={order.status || 'waiting_payment'}
             timestamps={{
@@ -138,8 +138,8 @@ export default async function OrderDetailPage({ params }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Order Items */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl border border-slate-100 p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Package className="w-5 h-5" />
               Item Pesanan ({order.items.length} produk)
             </h2>
@@ -148,31 +148,31 @@ export default async function OrderDetailPage({ params }: Props) {
                 <div key={item.id} className="py-4 flex items-center gap-4">
                   <ProductThumb src={(item as any).productImage} alt={item.productName} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{item.productName}</p>
+                    <p className="font-medium text-foreground truncate">{item.productName}</p>
                     {(item as any).variantLabel && (
-                      <p className="text-xs text-slate-400 mt-0.5">{(item as any).variantLabel}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{(item as any).variantLabel}</p>
                     )}
-                    <p className="text-sm text-slate-500 mt-0.5">
+                    <p className="text-sm text-muted-foreground mt-0.5">
                       {formatRupiah(item.price)} × {item.quantity}
                     </p>
                   </div>
-                  <p className="font-semibold text-slate-800 shrink-0">
+                  <p className="font-semibold text-foreground shrink-0">
                     {formatRupiah(item.subtotal)}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="border-t border-slate-200 pt-4 mt-4 space-y-2">
+            <div className="border-t border-border pt-4 mt-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600">Subtotal</span>
+                <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatRupiah(order.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600">Ongkos Kirim</span>
+                <span className="text-muted-foreground">Ongkos Kirim</span>
                 <span>{formatRupiah(order.shippingCost || '0')}</span>
               </div>
-              <div className="flex justify-between font-semibold text-lg pt-2 border-t border-slate-100">
+              <div className="flex justify-between font-semibold text-lg pt-2 border-t border-border">
                 <span>Total Pembayaran</span>
                 <span className="text-primary">{formatRupiah(order.total)}</span>
               </div>
@@ -183,21 +183,21 @@ export default async function OrderDetailPage({ params }: Props) {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Shipping Info */}
-          <div className="bg-white rounded-xl border border-slate-100 p-6">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5" />
               Pengiriman
             </h2>
             <div className="space-y-2 text-sm">
-              <p className="font-medium text-slate-800">{order.shippingName}</p>
-              <p className="text-slate-500">{order.shippingPhone}</p>
-              <p className="text-slate-500">{order.shippingAddress}</p>
+              <p className="font-medium text-foreground">{order.shippingName}</p>
+              <p className="text-muted-foreground">{order.shippingPhone}</p>
+              <p className="text-muted-foreground">{order.shippingAddress}</p>
               {shipping && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <p className="text-xs text-slate-400">Kurir</p>
-                  <p className="font-medium text-slate-700">{shipping.courierName}</p>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground">Kurir</p>
+                  <p className="font-medium text-foreground">{shipping.courierName}</p>
                   {shipping.trackingId && (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Tracking: {shipping.waybillId || shipping.trackingId}
                     </p>
                   )}
@@ -208,8 +208,8 @@ export default async function OrderDetailPage({ params }: Props) {
 
           {/* Tracking */}
           {(order.status === 'shipping' || order.status === 'delivered') && (
-            <div className="bg-white rounded-xl border border-slate-100 p-6">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Truck className="w-5 h-5" />
                 Lacak Pengiriman
               </h2>
@@ -222,9 +222,9 @@ export default async function OrderDetailPage({ params }: Props) {
 
           {/* Notes */}
           {order.notes && (
-            <div className="bg-white rounded-xl border border-slate-100 p-6">
-              <h2 className="text-lg font-semibold text-slate-800 mb-2">Catatan</h2>
-              <p className="text-sm text-slate-600">{order.notes}</p>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h2 className="text-lg font-semibold text-foreground mb-2">Catatan</h2>
+              <p className="text-sm text-muted-foreground">{order.notes}</p>
             </div>
           )}
         </div>

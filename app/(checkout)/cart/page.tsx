@@ -25,20 +25,20 @@ export default async function CartPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-slate-800 mb-8">Keranjang Belanja</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-8">Keranjang Belanja</h1>
 
       {cart.length === 0 ? (
         <div className="text-center py-16">
-          <ShoppingCart className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <h2 className="text-xl font-semibold text-slate-800 mb-2">
+          <ShoppingCart className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Keranjang Kosong
           </h2>
-          <p className="text-slate-500 mb-6">
+          <p className="text-muted-foreground mb-6">
             Belum ada produk di keranjang Anda
           </p>
           <Link
             href="/products"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover"
           >
             Mulai Belanja
             <ArrowRight className="w-5 h-5" />
@@ -48,7 +48,7 @@ export default async function CartPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="divide-y divide-slate-100">
                 {cart.map((item) => (
                   <CartItemRow key={item.id} item={item} />
@@ -59,21 +59,21 @@ export default async function CartPage() {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl border border-slate-100 p-6 sticky top-24">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">
+            <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
+              <h2 className="text-lg font-semibold text-foreground mb-4">
                 Ringkasan Pesanan
               </h2>
 
               <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal ({cart.length} item)</span>
                   <span>{formatRupiah(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Ongkos Kirim</span>
                   <span>{formatRupiah(shipping)}</span>
                 </div>
-                <div className="border-t border-slate-100 pt-3 flex justify-between font-semibold text-slate-800">
+                <div className="border-t border-border pt-3 flex justify-between font-semibold text-foreground">
                   <span>Total</span>
                   <span className="text-primary">{formatRupiah(total)}</span>
                 </div>
@@ -81,7 +81,7 @@ export default async function CartPage() {
 
               <Link
                 href="/checkout"
-                className="w-full py-3 px-6 bg-primary text-white rounded-lg font-semibold hover:bg-primary-hover transition flex items-center justify-center gap-2"
+                className="w-full py-3 px-6 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary-hover transition flex items-center justify-center gap-2"
               >
                 Lanjut ke Checkout
                 <ArrowRight className="w-5 h-5" />

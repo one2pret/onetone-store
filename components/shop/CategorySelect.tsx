@@ -16,7 +16,7 @@ export function CategorySelect({ categories, currentCategory }: { categories: Ca
           : '/products';
         window.location.href = url;
       }}
-      className="w-full px-4 py-2 border border-slate-200 rounded-lg"
+      className="w-full px-4 py-2 border border-border rounded-lg"
     >
       <option value="">Semua Kategori</option>
       {categories.map((cat) => (

@@ -8,8 +8,8 @@ export default async function AddressesPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Alamat Saya</h1>
-        <p className="text-sm text-slate-500 mt-1">Kelola alamat pengiriman Anda</p>
+        <h1 className="text-2xl font-bold text-foreground">Alamat Saya</h1>
+        <p className="text-sm text-muted-foreground mt-1">Kelola alamat pengiriman Anda</p>
       </div>
       <AddressManager initialAddresses={addresses} />
     </div>
