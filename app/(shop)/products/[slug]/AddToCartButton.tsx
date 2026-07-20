@@ -103,33 +103,33 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
       {!hasVariants && (
         <div>
           {currentStock > 0 ? (
-            <p className="text-green-600 text-sm">✓ Stok tersedia ({currentStock} pcs)</p>
+            <p className="text-[var(--success)] text-sm">✓ Stok tersedia ({currentStock} pcs)</p>
           ) : (
-            <p className="text-red-600 text-sm">✗ Stok habis</p>
+            <p className="text-destructive text-sm">✗ Stok habis</p>
           )}
         </div>
       )}
 
       {/* Hint saat varian belum dipilih */}
       {variantRequired && (
-        <p className="text-sm text-amber-600">⚠ Silakan pilih ukuran dan warna</p>
+        <p className="text-sm text-amber-400">⚠ Silakan pilih ukuran dan warna</p>
       )}
 
       {/* Quantity Selector */}
       <div className="flex items-center gap-4">
-        <span className="text-sm text-slate-600">Jumlah:</span>
-        <div className="flex items-center border border-slate-200 rounded-lg">
+        <span className="text-sm text-foreground">Jumlah:</span>
+        <div className="flex items-center border border-border rounded-lg">
           <button
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="p-2 hover:bg-slate-100 disabled:opacity-40"
+            className="p-2 hover:bg-muted disabled:opacity-40 transition"
             disabled={disabled}
           >
             <Minus className="w-4 h-4" />
           </button>
-          <span className="w-12 text-center font-medium">{quantity}</span>
+          <span className="w-12 text-center font-medium text-foreground">{quantity}</span>
           <button
             onClick={() => setQuantity(Math.min(currentStock || 99, quantity + 1))}
-            className="p-2 hover:bg-slate-100 disabled:opacity-40"
+            className="p-2 hover:bg-muted disabled:opacity-40 transition"
             disabled={disabled}
           >
             <Plus className="w-4 h-4" />
@@ -139,7 +139,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
 
       {/* Error Message */}
       {error && (
-        <p className="text-red-600 text-sm">{error}</p>
+        <p className="text-destructive text-sm">{error}</p>
       )}
 
       {/* Action Buttons */}
@@ -149,9 +149,9 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
           disabled={disabled}
           className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
             added
-              ? 'bg-green-600 text-white'
+              ? 'bg-[var(--success)] text-white'
               : disabled
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
               : 'border-2 border-primary text-primary hover:bg-primary/5'
           }`}
         >
@@ -167,7 +167,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
           disabled={disabled}
           className={`flex-1 py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition ${
             disabled
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
               : 'bg-primary text-white hover:bg-primary-hover'
           }`}
         >
