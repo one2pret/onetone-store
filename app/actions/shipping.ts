@@ -195,7 +195,7 @@ export async function sendOrderToBitship(orderId: number): Promise<{
       },
       courier_company: shipping.courierCompany || '',
       courier_type: shipping.courierType || '',
-      delivery_type: 'later',
+      delivery_type: 'now',
       items: bitshipItems,
     });
 
