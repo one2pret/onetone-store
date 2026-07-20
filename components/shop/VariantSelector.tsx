@@ -21,7 +21,6 @@ interface Props {
 export function VariantSelector({ variants, basePrice, onVariantChange, onColorChange }: Props) {
   const activeVariants = useMemo(() => variants.filter((v) => v.stock >= 0), [variants]);
 
-  // Unique sizes & colors
   const sizes = useMemo(() => {
     const seen = new Set<string>();
     return activeVariants
@@ -31,8 +30,8 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [colorCleared, setColorCleared] = useState(false);
 
-  // Colors available for selected size
   const availableColors = useMemo(() => {
     const pool = selectedSize
       ? activeVariants.filter((v) => v.size === selectedSize)
@@ -43,20 +42,22 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
       .filter(({ color }) => color && !seen.has(color) && !!seen.add(color));
   }, [activeVariants, selectedSize]);
 
-  // Matched variant
   const matchedVariant = useMemo(() => {
     if (!selectedSize || !selectedColor) return null;
     return activeVariants.find((v) => v.size === selectedSize && v.color === selectedColor) ?? null;
   }, [activeVariants, selectedSize, selectedColor]);
 
-  // Reset color if no longer available after size change
+  // Reset color if no longer available after size change — with feedback
   useEffect(() => {
     if (selectedColor && !availableColors.find((c) => c.color === selectedColor)) {
       setSelectedColor(null);
+      onColorChange?.(null);
+      setColorCleared(true);
+      const t = setTimeout(() => setColorCleared(false), 2500);
+      return () => clearTimeout(t);
     }
-  }, [availableColors, selectedColor]);
+  }, [availableColors, selectedColor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notify parent
   useEffect(() => {
     if (!matchedVariant) {
       onVariantChange(null, basePrice, 0);
@@ -76,13 +77,17 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
     return !activeVariants.some((v) => v.size === size && v.stock > 0);
   };
 
+  const priceModifier = matchedVariant
+    ? parseFloat(String(matchedVariant.priceModifier ?? '0'))
+    : 0;
+
   return (
     <div className="space-y-5">
       {/* Size Selector */}
       {sizes.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-slate-700">Ukuran</span>
+            <span className="text-sm font-semibold text-foreground">Ukuran</span>
             {selectedSize && (
               <span className="text-xs text-primary font-medium">{selectedSize}</span>
             )}
@@ -96,13 +101,15 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
                   key={size}
                   onClick={() => !outOfStock && setSelectedSize(active ? null : size)}
                   disabled={outOfStock}
+                  aria-pressed={active}
+                  aria-label={outOfStock ? `${size} — habis` : size}
                   className={[
                     'px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all',
                     active
                       ? 'border-primary bg-primary text-white shadow-sm'
                       : outOfStock
-                      ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through'
-                      : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary',
+                      ? 'border-border bg-muted text-muted-foreground cursor-not-allowed line-through opacity-50'
+                      : 'border-border text-foreground hover:border-primary hover:text-primary',
                   ].join(' ')}
                 >
                   {size}
@@ -117,7 +124,14 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
       {availableColors.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-slate-700">Warna</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">Warna</span>
+              {colorCleared && (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                  Pilih warna lagi
+                </span>
+              )}
+            </div>
             {selectedColor && (
               <span className="text-xs text-primary font-medium">{selectedColor}</span>
             )}
@@ -136,31 +150,31 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
                     onColorChange?.(next);
                   }}
                   disabled={outOfStock}
-                  title={color}
+                  title={outOfStock ? `${color} — habis` : color}
+                  aria-pressed={active}
                   className={[
                     'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all',
                     active
                       ? 'border-primary shadow-sm bg-primary/5'
                       : outOfStock
-                      ? 'border-slate-100 text-slate-300 cursor-not-allowed'
-                      : 'border-slate-200 text-slate-700 hover:border-primary',
+                      ? 'border-border text-muted-foreground cursor-not-allowed opacity-50'
+                      : 'border-border text-foreground hover:border-primary',
                   ].join(' ')}
                 >
-                  {/* Color swatch */}
                   {colorHex ? (
                     <span
                       className={[
                         'w-4 h-4 rounded-full border flex-shrink-0',
-                        active ? 'border-primary' : 'border-slate-200',
+                        active ? 'border-primary' : 'border-border/60',
                         outOfStock ? 'opacity-40' : '',
                       ].join(' ')}
                       style={{ backgroundColor: colorHex }}
                     />
                   ) : (
-                    <span className="w-4 h-4 rounded-full bg-slate-300 border border-slate-200 flex-shrink-0" />
+                    <span className="w-4 h-4 rounded-full bg-muted border border-border flex-shrink-0" />
                   )}
                   <span className={outOfStock ? 'line-through' : ''}>{color}</span>
-                  {outOfStock && <span className="text-xs text-red-400">(Habis)</span>}
+                  {outOfStock && <span className="text-xs text-muted-foreground">(Habis)</span>}
                 </button>
               );
             })}
@@ -168,25 +182,25 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
         </div>
       )}
 
-      {/* Stock indicator after variant selected */}
+      {/* Stock indicator */}
       {matchedVariant && (
         <div className="text-sm">
           {matchedVariant.stock > 0 ? (
-            <span className="text-green-600 font-medium">
+            <span className="text-[var(--success)] font-medium">
               ✓ Stok tersedia ({matchedVariant.stock} pcs)
             </span>
           ) : (
-            <span className="text-red-500 font-medium">✗ Stok habis untuk varian ini</span>
+            <span className="text-destructive font-medium">✗ Stok habis untuk varian ini</span>
           )}
         </div>
       )}
 
-      {/* Price modifier info */}
-      {matchedVariant && parseFloat(String(matchedVariant.priceModifier ?? '0')) !== 0 && (
-        <div className="text-xs text-slate-500">
-          {parseFloat(String(matchedVariant.priceModifier)) > 0
-            ? `+Rp ${parseInt(String(matchedVariant.priceModifier)).toLocaleString('id-ID')} untuk ukuran ini`
-            : `Diskon Rp ${Math.abs(parseInt(String(matchedVariant.priceModifier))).toLocaleString('id-ID')} untuk ukuran ini`}
+      {/* Price modifier */}
+      {priceModifier !== 0 && (
+        <div className="text-xs text-muted-foreground">
+          {priceModifier > 0
+            ? `+Rp ${priceModifier.toLocaleString('id-ID')} untuk ukuran ini`
+            : `Hemat Rp ${Math.abs(priceModifier).toLocaleString('id-ID')} untuk ukuran ini`}
         </div>
       )}
     </div>
