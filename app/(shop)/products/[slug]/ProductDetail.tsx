@@ -123,7 +123,7 @@ function ProductDescription({ raw }: { raw: string }) {
     <div className="space-y-3">
       {/* Intro text */}
       {intro && (
-        <p className="text-sm text-foreground/80 leading-relaxed italic border-l-2 border-primary/30 pl-3">
+        <p className="text-sm text-foreground/80 leading-relaxed italic bg-primary/5 rounded-lg px-3 py-2">
           {intro}
         </p>
       )}
@@ -234,9 +234,7 @@ export function ProductDetail({
 
         {/* Description */}
         <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            Deskripsi Produk
-          </p>
+          <p className="text-sm font-semibold text-foreground mb-2">Deskripsi Produk</p>
           <ProductDescription raw={description ?? ""} />
         </div>
 
