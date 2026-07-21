@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { products, categories } from '@/lib/db/schema';
+import { products, categories, productImages } from '@/lib/db/schema';
 import { eq, desc, and, like, asc, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -186,15 +186,29 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
     return { success: false, errors: validated.error.flatten().fieldErrors, productId: id };
   }
 
-  const image = (formData.get('image') as string) || '';
+  const formImage = (formData.get('image') as string) || '';
   const images = (formData.get('images') as string) || '[]';
   const slug = slugify(validated.data.name);
 
   try {
-    await db
-      .update(products)
-      .set({ ...validated.data, slug, image, images, price: String(validated.data.price) })
-      .where(eq(products.id, id));
+    // Cek apakah produk sudah punya gambar di R2 (product_images table)
+    // Kalau ada, jangan overwrite products.image — biarkan product-images.ts yang manage
+    const r2Images = await db.select({ id: productImages.id })
+      .from(productImages)
+      .where(eq(productImages.productId, id))
+      .limit(1);
+
+    const image = r2Images.length > 0 ? undefined : formImage;
+
+    const updateData: Record<string, any> = {
+      ...validated.data,
+      slug,
+      images,
+      price: String(validated.data.price),
+    };
+    if (image !== undefined) updateData.image = image;
+
+    await db.update(products).set(updateData).where(eq(products.id, id));
   } catch {
     return { success: false, errors: { _form: ['Gagal update produk.'] }, productId: id };
   }

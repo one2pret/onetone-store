@@ -42,7 +42,14 @@ export default async function EditProductPage({ params }: Props) {
       </div>
 
       <div className="max-w-2xl space-y-8">
-        <ProductForm product={product} categories={categories} variants={variants} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
+        <ProductForm
+          product={product}
+          categories={categories}
+          variants={variants}
+          usedInOrderIds={usedInOrderIds}
+          usedInCartIds={usedInCartIds}
+          primaryImageUrl={images.find(img => img.isPrimary)?.url ?? images[0]?.url}
+        />
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">

@@ -21,6 +21,7 @@ interface Props {
   variants?: ProductVariant[];
   usedInOrderIds?: number[];
   usedInCartIds?: number[];
+  primaryImageUrl?: string;
 }
 
 type ActionResult = {
@@ -105,7 +106,7 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 }
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
-export function ProductForm({ product, categories, variants = [], usedInOrderIds = [], usedInCartIds = [] }: Props) {
+export function ProductForm({ product, categories, variants = [], usedInOrderIds = [], usedInCartIds = [], primaryImageUrl }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ActionResult>(null);
   const [isPending, startTransition] = useTransition();
@@ -115,7 +116,7 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
     try { return product?.images ? JSON.parse(product.images) : []; } catch { return []; }
   })();
 
-  const [mainImage, setMainImage] = useState(product?.image ?? '');
+  const [mainImage, setMainImage] = useState(primaryImageUrl ?? product?.image ?? '');
   const [extraImages, setExtraImages] = useState<string[]>(existingImages);
 
   // FIX: init with full VariantRow shape including _key and isActive
