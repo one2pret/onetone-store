@@ -247,21 +247,29 @@ body {
 }
 /* ── POS Print Receipt ─────────────────────────────────────────────────────── */
 @media print {
-  body > *:not(#pos-print-root) { display: none !important; }
-  #pos-print-root { display: block !important; }
+  /* Sembunyikan semua — biarkan layout tetap, cukup invisible */
+  body * { visibility: hidden; }
 
-  .print-hidden { display: none !important; }
+  /* Hanya #print-receipt dan isinya yang terlihat */
+  #print-receipt,
+  #print-receipt * { visibility: visible; }
 
+  /* Posisikan di pojok kiri atas, lebar 58mm thermal */
   #print-receipt {
-    position: fixed;
-    inset: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 58mm;
-    margin: 0;
     padding: 4mm;
     font-size: 10pt;
     font-family: monospace;
-    color: #000;
-    background: #fff;
+    color: #000 !important;
+    background: #fff !important;
   }
-  #print-receipt h1, #print-receipt h2 { font-size: 12pt; }
+
+  #print-receipt h1,
+  #print-receipt h2 { font-size: 12pt; }
+
+  /* Sembunyikan elemen UI non-struk */
+  .print-hidden { display: none !important; }
 }

@@ -232,14 +232,14 @@ export function ReceiptView({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handlePrint}
-            className="flex items-center justify-center gap-2 py-3 text-sm font-semibold border border-border rounded-lg hover:bg-muted transition text-foreground"
+            className="flex items-center justify-center gap-2 py-3 text-sm font-semibold border border-zinc-200 rounded-lg bg-white hover:bg-zinc-50 transition text-zinc-800"
           >
             <Printer className="w-4 h-4" />
             Print
           </button>
           <button
             onClick={handleShareWA}
-            className="flex items-center justify-center gap-2 py-3 text-sm font-semibold border border-border rounded-lg hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition text-foreground"
+            className="flex items-center justify-center gap-2 py-3 text-sm font-semibold border border-zinc-200 rounded-lg bg-white hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition text-zinc-800"
           >
             <MessageCircle className="w-4 h-4" />
             Kirim WA
