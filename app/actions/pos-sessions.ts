@@ -16,6 +16,7 @@ import { z } from "zod";
 const openSessionSchema = z.object({
   openingCash: z.number().min(0, "Modal awal tidak boleh negatif"),
   notes: z.string().max(500).optional(),
+  cashierId: z.number().int().positive().optional(),
 });
 
 const closeSessionSchema = z.object({
@@ -52,31 +53,44 @@ export async function getActiveSession() {
 
 // ─── Open session ─────────────────────────────────────────────────────────────
 
-export async function openSession(input: { openingCash: number; notes?: string }) {
-  const auth = await requireCashier();
-  if (!auth.ok) return { success: false, error: auth.error };
+export async function getCashierUsers() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  return db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.role, 'admin'))
+    .orderBy(users.name);
+}
+
+export async function openSession(input: { openingCash: number; notes?: string; cashierId?: number }) {
+  const authResult = await requireCashier();
+  if (!authResult.ok) return { success: false, error: authResult.error };
 
   const parsed = openSessionSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   }
 
-  // Tidak boleh ada session open milik kasir yang sama
+  // Kasir yang akan dibuka sesinya: dipilih dari dropdown atau fallback ke auth user
+  const targetCashierId = parsed.data.cashierId ?? authResult.userId;
+
+  // Tidak boleh ada session open untuk kasir yang dipilih
   const existing = await db
     .select({ id: posSessions.id })
     .from(posSessions)
-    .where(and(eq(posSessions.cashierId, auth.userId), eq(posSessions.status, "open")))
+    .where(and(eq(posSessions.cashierId, targetCashierId), eq(posSessions.status, "open")))
     .limit(1);
 
   if (existing.length > 0) {
     return {
       success: false,
-      error: "Kamu masih punya sesi kasir yang aktif. Tutup dulu sebelum buka yang baru.",
+      error: "Kasir ini masih punya sesi aktif. Tutup dulu sebelum buka yang baru.",
     };
   }
 
   const [result] = await db.insert(posSessions).values({
-    cashierId: auth.userId,
+    cashierId: targetCashierId,
     openingCash: String(parsed.data.openingCash),
     status: "open",
     notes: parsed.data.notes || null,

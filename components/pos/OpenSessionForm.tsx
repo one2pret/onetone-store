@@ -13,11 +13,24 @@ import { Calculator, Wallet, User } from "lucide-react";
 
 const QUICK_AMOUNTS = [0, 50000, 100000, 200000, 500000, 1000000];
 
-export function OpenSessionForm({ cashierName }: { cashierName?: string }) {
+interface CashierOption {
+  id: number;
+  name: string;
+  email: string;
+}
+
+interface Props {
+  cashierName?: string;
+  currentUserId?: number;
+  cashiers?: CashierOption[];
+}
+
+export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openingCash, setOpeningCash] = useState<string>("0");
   const [notes, setNotes] = useState("");
+  const [selectedCashierId, setSelectedCashierId] = useState<number>(currentUserId ?? 0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +44,7 @@ export function OpenSessionForm({ cashierName }: { cashierName?: string }) {
       const result = await openSession({
         openingCash: amount,
         notes: notes || undefined,
+        cashierId: selectedCashierId || undefined,
       });
       if (result.success) {
         toast.success("Sesi kasir dibuka");
@@ -49,18 +63,34 @@ export function OpenSessionForm({ cashierName }: { cashierName?: string }) {
             <Calculator className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Buka Kasir</h1>
-          {cashierName && (
-            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-              <User className="w-3.5 h-3.5" />
-              {cashierName}
-            </div>
-          )}
           <p className="text-sm text-slate-500 mt-1">
-            Masukkan modal awal / uang kembalian di laci
+            Pilih kasir yang bertugas dan masukkan modal awal
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Pilih kasir */}
+          {cashiers.length > 0 && (
+            <div>
+              <label htmlFor="cashierId" className="block text-sm font-medium text-slate-700 mb-2">
+                <User className="w-4 h-4 inline mr-1 -mt-0.5" />
+                Kasir Bertugas
+              </label>
+              <select
+                id="cashierId"
+                value={selectedCashierId}
+                onChange={(e) => setSelectedCashierId(Number(e.target.value))}
+                className="w-full px-4 py-3 text-base font-medium bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition appearance-none"
+              >
+                {cashiers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.id === currentUserId ? ' (Anda)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Modal awal */}
           <div>
             <label htmlFor="openingCash" className="block text-sm font-medium text-slate-700 mb-2">
