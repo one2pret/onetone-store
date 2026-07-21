@@ -16,7 +16,7 @@ import { z } from "zod";
 const openSessionSchema = z.object({
   openingCash: z.number().min(0, "Modal awal tidak boleh negatif"),
   notes: z.string().max(500).optional(),
-  cashierId: z.number().int().positive().optional(),
+  assignedCashierName: z.string().max(255).optional(),
 });
 
 const closeSessionSchema = z.object({
@@ -42,24 +42,13 @@ export async function getActiveSession() {
   const auth = await requireCashier();
   if (!auth.ok) return null;
 
-  // Cek sesi milik sendiri dulu
-  const ownRows = await db
+  const rows = await db
     .select()
     .from(posSessions)
     .where(and(eq(posSessions.cashierId, auth.userId), eq(posSessions.status, "open")))
     .limit(1);
 
-  if (ownRows[0]) return ownRows[0];
-
-  // Proxy-open: jika admin membuka sesi untuk kasir lain (single-store, 1 sesi aktif)
-  const anyRows = await db
-    .select()
-    .from(posSessions)
-    .where(eq(posSessions.status, "open"))
-    .orderBy(desc(posSessions.openedAt))
-    .limit(1);
-
-  return anyRows[0] ?? null;
+  return rows[0] ?? null;
 }
 
 // ─── Open session ─────────────────────────────────────────────────────────────
@@ -74,7 +63,7 @@ export async function getCashierUsers() {
     .orderBy(users.name);
 }
 
-export async function openSession(input: { openingCash: number; notes?: string; cashierId?: number }) {
+export async function openSession(input: { openingCash: number; notes?: string; assignedCashierName?: string }) {
   const authResult = await requireCashier();
   if (!authResult.ok) return { success: false, error: authResult.error };
 
@@ -83,27 +72,25 @@ export async function openSession(input: { openingCash: number; notes?: string; 
     return { success: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   }
 
-  // Kasir yang akan dibuka sesinya: dipilih dari dropdown atau fallback ke auth user
-  const targetCashierId = parsed.data.cashierId ?? authResult.userId;
-
-  // Tidak boleh ada session open untuk kasir yang dipilih
+  // cashierId selalu = user yang login. Nama kasir bertugas disimpan terpisah.
   const existing = await db
     .select({ id: posSessions.id })
     .from(posSessions)
-    .where(and(eq(posSessions.cashierId, targetCashierId), eq(posSessions.status, "open")))
+    .where(and(eq(posSessions.cashierId, authResult.userId), eq(posSessions.status, "open")))
     .limit(1);
 
   if (existing.length > 0) {
     return {
       success: false,
-      error: "Kasir ini masih punya sesi aktif. Tutup dulu sebelum buka yang baru.",
+      error: "Masih ada sesi kasir aktif. Tutup dulu sebelum buka yang baru.",
     };
   }
 
   const [result] = await db.insert(posSessions).values({
-    cashierId: targetCashierId,
+    cashierId: authResult.userId,
     openingCash: String(parsed.data.openingCash),
     status: "open",
+    assignedCashierName: parsed.data.assignedCashierName || null,
     notes: parsed.data.notes || null,
   });
 
@@ -195,9 +182,6 @@ export async function closeSession(input: {
   }
   const session = sessionRows[0];
 
-  if (session.cashierId !== auth.userId) {
-    return { success: false, error: "Sesi kasir bukan milikmu" };
-  }
   if (session.status === "closed") {
     return { success: false, error: "Sesi kasir sudah ditutup" };
   }

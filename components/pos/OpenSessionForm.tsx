@@ -30,7 +30,8 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
   const [isPending, startTransition] = useTransition();
   const [openingCash, setOpeningCash] = useState<string>("0");
   const [notes, setNotes] = useState("");
-  const [selectedCashierId, setSelectedCashierId] = useState<number>(currentUserId ?? 0);
+  // Nama kasir bertugas — default nama user yang login
+  const [selectedCashierName, setSelectedCashierName] = useState<string>(cashierName ?? '');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +45,7 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
       const result = await openSession({
         openingCash: amount,
         notes: notes || undefined,
-        cashierId: selectedCashierId || undefined,
+        assignedCashierName: selectedCashierName || undefined,
       });
       if (result.success) {
         toast.success("Sesi kasir dibuka");
@@ -78,12 +79,12 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
               </label>
               <select
                 id="cashierId"
-                value={selectedCashierId}
-                onChange={(e) => setSelectedCashierId(Number(e.target.value))}
+                value={selectedCashierName}
+                onChange={(e) => setSelectedCashierName(e.target.value)}
                 className="w-full px-4 py-3 text-base font-medium bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition appearance-none"
               >
                 {cashiers.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.name}>
                     {c.name}{c.id === currentUserId ? ' (Anda)' : ''}
                   </option>
                 ))}

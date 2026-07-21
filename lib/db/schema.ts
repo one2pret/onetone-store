@@ -163,6 +163,7 @@ export const posSessions = mysqlTable('pos_sessions', {
   expectedCash: decimal('expected_cash', { precision: 12, scale: 2 }),    // openingCash + total cash sales
   cashDifference: decimal('cash_difference', { precision: 12, scale: 2 }),// closingCash - expectedCash
   status: mysqlEnum('pos_session_status', ['open', 'closed']).default('open'),
+  assignedCashierName: varchar('assigned_cashier_name', { length: 255 }), // nama kasir bertugas (display only)
   notes: text('notes'),
 });
 
