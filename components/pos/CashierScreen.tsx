@@ -64,11 +64,12 @@ interface Props {
   recentOrders: RecentOrder[];
   qrisUrl: string | null;
   receiptFooter: string | null;
+  cashierName?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter }: Props) {
+export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -227,11 +228,14 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
               <h1 className="text-base font-bold text-slate-900">Kasir Onetone</h1>
               <p className="text-[11px] text-slate-500">
                 Sesi #{session.id} • Modal: {formatRupiah(Number(session.openingCash))}
+                {cashierName && (
+                  <span className="ml-2 font-medium text-slate-700">· {cashierName}</span>
+                )}
               </p>
             </div>
             <button
               onClick={handleCloseSessionClick}
-              className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+              className="p-2 text-slate-600 hover:text-rose-700 hover:bg-rose-100 rounded-lg transition"
               title="Tutup sesi kasir"
             >
               <LogOut className="w-5 h-5" />

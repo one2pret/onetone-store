@@ -34,6 +34,9 @@ export default async function PosPage() {
     getPosSettings(),
   ]);
 
+  // Nama kasir: assigned (dipilih dropdown) atau user yang login
+  const cashierName = (session as any).assignedCashierName ?? authSession?.user?.name ?? '';
+
   return (
     <CashierScreen
       session={session}
@@ -41,6 +44,7 @@ export default async function PosPage() {
       recentOrders={recentOrders}
       qrisUrl={posSettings.qrisUrl}
       receiptFooter={posSettings.receiptFooter}
+      cashierName={cashierName}
     />
   );
 }
