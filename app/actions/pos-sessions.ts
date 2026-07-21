@@ -30,10 +30,10 @@ const closeSessionSchema = z.object({
 async function requireCashier() {
   const session = await auth();
   const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user?.id || role !== "admin") {
-    return { ok: false as const, error: "Hanya admin yang dapat mengakses POS" };
+  if (!session?.user?.id || (role !== "admin" && role !== "cashier")) {
+    return { ok: false as const, error: "Akses ditolak" };
   }
-  return { ok: true as const, userId: Number(session.user.id) };
+  return { ok: true as const, userId: Number(session.user.id), role: role as "admin" | "cashier" };
 }
 
 // ─── Get active session ───────────────────────────────────────────────────────
@@ -59,7 +59,10 @@ export async function getCashierUsers() {
   return db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .where(and(eq(users.role, 'admin'), sql`${users.deletedAt} IS NULL`))
+    .where(and(
+      sql`${users.role} IN ('admin', 'cashier')`,
+      sql`${users.deletedAt} IS NULL`
+    ))
     .orderBy(users.name);
 }
 

@@ -13,9 +13,9 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
 
-  if (!session || session.user.role !== 'admin') {
-    redirect('/login');
-  }
+  if (!session) redirect('/login');
+  if (session.user.role === 'cashier') redirect('/pos');
+  if (session.user.role !== 'admin') redirect('/login');
 
   return (
     <NuqsAdapter>

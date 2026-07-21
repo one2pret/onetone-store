@@ -50,14 +50,21 @@ export function AddStaffForm() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Menambahkan...' : 'Tambah Staff'}
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          Staff baru otomatis dapat akses POS dan dashboard admin.
+      <div>
+        <Label htmlFor="role" className="text-sm">Akses Role *</Label>
+        <select id="role" name="role" defaultValue="cashier"
+          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <option value="cashier">Kasir — hanya akses POS</option>
+          <option value="admin">Admin — akses penuh dashboard + POS</option>
+        </select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Kasir hanya bisa login ke halaman POS. Admin bisa akses seluruh dashboard.
         </p>
       </div>
+
+      <Button type="submit" disabled={pending}>
+        {pending ? 'Menambahkan...' : 'Tambah Staff'}
+      </Button>
     </form>
   );
 }

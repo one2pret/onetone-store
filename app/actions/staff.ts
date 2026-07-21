@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, or } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ const createStaffSchema = z.object({
   email: z.string().email('Email tidak valid'),
   password: z.string().min(6, 'Password minimal 6 karakter'),
   phone: z.string().optional(),
+  role: z.enum(['admin', 'cashier']).default('cashier'),
 });
 
 const updateStaffSchema = z.object({
@@ -38,10 +39,14 @@ export async function getStaffUsers() {
     name: users.name,
     email: users.email,
     phone: users.phone,
+    role: users.role,
     createdAt: users.createdAt,
   })
     .from(users)
-    .where(and(eq(users.role, 'admin'), isNull(users.deletedAt)));
+    .where(and(
+      isNull(users.deletedAt),
+      or(eq(users.role, 'admin'), eq(users.role, 'cashier'))
+    ));
 }
 
 export async function createStaffUser(prevState: any, formData: FormData) {
@@ -53,6 +58,7 @@ export async function createStaffUser(prevState: any, formData: FormData) {
     email: formData.get('email'),
     password: formData.get('password'),
     phone: formData.get('phone') || undefined,
+    role: formData.get('role') || 'cashier',
   });
 
   if (!validated.success) {
@@ -72,7 +78,7 @@ export async function createStaffUser(prevState: any, formData: FormData) {
     email: validated.data.email,
     password: hashed,
     phone: validated.data.phone,
-    role: 'admin',
+    role: validated.data.role,
   });
 
   revalidatePath('/dashboard/settings/staff');
@@ -118,7 +124,7 @@ export async function deleteStaffUser(id: number) {
 
   await db.update(users)
     .set({ deletedAt: new Date() })
-    .where(and(eq(users.id, id), eq(users.role, 'admin')));
+    .where(and(eq(users.id, id), or(eq(users.role, 'admin'), eq(users.role, 'cashier'))));
 
   revalidatePath('/dashboard/settings/staff');
   return { success: true };

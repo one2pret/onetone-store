@@ -120,12 +120,10 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
     throw error;
   }
 
-  // Check if user is admin → redirect to dashboard
   const userRows = await db.select().from(users).where(eq(users.email, validated.data.email)).limit(1);
-  if (userRows[0]?.role === 'admin') {
-    redirect('/dashboard');
-  }
-
+  const role = userRows[0]?.role;
+  if (role === 'admin') redirect('/dashboard');
+  if (role === 'cashier') redirect('/pos');
   redirect('/');
 }
 

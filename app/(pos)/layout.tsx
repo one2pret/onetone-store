@@ -16,7 +16,8 @@ export default async function PosLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user || (session.user as { role?: string }).role !== "admin") {
+  const role = (session?.user as { role?: string })?.role;
+  if (!session?.user || (role !== "admin" && role !== "cashier")) {
     redirect("/login?callbackUrl=/pos");
   }
 

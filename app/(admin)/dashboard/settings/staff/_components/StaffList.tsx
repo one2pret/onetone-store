@@ -16,6 +16,7 @@ type Staff = {
   name: string;
   email: string;
   phone: string | null;
+  role: string | null;
   createdAt: Date | null;
 };
 
@@ -119,11 +120,18 @@ export function StaffList({ staff, currentUserId }: Props) {
         {staff.map((s) => (
           <div key={s.id} className="px-4 md:px-6 py-4">
             <div className="flex flex-col md:grid md:grid-cols-[2fr_2fr_1fr_1fr_auto] gap-2 md:gap-4 items-start md:items-center">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-foreground text-sm">{s.name}</span>
                 {s.id === currentUserId && (
                   <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Anda</span>
                 )}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  s.role === 'admin'
+                    ? 'bg-amber-500/10 text-amber-600'
+                    : 'bg-sky-500/10 text-sky-600'
+                }`}>
+                  {s.role === 'admin' ? 'Admin' : 'Kasir'}
+                </span>
               </div>
               <span className="text-sm text-muted-foreground">{s.email}</span>
               <span className="text-sm text-muted-foreground">{s.phone ?? '—'}</span>
