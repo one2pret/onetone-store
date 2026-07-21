@@ -9,11 +9,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { openSession } from "@/app/actions/pos-sessions";
 import { formatRupiah } from "@/lib/utils";
-import { Calculator, Wallet } from "lucide-react";
+import { Calculator, Wallet, User } from "lucide-react";
 
 const QUICK_AMOUNTS = [0, 50000, 100000, 200000, 500000, 1000000];
 
-export function OpenSessionForm() {
+export function OpenSessionForm({ cashierName }: { cashierName?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openingCash, setOpeningCash] = useState<string>("0");
@@ -49,6 +49,12 @@ export function OpenSessionForm() {
             <Calculator className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Buka Kasir</h1>
+          {cashierName && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+              <User className="w-3.5 h-3.5" />
+              {cashierName}
+            </div>
+          )}
           <p className="text-sm text-slate-500 mt-1">
             Masukkan modal awal / uang kembalian di laci
           </p>
@@ -64,10 +70,12 @@ export function OpenSessionForm() {
             <input
               id="openingCash"
               type="number"
+              inputMode="numeric"
               min={0}
               step={1000}
               value={openingCash}
               onChange={(e) => setOpeningCash(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               className="w-full px-4 py-3 text-lg font-semibold bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
               placeholder="0"
             />

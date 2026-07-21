@@ -174,10 +174,12 @@ export function CloseSessionForm({ summary }: Props) {
               <input
                 id="closingCash"
                 type="number"
+                inputMode="numeric"
                 min={0}
                 step={1000}
                 value={closingCash}
                 onChange={(e) => setClosingCash(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 placeholder="Hitung uang di laci, lalu masukkan di sini"
                 className="w-full px-4 py-3 text-lg font-semibold bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
                 required
