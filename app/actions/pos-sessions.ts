@@ -42,13 +42,24 @@ export async function getActiveSession() {
   const auth = await requireCashier();
   if (!auth.ok) return null;
 
-  const rows = await db
+  // Cek sesi milik sendiri dulu
+  const ownRows = await db
     .select()
     .from(posSessions)
     .where(and(eq(posSessions.cashierId, auth.userId), eq(posSessions.status, "open")))
     .limit(1);
 
-  return rows[0] ?? null;
+  if (ownRows[0]) return ownRows[0];
+
+  // Proxy-open: jika admin membuka sesi untuk kasir lain (single-store, 1 sesi aktif)
+  const anyRows = await db
+    .select()
+    .from(posSessions)
+    .where(eq(posSessions.status, "open"))
+    .orderBy(desc(posSessions.openedAt))
+    .limit(1);
+
+  return anyRows[0] ?? null;
 }
 
 // ─── Open session ─────────────────────────────────────────────────────────────
