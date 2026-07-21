@@ -59,7 +59,7 @@ export async function getCashierUsers() {
   return db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .where(eq(users.role, 'admin'))
+    .where(and(eq(users.role, 'admin'), sql`${users.deletedAt} IS NULL`))
     .orderBy(users.name);
 }
 

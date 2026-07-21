@@ -8,7 +8,7 @@ import { PosSettingsCard } from './_components/PosSettingsCard';
 import { DataToolsCard } from './_components/DataToolsCard';
 import { HeroSettingsCard } from './_components/HeroSettingsCard';
 import { EditorialSettingsCard } from './_components/EditorialSettingsCard';
-import { Settings, Crown } from 'lucide-react';
+import { Settings, Crown, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function SettingsPage() {
@@ -41,6 +41,13 @@ export default async function SettingsPage() {
           >
             <Crown className="w-4 h-4 text-muted-foreground" />
             Pengaturan Tier Member
+          </Link>
+          <Link
+            href="/dashboard/settings/staff"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-card hover:bg-accent hover:border-primary/30 transition text-sm font-medium text-foreground"
+          >
+            <Users className="w-4 h-4 text-muted-foreground" />
+            Kelola Kasir / Staff
           </Link>
         </div>
 
