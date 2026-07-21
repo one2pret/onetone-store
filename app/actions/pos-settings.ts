@@ -42,6 +42,9 @@ async function upsertSetting(key: string, value: string) {
 export async function getPosSettings(): Promise<{
   qrisUrl: string | null;
   receiptFooter: string | null;
+  storeName: string | null;
+  storePhone: string | null;
+  storeAddress: string | null;
 }> {
   const rows = await db.select().from(storeSettings);
   const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -49,6 +52,9 @@ export async function getPosSettings(): Promise<{
   return {
     qrisUrl: qrisKey ? storage.getUrl(qrisKey) : null,
     receiptFooter: map.get(KEY_FOOTER) ?? null,
+    storeName: map.get('store_name') ?? null,
+    storePhone: map.get('store_phone') ?? null,
+    storeAddress: map.get('store_address') ?? null,
   };
 }
 

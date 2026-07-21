@@ -45,6 +45,9 @@ export default async function PosPage() {
       qrisUrl={posSettings.qrisUrl}
       receiptFooter={posSettings.receiptFooter}
       cashierName={cashierName}
+      storeName={posSettings.storeName}
+      storePhone={posSettings.storePhone}
+      storeAddress={posSettings.storeAddress}
     />
   );
 }

@@ -245,3 +245,23 @@ body {
   }
   .animate-ken-burns { transform: none !important; }
 }
+/* ── POS Print Receipt ─────────────────────────────────────────────────────── */
+@media print {
+  body > *:not(#pos-print-root) { display: none !important; }
+  #pos-print-root { display: block !important; }
+
+  .print-hidden { display: none !important; }
+
+  #print-receipt {
+    position: fixed;
+    inset: 0;
+    width: 58mm;
+    margin: 0;
+    padding: 4mm;
+    font-size: 10pt;
+    font-family: monospace;
+    color: #000;
+    background: #fff;
+  }
+  #print-receipt h1, #print-receipt h2 { font-size: 12pt; }
+}
