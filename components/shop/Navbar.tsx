@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingCart, User, Search, Menu, X, LogOut,
@@ -270,8 +271,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Link
                     href="/"
                     aria-label="Onetone — kembali ke beranda"
-                    className="shrink-0 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
+                    className="shrink-0 flex items-center gap-2 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
                   >
+                    <Image src="/images/logo.png" alt="Onetone" width={28} height={28} className="h-7 w-7 object-contain brightness-0 invert" priority />
                     <span className="text-white font-bold tracking-widest">ONETONE</span>
                   </Link>
 
