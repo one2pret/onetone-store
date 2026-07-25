@@ -91,7 +91,7 @@ export default async function MarketplacePage() {
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold text-foreground">Onetone Store</p>
                 <span className="px-1.5 py-0.5 bg-premium text-premium-foreground text-[10px] font-semibold rounded-full shrink-0">
-                  RESMI
+                  Official Brand
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
