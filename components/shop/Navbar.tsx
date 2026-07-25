@@ -271,10 +271,10 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Link
                     href="/"
                     aria-label="Onetone — kembali ke beranda"
-                    className="shrink-0 flex items-center gap-2 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
+                    className="shrink-0 flex items-center gap-2 text-xl md:text-2xl font-bold tracking-[0.18em] md:tracking-[0.2em] uppercase leading-none"
                   >
                     <Image src="/images/logo-white.png" alt="Onetone" width={100} height={100} className="h-11 w-11 object-contain" priority />
-                    <span className="text-white font-bold tracking-widest">ONETONE</span>
+                    <span className="text-white font-bold">ONETONE</span>
                   </Link>
 
                   {/* Kolom 2: Search form — desktop */}
