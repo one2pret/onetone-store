@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingCart, User, Search, Menu, X, LogOut,
@@ -35,8 +36,7 @@ interface NavbarProps {
 
 // Top-nav (kiri): brand/utility, bukan taxonomy produk (taxonomy tetap di category bar bawah).
 const TOP_NAV_LINKS: Array<{ href: string; label: string; accent?: boolean }> = [
-  { href: '/products?sort=newest', label: 'New In' },
-  { href: '/products?promo=true', label: 'Promo', accent: true },
+  { href: '/products', label: 'New In' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -65,7 +65,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
     e.preventDefault();
     const q = searchQuery.trim();
     if (q) {
-      router.push(`/products?q=${encodeURIComponent(q)}`);
+      router.push(`/products?search=${encodeURIComponent(q)}`);
       setMobileSearchOpen(false);
     }
   }
@@ -85,15 +85,27 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      setUserMenuOpen(false);
+      setMobileMenuOpen(false);
+      setMobileSearchOpen(false);
+      setLogoutDialogOpen(false);
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, []);
+
   // Actions block dipakai di dua layout branch (search-enabled dan boutique-wordmark)
   const actionsBlock = (
-    <div className="flex items-center gap-0.5 justify-end">
+    <div className="flex items-center gap-1 justify-end">
       {/* Mobile search toggle — hanya saat SEARCH_ENABLED */}
       {SEARCH_ENABLED && (
         <button
           onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
           aria-label={mobileSearchOpen ? 'Tutup pencarian' : 'Cari produk'}
-          className="md:hidden p-2.5 text-foreground hover:text-primary rounded-lg transition"
+          className="md:hidden p-3 text-foreground hover:text-primary rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {mobileSearchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
         </button>
@@ -101,7 +113,7 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
       {/* Wishlist */}
       <button
         aria-label="Wishlist"
-        className="relative p-2.5 text-foreground hover:text-primary rounded-lg transition hidden sm:block"
+        className="relative p-3 text-foreground hover:text-primary rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <Heart className="w-5 h-5" />
       </button>
@@ -110,22 +122,26 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
       <Link
         href="/cart"
         aria-label={`Keranjang${cartCount > 0 ? ` (${cartCount})` : ''}`}
-        className="relative p-2.5 text-foreground hover:text-primary rounded-lg transition"
+        className="relative p-3 text-foreground hover:text-primary rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <ShoppingCart className="w-5 h-5" />
         {cartCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold px-1">
+          <span className="absolute top-0.5 right-0.5 min-w-[20px] h-[20px] bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold px-1">
             {cartCount}
           </span>
         )}
       </Link>
+
+      <div className="hidden md:block w-px h-5 bg-border mx-1.5 shrink-0" aria-hidden="true" />
 
       {/* User / Auth */}
       {user ? (
         <div className="hidden md:block relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-accent transition"
+            aria-haspopup="true"
+            aria-expanded={userMenuOpen}
+            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
               {getInitials(user.name)}
@@ -239,7 +255,8 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-          className="md:hidden p-2.5 text-foreground hover:text-primary rounded-lg transition"
+          aria-expanded={mobileMenuOpen}
+          className="md:hidden p-3 text-foreground hover:text-primary rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -270,8 +287,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Link
                     href="/"
                     aria-label="Onetone — kembali ke beranda"
-                    className="shrink-0 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
+                    className="shrink-0 flex items-center gap-2 text-[1.125rem] md:text-[1.25rem] font-bold tracking-[0.24em] md:tracking-[0.28em] uppercase leading-none"
                   >
+                    <Image src="/images/logo-white.png" alt="Onetone" width={28} height={28} className="h-7 w-7 object-contain" priority />
                     <span className="text-white font-bold tracking-widest">ONETONE</span>
                   </Link>
 
@@ -322,17 +340,18 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 )}
               </>
             ) : (
-              <div className="relative flex items-center justify-between gap-[2.1rem]">
+              <div className="relative flex items-center justify-between gap-8">
                 {/* Kiri: hamburger mobile + top-nav desktop */}
                 <div className="flex items-center">
                   <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-                    className="md:hidden -ml-1.5 p-2.5 text-foreground hover:text-primary transition"
+                    aria-expanded={mobileMenuOpen}
+                    className="md:hidden -ml-1.5 p-3 text-foreground hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                   </button>
-                  <nav aria-label="Menu utama" className="hidden md:flex items-center gap-[1.875rem]">
+                  <nav aria-label="Menu utama" className="hidden md:flex items-center gap-7">
                     {TOP_NAV_LINKS.map((link) => {
                       const basePath = link.href.split('?')[0];
                       const isActive = pathname === basePath;
@@ -375,16 +394,22 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
           <div className="md:hidden bg-card border-t border-border">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
               {SEARCH_ENABLED && (
-                <div className="relative">
+                <form onSubmit={handleSearch} role="search" className="relative">
                   <input
-                    type="text"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari koleksi, brand, atau gaya..."
                     className="w-full pl-4 pr-12 py-2.5 bg-input border border-border text-foreground rounded-lg text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
                   />
-                  <button className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground p-2 rounded-md">
+                  <button
+                    type="submit"
+                    aria-label="Cari"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-primary text-primary-foreground p-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
                     <Search className="w-4 h-4" />
                   </button>
-                </div>
+                </form>
               )}
 
               {/* Top-nav links (mirror desktop nav kiri) */}
