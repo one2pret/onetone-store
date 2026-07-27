@@ -1,5 +1,6 @@
 // app/(marketplace)/page.tsx — Marketplace home
 import Link from 'next/link';
+import Image from 'next/image';
 import { getFeaturedProducts, getActiveProducts, getCategories } from '@/app/actions/products';
 import { getActiveBanners } from '@/app/actions/banners';
 import { ProductCard } from '@/components/shop/ProductCard';
@@ -79,18 +80,18 @@ export default async function MarketplacePage() {
       {/* ── Official Store ── */}
       <section className="py-5 md:py-6 border-t border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground mb-5">Toko Resmi</h2>
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground mb-5">Official</h2>
           <Link
             href="/stores/onetone"
             className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-surface transition-all group max-w-md"
           >
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shrink-0">
-              <span className="text-primary-foreground font-bold text-lg">O</span>
+            <div className="w-12 h-12 rounded-xl bg-background border border-border/60 flex items-center justify-center shrink-0">
+              <Image src="/images/logo-white.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold text-foreground">Onetone Store</p>
-                <span className="px-1.5 py-0.5 bg-premium text-premium-foreground text-[10px] font-semibold rounded-full shrink-0">
+                <span className="px-1.5 py-0.5 bg-secondary text-secondary-foreground text-[10px] font-semibold rounded-full shrink-0">
                   Official Brand
                 </span>
               </div>
