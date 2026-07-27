@@ -74,6 +74,27 @@ jobs:
             NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY }}
             NEXT_PUBLIC_SEARCH_ENABLED=true
 
+      # Image terpisah buat drizzle-kit push — reuse cache dari build di atas,
+      # jadi ini bukan build ulang dari nol (layer builder sudah ada di cache).
+      - name: Build & Push migrator image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: migrator
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}-migrate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            DATABASE_URL=mysql://build:build@localhost:3306/build
+            AUTH_SECRET=build_time_dummy
+            AUTH_URL=${{ steps.vars.outputs.app_url }}
+            NEXT_PUBLIC_APP_URL=${{ steps.vars.outputs.app_url }}
+            NEXT_PUBLIC_BASE_URL=${{ steps.vars.outputs.app_url }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+            NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY }}
+            NEXT_PUBLIC_SEARCH_ENABLED=true
+
   # ───────────────────────────────────────────────────────
   # JOB 2: DEPLOY TESTING
   # Hanya jalan saat push ke branch main
@@ -120,6 +141,11 @@ jobs:
 
             docker compose pull
             docker compose up -d --remove-orphans
+
+            # Migrate schema — jalan sekali, container langsung berhenti sendiri
+            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
+
             docker image prune -f
 
   # ───────────────────────────────────────────────────────
@@ -168,4 +194,9 @@ jobs:
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Migrate schema — jalan sekali, container langsung berhenti sendiri
+            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
+
             docker image prune -f
