@@ -7,6 +7,7 @@ import { eq, desc, and, like, asc, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
+import { getAllCategories } from '@/app/actions/categories';
 
 const productSchema = z.object({
   name: z.string().min(1, 'Nama produk wajib diisi'),
@@ -228,4 +229,177 @@ export async function deleteProduct(id: number) {
   } catch {
     return { success: false, error: 'Gagal hapus produk' };
   }
+}
+
+// ============ CSV IMPORT ============
+
+const CSV_TEMPLATE_HEADERS = ['nama', 'kategori', 'harga', 'stok', 'berat', 'deskripsi'] as const;
+
+// Parser CSV minim (RFC4180-ish): handle quoted field berisi koma/newline/kutip-ganda.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && next === '"') {
+        field += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        field += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(field);
+      field = '';
+    } else if (char === '\r') {
+      // skip, handled by \n
+    } else if (char === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
+}
+
+export type ImportRowError = { row: number; name: string; reason: string };
+export type ImportResult = {
+  success: boolean;
+  imported: number;
+  errors: ImportRowError[];
+  formError?: string;
+};
+
+/**
+ * Import produk massal dari CSV. Kolom wajib: nama, harga.
+ * Kolom opsional: kategori (dicocokkan by nama, case-insensitive), stok, berat, deskripsi.
+ * Semua produk masuk sebagai draft (isActive: false) — admin lengkapi gambar & aktifkan manual.
+ */
+export async function importProductsFromCsv(prevState: any, formData: FormData): Promise<ImportResult> {
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) {
+    return { success: false, imported: 0, errors: [], formError: 'Pilih file CSV terlebih dahulu.' };
+  }
+
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if (rows.length < 2) {
+    return { success: false, imported: 0, errors: [], formError: 'File CSV kosong atau tidak ada baris data.' };
+  }
+
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const colIndex = (name: string) => header.indexOf(name);
+  const iName = colIndex('nama');
+  const iKategori = colIndex('kategori');
+  const iHarga = colIndex('harga');
+  const iStok = colIndex('stok');
+  const iBerat = colIndex('berat');
+  const iDeskripsi = colIndex('deskripsi');
+
+  if (iName === -1 || iHarga === -1) {
+    return {
+      success: false,
+      imported: 0,
+      errors: [],
+      formError: `Header CSV tidak valid. Wajib ada kolom: ${CSV_TEMPLATE_HEADERS.join(', ')}.`,
+    };
+  }
+
+  const allCategories = await getAllCategories();
+  const categoryByName = new Map(allCategories.map((c) => [c.name.trim().toLowerCase(), c.id]));
+
+  const errors: ImportRowError[] = [];
+  let imported = 0;
+
+  for (let r = 1; r < rows.length; r++) {
+    const cells = rows[r];
+    const rowNum = r + 1; // +1 karena baris 1 adalah header, jadi ini nomor baris di file asli
+    const name = (cells[iName] ?? '').trim();
+    const kategoriRaw = iKategori !== -1 ? (cells[iKategori] ?? '').trim() : '';
+    const hargaRaw = (cells[iHarga] ?? '').trim();
+    const stokRaw = iStok !== -1 ? (cells[iStok] ?? '').trim() : '';
+    const beratRaw = iBerat !== -1 ? (cells[iBerat] ?? '').trim() : '';
+    const deskripsi = iDeskripsi !== -1 ? (cells[iDeskripsi] ?? '').trim() : '';
+
+    if (!name) {
+      errors.push({ row: rowNum, name: '(kosong)', reason: 'Nama produk wajib diisi' });
+      continue;
+    }
+
+    const price = Number(hargaRaw.replace(/[^0-9.]/g, ''));
+    if (!hargaRaw || Number.isNaN(price) || price < 0) {
+      errors.push({ row: rowNum, name, reason: `Harga tidak valid: "${hargaRaw}"` });
+      continue;
+    }
+
+    let categoryId: number | null = null;
+    if (kategoriRaw) {
+      const match = categoryByName.get(kategoriRaw.toLowerCase());
+      if (!match) {
+        errors.push({ row: rowNum, name, reason: `Kategori tidak ditemukan: "${kategoriRaw}"` });
+        continue;
+      }
+      categoryId = match;
+    }
+
+    const stock = stokRaw ? Number(stokRaw) : 0;
+    if (stokRaw && (Number.isNaN(stock) || stock < 0)) {
+      errors.push({ row: rowNum, name, reason: `Stok tidak valid: "${stokRaw}"` });
+      continue;
+    }
+
+    const weight = beratRaw ? Number(beratRaw) : 0;
+    if (beratRaw && (Number.isNaN(weight) || weight < 0)) {
+      errors.push({ row: rowNum, name, reason: `Berat tidak valid: "${beratRaw}"` });
+      continue;
+    }
+
+    const slug = slugify(name);
+
+    try {
+      await db.insert(products).values({
+        name,
+        slug,
+        categoryId,
+        description: deskripsi || null,
+        price: String(price),
+        stock: stock || 0,
+        weight: weight || 0,
+        image: '',
+        images: '[]',
+        isActive: false,
+        isFeatured: false,
+        channel: 'all',
+      });
+      imported++;
+    } catch {
+      errors.push({ row: rowNum, name, reason: 'Gagal simpan — kemungkinan nama produk sudah dipakai' });
+    }
+  }
+
+  if (imported > 0) {
+    revalidatePath('/dashboard/products');
+    revalidatePath('/products');
+  }
+
+  return { success: imported > 0, imported, errors };
 }
