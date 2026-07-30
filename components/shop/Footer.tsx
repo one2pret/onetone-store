@@ -76,9 +76,9 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-3 md:mb-4 text-sm md:text-base">Hubungi Kami</h4>
             <ul className="space-y-2 text-muted-foreground text-sm">
-              <li>📧 hello@onetone.id</li>
-              <li>📱 0812-3456-7890</li>
-              <li>📍 Jakarta, Indonesia</li>
+              <li>📧 onetone039@gmail.com</li>
+              <li>📱 0895-2708-5960</li>
+              <li>📍 Kab. Bandung Barat</li>
             </ul>
           </div>
 
