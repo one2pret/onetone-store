@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import {
   orders, orderItems, cartItems, products, productVariants, users,
   orderStatusLogs, addresses, shippings, shippingHistories, invoices,
-  vouchers, memberships, memberTiers, pointsLedger,
+  vouchers, memberships, memberTiers, pointsLedger, affiliateClicks,
 } from '@/lib/db/schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
 import { calculateDiscount, isFreeShippingEligible, calculateRedeemAmount } from '@/lib/membership-utils';
@@ -15,6 +15,8 @@ import { generateOrderNumber } from '@/lib/utils';
 import { validateStatusTransition } from '@/lib/order-status';
 import { deductStock, restoreStock, validateStock } from '@/lib/stock';
 import { createInvoice, expireInvoice, getInvoice } from '@/lib/xendit';
+import { resolveAffiliateAttribution } from '@/lib/affiliate/attribution';
+import { rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle';
 
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
@@ -153,6 +155,11 @@ export async function createOrder(prevState: any, formData: FormData) {
     const total = subtotal - discountAmount - redeemAmount + actualShippingCost;
     const orderNumber = generateOrderNumber();
 
+    // 4e. Attribution affiliate — dibaca dari cookie _otref, sebelum order dibuat.
+    // Komisi BELUM dibuat di sini (order masih waiting_payment, bisa expired) —
+    // lihat lib/order-status.ts untuk lifecycle komisi setelah order paid/delivered.
+    const attribution = await resolveAffiliateAttribution(userId);
+
     // 5. Create order + deduct points (atomic transaction)
     let orderId: number;
     await db.transaction(async (tx) => {
@@ -167,6 +174,10 @@ export async function createOrder(prevState: any, formData: FormData) {
         pointsRedeemed: validatedPointsToRedeem,
         shippingCost: String(actualShippingCost),
         total: String(total),
+        affiliateId: attribution?.affiliateId ?? null,
+        affiliateCode: attribution?.affiliateCode ?? null,
+        affiliateLinkId: attribution?.affiliateLinkId ?? null,
+        affiliateClickId: attribution?.affiliateClickId ?? null,
         willExpiredAt: sql`NOW() + INTERVAL 24 HOUR`,
         shippingName: address.recipientName,
         shippingPhone: address.phone,
@@ -192,6 +203,14 @@ export async function createOrder(prevState: any, formData: FormData) {
     });
 
     orderId = orderId!;
+
+    // 5b. Tandai affiliate_clicks jadi converted — cuma kalau klik lewat /r/[slug]
+    // (ada clickId beneran). Klik lewat ?ref= (proxy.ts) tidak punya row klik sendiri.
+    if (attribution?.affiliateClickId) {
+      await db.update(affiliateClicks)
+        .set({ convertedOrderId: orderId, convertedAt: sql`NOW()` })
+        .where(eq(affiliateClicks.id, attribution.affiliateClickId));
+    }
 
     // 6. Create order items — simpan variantId + variantLabel (snapshot)
     await db.insert(orderItems).values(
@@ -328,6 +347,9 @@ export async function cancelOrderByCustomer(orderId: number) {
       toStatus: 'cancelled',
       changedBy: `user:${userId}`,
     });
+
+    // Affiliate: no-op (order masih waiting_payment, belum ada commission) — aman dipanggil
+    await rejectCommissionsForOrder(orderId, 'order_cancelled_by_customer');
 
     revalidatePath('/orders');
     revalidatePath('/dashboard/orders');
@@ -484,6 +506,9 @@ export async function cancelOrderByAdmin(orderId: number) {
       toStatus: 'cancelled',
       changedBy: `admin:${adminId}`,
     });
+
+    // Affiliate: kalau order sudah packing (paid), commission pending yang ada di-reject
+    await rejectCommissionsForOrder(orderId, 'order_cancelled_by_admin');
 
     revalidatePath('/orders');
     revalidatePath('/dashboard/orders');

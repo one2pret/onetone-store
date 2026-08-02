@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { shippings, shippingHistories, orders, orderStatusLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { restoreStock } from '@/lib/stock';
+import { holdCommissionsForOrder, rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle';
 
 // Bitship statuses that map to order transitions
 const DELIVERED_STATUSES = ['delivered'];
@@ -65,6 +66,9 @@ export async function POST(request: Request) {
         toStatus: 'delivered',
         changedBy: 'webhook:bitship',
       });
+
+      // Affiliate: commission pending -> holding, mulai hitung mundur hold period
+      await holdCommissionsForOrder(order.id);
     }
 
     // Handle cancelled/returned/rejected
@@ -81,6 +85,9 @@ export async function POST(request: Request) {
         toStatus: 'cancelled',
         changedBy: 'webhook:bitship',
       });
+
+      // Affiliate: commission pending/holding untuk order ini di-reject
+      await rejectCommissionsForOrder(order.id, 'order_cancelled_shipping');
     }
 
     return NextResponse.json({ success: true });

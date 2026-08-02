@@ -195,6 +195,147 @@ export const vouchers = mysqlTable('vouchers', {
   isActive: boolean('is_active').default(true),
 });
 
+// ============ AFFILIATES ============
+// docs/devs/dev-affiliates/affiliate-module-plan.md — member (customer) yang approved
+// jadi affiliate, dapat kode + link referral, komisi dari order yang dia bawa.
+export const affiliates = mysqlTable('affiliates', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').references(() => users.id).notNull().unique(),
+
+  // Identitas publik
+  code: varchar('code', { length: 32 }).notNull().unique(),   // "WAWAN23", dipakai di ?ref=
+  displayName: varchar('display_name', { length: 255 }),
+
+  status: mysqlEnum('affiliate_status', [
+    'pending',    // sudah daftar, menunggu review admin
+    'active',
+    'suspended',  // dibekukan (indikasi fraud) — komisi ditahan
+    'rejected',
+  ]).default('pending').notNull(),
+
+  // Nama tier sengaja beda dari member_tiers ("Silver"/"Gold") biar gak ambigu —
+  // satu user bisa jadi Member Gold sekaligus Affiliate Elite, dua hal berbeda.
+  tier: mysqlEnum('affiliate_tier', ['starter', 'pro', 'elite'])
+    .default('starter').notNull(),
+
+  // Data pendaftaran
+  socialMedia: text('social_media'),        // JSON: {instagram, tiktok, youtube}
+  audienceSize: int('audience_size'),
+  motivation: text('motivation'),
+
+  // Data payout
+  bankCode: varchar('bank_code', { length: 20 }),        // kode bank Xendit: "BCA", "BNI"
+  bankAccountNumber: varchar('bank_account_number', { length: 50 }),
+  bankAccountName: varchar('bank_account_name', { length: 255 }),
+  npwp: varchar('npwp', { length: 25 }),                 // disiapkan, belum dipakai di P1
+
+  // Two-tier — disiapkan, tidak dipakai di P1
+  parentAffiliateId: int('parent_affiliate_id'),         // sengaja tanpa .references() — self-referencing FK bikin Drizzle circular, integritas dijaga di application layer
+
+  approvedAt: timestamp('approved_at'),
+  approvedBy: int('approved_by').references(() => users.id),
+  suspendedAt: timestamp('suspended_at'),
+  suspendReason: text('suspend_reason'),
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// ============ AFFILIATE LINKS ============
+// Link yang di-generate affiliate. Satu affiliate bisa punya banyak link
+// (link toko umum, link per-produk, link per-kampanye).
+export const affiliateLinks = mysqlTable('affiliate_links', {
+  id: int('id').primaryKey().autoincrement(),
+  affiliateId: int('affiliate_id').references(() => affiliates.id).notNull(),
+
+  slug: varchar('slug', { length: 16 }).notNull().unique(),  // nanoid, untuk /r/{slug}
+  targetType: mysqlEnum('target_type', ['home', 'product', 'category', 'custom'])
+    .default('home').notNull(),
+  targetId: int('target_id'),              // productId / categoryId
+  targetPath: varchar('target_path', { length: 500 }),  // untuk custom, mis. "/products?category=sepatu"
+
+  label: varchar('label', { length: 255 }),   // catatan affiliate: "IG Story Jan"
+  utmSource: varchar('utm_source', { length: 100 }),
+  utmMedium: varchar('utm_medium', { length: 100 }),
+  utmCampaign: varchar('utm_campaign', { length: 100 }),
+
+  clickCount: int('click_count').default(0).notNull(),   // denormalisasi untuk listing cepat
+  isActive: boolean('is_active').default(true).notNull(),
+
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============ AFFILIATE CLICKS ============
+// Raw click log. Tabel ini tumbuh paling cepat — retensi lihat catatan operasional di plan doc.
+export const affiliateClicks = mysqlTable('affiliate_clicks', {
+  id: int('id').primaryKey().autoincrement(),
+  affiliateId: int('affiliate_id').references(() => affiliates.id).notNull(),
+  linkId: int('link_id').references(() => affiliateLinks.id),
+
+  visitorId: varchar('visitor_id', { length: 36 }).notNull(),  // UUID di cookie, bukan PII
+  ipHash: varchar('ip_hash', { length: 64 }),   // SHA256(ip + salt) — jangan simpan IP mentah
+  userAgent: varchar('user_agent', { length: 500 }),
+  referer: varchar('referer', { length: 500 }),
+  landingPath: varchar('landing_path', { length: 500 }),
+
+  // Sengaja tanpa .references() — orders didefinisikan setelah tabel ini, dan orders
+  // juga menunjuk balik ke affiliate_clicks (affiliateClickId). Circular FK dihindari
+  // sama seperti parentAffiliateId di atas; integritas dijaga di application layer.
+  convertedOrderId: int('converted_order_id'),
+  convertedAt: timestamp('converted_at'),
+
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// ============ COMMISSION RULES ============
+// Aturan komisi berlapis. Resolusi: product > category > tier > global default.
+export const commissionRules = mysqlTable('commission_rules', {
+  id: int('id').primaryKey().autoincrement(),
+
+  scope: mysqlEnum('rule_scope', ['global', 'tier', 'category', 'product'])
+    .notNull(),
+  scopeTier: mysqlEnum('scope_tier', ['starter', 'pro', 'elite']),
+  categoryId: int('category_id').references(() => categories.id),
+  productId: int('product_id').references(() => products.id),
+
+  ratePercent: decimal('rate_percent', { precision: 5, scale: 2 }).notNull(),  // 7.50 = 7.5%
+  maxCommission: decimal('max_commission', { precision: 12, scale: 2 }),       // cap per item, nullable
+
+  priority: int('priority').default(0).notNull(),   // makin besar makin menang saat seri
+  isActive: boolean('is_active').default(true).notNull(),
+
+  startsAt: timestamp('starts_at'),
+  endsAt: timestamp('ends_at'),
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// ============ AFFILIATE SETTINGS ============
+// Singleton row (id = 1).
+export const affiliateSettings = mysqlTable('affiliate_settings', {
+  id: int('id').primaryKey().autoincrement(),
+
+  isEnabled: boolean('is_enabled').default(false).notNull(),
+  autoApproveRegistration: boolean('auto_approve_registration').default(false).notNull(),
+
+  cookieWindowDays: int('cookie_window_days').default(30).notNull(),
+  holdPeriodDays: int('hold_period_days').default(7).notNull(),
+
+  defaultRatePercent: decimal('default_rate_percent', { precision: 5, scale: 2 })
+    .default('5.00').notNull(),
+
+  minPayoutAmount: decimal('min_payout_amount', { precision: 12, scale: 2 })
+    .default('50000.00').notNull(),
+  payoutAdminFee: decimal('payout_admin_fee', { precision: 12, scale: 2 })
+    .default('0').notNull(),
+
+  allowSelfReferral: boolean('allow_self_referral').default(false).notNull(),
+  termsContent: text('terms_content'),
+
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
 // ============ ORDERS ============
 // Channel 'online' = order dari web/mobile (butuh alamat, kirim via kurir).
 // Channel 'pos' = transaksi kasir offline (langsung delivered, cash/QRIS/transfer).
@@ -235,6 +376,11 @@ export const orders = mysqlTable('orders', {
   deliveredAt: timestamp('delivered_at'),
   expiredAt: timestamp('expired_at'),
   cancelledAt: timestamp('cancelled_at'),
+  // Affiliate — semua nullable, additive (docs/devs/dev-affiliates/affiliate-module-plan.md)
+  affiliateId: int('affiliate_id').references(() => affiliates.id),
+  affiliateCode: varchar('affiliate_code', { length: 32 }),      // snapshot kode saat order dibuat
+  affiliateLinkId: int('affiliate_link_id').references(() => affiliateLinks.id),
+  affiliateClickId: int('affiliate_click_id').references(() => affiliateClicks.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
@@ -251,6 +397,79 @@ export const orderItems = mysqlTable('order_items', {
   price: decimal('price', { precision: 12, scale: 2 }).notNull(),
   quantity: int('quantity').notNull(),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
+});
+
+// ============ AFFILIATE COMMISSIONS (LEDGER) ============
+// Satu baris per order_item yang menghasilkan komisi.
+// Baris reversal dibuat sebagai entry baru bernilai negatif — TIDAK menghapus/mengubah baris asli.
+// Saldo affiliate SELALU hasil agregasi baris ini, tidak pernah disimpan sebagai kolom yang di-UPDATE.
+export const affiliateCommissions = mysqlTable('affiliate_commissions', {
+  id: int('id').primaryKey().autoincrement(),
+  affiliateId: int('affiliate_id').references(() => affiliates.id).notNull(),
+  orderId: int('order_id').references(() => orders.id).notNull(),
+  orderItemId: int('order_item_id').references(() => orderItems.id),
+
+  entryType: mysqlEnum('entry_type', ['earning', 'reversal', 'adjustment'])
+    .default('earning').notNull(),
+
+  // Snapshot perhitungan — jangan andalkan join saat audit
+  baseAmount: decimal('base_amount', { precision: 12, scale: 2 }).notNull(),   // subtotal item setelah diskon
+  ratePercent: decimal('rate_percent', { precision: 5, scale: 2 }).notNull(),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),            // negatif untuk reversal
+  ruleId: int('rule_id').references(() => commissionRules.id),
+
+  status: mysqlEnum('commission_status', [
+    'pending',    // order belum delivered
+    'holding',    // delivered, menunggu hold period lewat
+    'approved',   // masuk saldo, bisa ditarik
+    'paid',       // sudah ikut dalam payout
+    'rejected',   // order cancelled/expired/fraud
+  ]).default('pending').notNull(),
+
+  payoutId: int('payout_id'),          // diisi saat masuk batch payout — FK ditambah lewat relations, affiliate_payouts didefinisikan setelah tabel ini
+  holdUntil: timestamp('hold_until'),
+  approvedAt: timestamp('approved_at'),
+  rejectedAt: timestamp('rejected_at'),
+  rejectReason: varchar('reject_reason', { length: 255 }),
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// ============ AFFILIATE PAYOUTS ============
+export const affiliatePayouts = mysqlTable('affiliate_payouts', {
+  id: int('id').primaryKey().autoincrement(),
+  affiliateId: int('affiliate_id').references(() => affiliates.id).notNull(),
+
+  payoutNumber: varchar('payout_number', { length: 50 }).notNull().unique(),  // "PO-20260802-0001"
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  adminFee: decimal('admin_fee', { precision: 12, scale: 2 }).default('0'),
+  netAmount: decimal('net_amount', { precision: 12, scale: 2 }).notNull(),
+
+  // Snapshot rekening saat request — kalau affiliate ganti rekening, history tetap utuh
+  bankCode: varchar('bank_code', { length: 20 }).notNull(),
+  bankAccountNumber: varchar('bank_account_number', { length: 50 }).notNull(),
+  bankAccountName: varchar('bank_account_name', { length: 255 }).notNull(),
+
+  status: mysqlEnum('payout_status', [
+    'requested',
+    'approved',
+    'processing',   // sudah dikirim ke Xendit
+    'completed',
+    'failed',
+    'rejected',
+  ]).default('requested').notNull(),
+
+  xenditDisbursementId: varchar('xendit_disbursement_id', { length: 255 }),
+  failureReason: text('failure_reason'),
+  notes: text('notes'),
+
+  approvedBy: int('approved_by').references(() => users.id),
+  approvedAt: timestamp('approved_at'),
+  completedAt: timestamp('completed_at'),
+
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
 // ============ INVOICES ============
@@ -436,16 +655,58 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
   voucher: one(vouchers, { fields: [orders.voucherId], references: [vouchers.id] }),
   posSession: one(posSessions, { fields: [orders.posSessionId], references: [posSessions.id] }),
+  affiliate: one(affiliates, { fields: [orders.affiliateId], references: [affiliates.id] }),
+  affiliateLink: one(affiliateLinks, { fields: [orders.affiliateLinkId], references: [affiliateLinks.id] }),
+  affiliateClick: one(affiliateClicks, { fields: [orders.affiliateClickId], references: [affiliateClicks.id] }),
   items: many(orderItems),
   invoices: many(invoices),
   shippings: many(shippings),
   statusLogs: many(orderStatusLogs),
+  commissions: many(affiliateCommissions),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
   product: one(products, { fields: [orderItems.productId], references: [products.id] }),
   variant: one(productVariants, { fields: [orderItems.variantId], references: [productVariants.id] }),
+  commissions: many(affiliateCommissions),
+}));
+
+export const affiliatesRelations = relations(affiliates, ({ one, many }) => ({
+  user: one(users, { fields: [affiliates.userId], references: [users.id] }),
+  approver: one(users, { fields: [affiliates.approvedBy], references: [users.id] }),
+  links: many(affiliateLinks),
+  clicks: many(affiliateClicks),
+  commissions: many(affiliateCommissions),
+  payouts: many(affiliatePayouts),
+}));
+
+export const affiliateLinksRelations = relations(affiliateLinks, ({ one, many }) => ({
+  affiliate: one(affiliates, { fields: [affiliateLinks.affiliateId], references: [affiliates.id] }),
+  clicks: many(affiliateClicks),
+}));
+
+export const affiliateClicksRelations = relations(affiliateClicks, ({ one }) => ({
+  affiliate: one(affiliates, { fields: [affiliateClicks.affiliateId], references: [affiliates.id] }),
+  link: one(affiliateLinks, { fields: [affiliateClicks.linkId], references: [affiliateLinks.id] }),
+}));
+
+export const commissionRulesRelations = relations(commissionRules, ({ one, many }) => ({
+  category: one(categories, { fields: [commissionRules.categoryId], references: [categories.id] }),
+  product: one(products, { fields: [commissionRules.productId], references: [products.id] }),
+  commissions: many(affiliateCommissions),
+}));
+
+export const affiliateCommissionsRelations = relations(affiliateCommissions, ({ one }) => ({
+  affiliate: one(affiliates, { fields: [affiliateCommissions.affiliateId], references: [affiliates.id] }),
+  order: one(orders, { fields: [affiliateCommissions.orderId], references: [orders.id] }),
+  orderItem: one(orderItems, { fields: [affiliateCommissions.orderItemId], references: [orderItems.id] }),
+  rule: one(commissionRules, { fields: [affiliateCommissions.ruleId], references: [commissionRules.id] }),
+}));
+
+export const affiliatePayoutsRelations = relations(affiliatePayouts, ({ one }) => ({
+  affiliate: one(affiliates, { fields: [affiliatePayouts.affiliateId], references: [affiliates.id] }),
+  approver: one(users, { fields: [affiliatePayouts.approvedBy], references: [users.id] }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one }) => ({
@@ -557,3 +818,24 @@ export type OrderWithItems = Order & {
 export type MembershipWithTier = Membership & {
   tier: MemberTier;
 };
+
+export type Affiliate = InferSelectModel<typeof affiliates>;
+export type NewAffiliate = InferInsertModel<typeof affiliates>;
+
+export type AffiliateLink = InferSelectModel<typeof affiliateLinks>;
+export type NewAffiliateLink = InferInsertModel<typeof affiliateLinks>;
+
+export type AffiliateClick = InferSelectModel<typeof affiliateClicks>;
+export type NewAffiliateClick = InferInsertModel<typeof affiliateClicks>;
+
+export type CommissionRule = InferSelectModel<typeof commissionRules>;
+export type NewCommissionRule = InferInsertModel<typeof commissionRules>;
+
+export type AffiliateCommission = InferSelectModel<typeof affiliateCommissions>;
+export type NewAffiliateCommission = InferInsertModel<typeof affiliateCommissions>;
+
+export type AffiliatePayout = InferSelectModel<typeof affiliatePayouts>;
+export type NewAffiliatePayout = InferInsertModel<typeof affiliatePayouts>;
+
+export type AffiliateSettings = InferSelectModel<typeof affiliateSettings>;
+export type NewAffiliateSettings = InferInsertModel<typeof affiliateSettings>;

@@ -8,6 +8,7 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import { restoreStock } from '@/lib/stock';
 import { calculatePointsEarned } from '@/lib/membership-utils';
+import { createCommissionsForOrder, rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle';
 
 export async function POST(request: Request) {
   // Verify callback token
@@ -75,6 +76,9 @@ export async function POST(request: Request) {
         toStatus: 'packing',
         changedBy: 'webhook:xendit',
       });
+
+      // Affiliate: order paid -> buat commission rows (status pending), no-op kalau tidak ada attribution
+      await createCommissionsForOrder(order.id);
 
       // Membership: earn points + tier upgrade + voucher usedCount
       if (order.userId) {
@@ -164,6 +168,9 @@ export async function POST(request: Request) {
         toStatus: 'expired',
         changedBy: 'webhook:xendit',
       });
+
+      // Affiliate: no-op kalau belum ada commission (order belum sempat paid), aman dipanggil
+      await rejectCommissionsForOrder(order.id, 'order_expired');
 
       // Restore redeemed points if any
       if ((order.pointsRedeemed ?? 0) > 0 && order.userId) {
