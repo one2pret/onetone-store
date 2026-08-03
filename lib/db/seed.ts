@@ -5,6 +5,8 @@ import {
   orders, orderItems, invoices, shippings, shippingHistories,
   orderStatusLogs, cartItems, banners, posSessions,
   stores, memberTiers, memberships, vouchers, pointsLedger,
+  affiliates, affiliateLinks, affiliateClicks, affiliateCommissions,
+  affiliatePayouts, affiliateSettings, commissionRules,
 } from './schema';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
@@ -32,8 +34,16 @@ async function seed() {
   await db.delete(orderStatusLogs);
   await db.delete(invoices);
   await db.delete(shippings);
+  // Affiliate — hapus sebelum orders/orderItems/affiliates karena ada FK ke situ
+  await db.delete(affiliateCommissions);
+  await db.delete(affiliatePayouts);
   await db.delete(orderItems);
   await db.delete(orders);
+  await db.delete(affiliateClicks);
+  await db.delete(affiliateLinks);
+  await db.delete(affiliates);
+  await db.delete(commissionRules);
+  await db.delete(affiliateSettings);
   await db.delete(cartItems);
   await db.delete(posSessions);
   await db.delete(memberships);
@@ -54,6 +64,8 @@ async function seed() {
     'products', 'cart_items', 'orders', 'order_items', 'invoices',
     'shippings', 'shipping_histories', 'order_status_logs', 'banners',
     'stores', 'member_tiers', 'memberships', 'vouchers', 'points_ledger',
+    'affiliates', 'affiliate_links', 'affiliate_clicks', 'commission_rules',
+    'affiliate_commissions', 'affiliate_payouts', 'affiliate_settings',
   ];
   for (const table of tables) {
     await db.execute(sql.raw(`ALTER TABLE ${table} AUTO_INCREMENT = 1`));
@@ -1077,6 +1089,81 @@ async function seed() {
   ]);
   console.log('💰 5 points ledger entries created');
 
+  // ==========================================
+  // AFFILIATE MODULE (docs/devs/dev-affiliates/affiliate-module-plan.md)
+  // Rina (userId=2) sengaja TIDAK dijadikan affiliate — dipakai buat testing
+  // manual alur "daftar jadi affiliate" dari awal.
+  // ==========================================
+  await db.insert(affiliateSettings).values({
+    isEnabled: true,
+    autoApproveRegistration: false,
+    allowSelfReferral: false,
+    cookieWindowDays: 30,
+    holdPeriodDays: 7,
+    defaultRatePercent: '5.00',
+    minPayoutAmount: '50000.00',
+    payoutAdminFee: '0',
+    termsContent: 'Komisi dihitung dari subtotal produk (tidak termasuk ongkir). Attribution klik berlaku 30 hari, klik terakhir yang menang. Komisi cair setelah pesanan selesai dan lewat masa tunggu 7 hari. Minimum penarikan Rp50.000. Dilarang menggunakan link sendiri untuk membeli produk sendiri.',
+  });
+  console.log('⚙️  Affiliate settings seeded (program aktif)');
+
+  await db.insert(affiliates).values([
+    { // id: 1 — Andi, aktif, tier pro
+      userId: 3,
+      code: 'ANDI88',
+      displayName: 'Andi Saputra',
+      status: 'active',
+      tier: 'pro',
+      socialMedia: JSON.stringify({ instagram: '@andi.saputra', tiktok: null, youtube: null }),
+      audienceSize: 8500,
+      motivation: 'Sering share outfit olahraga ke followers, mau bantu promosiin Onetone.',
+      approvedAt: daysAgo(20),
+      approvedBy: 1,
+    },
+    { // id: 2 — Siti, masih pending (buat testing approve flow)
+      userId: 4,
+      code: 'SITINUR12',
+      displayName: 'Siti Nur',
+      status: 'pending',
+      tier: 'starter',
+      socialMedia: JSON.stringify({ instagram: '@sitinur.id', tiktok: '@sitinur', youtube: null }),
+      audienceSize: 2100,
+      motivation: 'Baru mulai konten lifestyle, tertarik promosiin produk lokal.',
+    },
+  ]);
+  console.log('🤝 2 affiliates created (1 active, 1 pending)');
+
+  await db.insert(affiliateLinks).values([
+    { affiliateId: 1, slug: 'andi-home', targetType: 'home', label: 'Link utama bio IG', utmSource: 'affiliate', utmMedium: 'referral', clickCount: 34, isActive: true, createdAt: daysAgo(18) },
+    { affiliateId: 1, slug: 'andi-jersey', targetType: 'product', targetId: 1, label: 'Story promo jersey', utmSource: 'affiliate', utmMedium: 'referral', utmCampaign: 'story-jan', clickCount: 12, isActive: true, createdAt: daysAgo(10) },
+  ]);
+  console.log('🔗 2 affiliate links created');
+
+  await db.insert(affiliateClicks).values([
+    { affiliateId: 1, linkId: 1, visitorId: '11111111-1111-4111-8111-111111111111', ipHash: 'seed-hash-1', landingPath: '/r/andi-home', convertedOrderId: 1, convertedAt: daysAgo(20), createdAt: daysAgo(20) },
+    { affiliateId: 1, linkId: 1, visitorId: '22222222-2222-4222-8222-222222222222', ipHash: 'seed-hash-2', landingPath: '/r/andi-home', createdAt: daysAgo(15) },
+    { affiliateId: 1, linkId: 2, visitorId: '33333333-3333-4333-8333-333333333333', ipHash: 'seed-hash-3', landingPath: '/r/andi-jersey', convertedOrderId: 9, convertedAt: daysAgo(5), createdAt: daysAgo(5) },
+  ]);
+  console.log('🖱️  3 affiliate clicks created (2 converted)');
+
+  // Order 1 (delivered, lama) & order 9 (delivered, baru) ditandai datang dari Andi
+  await db.update(orders).set({ affiliateId: 1, affiliateCode: 'ANDI88', affiliateLinkId: 1, affiliateClickId: 1 }).where(sql`id = 1`);
+  await db.update(orders).set({ affiliateId: 1, affiliateCode: 'ANDI88', affiliateLinkId: 2, affiliateClickId: 3 }).where(sql`id = 9`);
+
+  await db.insert(affiliateCommissions).values([
+    { // order 1, delivered lama -> sudah lewat hold period -> approved
+      affiliateId: 1, orderId: 1, entryType: 'earning',
+      baseAmount: '350000.00', ratePercent: '5.00', amount: '17500.00',
+      status: 'approved', holdUntil: daysAgo(13), approvedAt: daysAgo(13), createdAt: daysAgo(20),
+    },
+    { // order 9, delivered baru -> masih dalam masa tunggu -> holding
+      affiliateId: 1, orderId: 9, entryType: 'earning',
+      baseAmount: '210000.00', ratePercent: '7.00', amount: '14700.00',
+      status: 'holding', holdUntil: hoursFromNow(48), createdAt: daysAgo(5),
+    },
+  ]);
+  console.log('💵 2 affiliate commissions created (1 approved, 1 holding)');
+
   console.log('\n✅ Seeding completed!\n');
   console.log('📊 Summary:');
   console.log('   Stores:    1 (onetone — official)');
@@ -1091,6 +1178,7 @@ async function seed() {
   console.log('   Vouchers:  3');
   console.log('   Points:    5 ledger entries');
   console.log('   Cart:      4 items');
+  console.log('   Affiliate: 2 (Andi active/pro, Siti pending) — Rina belum affiliate, buat testing daftar baru');
   console.log('\n🔑 Login:');
   console.log('   Admin:    admin@store.com / password123');
   console.log('   Customer: rina@gmail.com / password123');

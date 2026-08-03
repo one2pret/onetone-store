@@ -1,5 +1,14 @@
 # Testing Affiliate Module di Lokal
 
+## 0. Sudah ada seed data (opsional, cara cepat)
+
+`pnpm db:seed` sekarang otomatis bikin 2 affiliate demo:
+- **Andi Saputra** (`ANDI88`) — status `active`, tier `pro` (naik ke `elite` otomatis kalau cron tier dijalanin, karena GMV order seed-nya besar), punya 2 link + 2 komisi contoh (1 `approved`, 1 `holding`).
+- **Siti Nur** (`SITINUR12`) — status `pending`, buat testing tombol Approve/Reject di admin.
+- **Rina** (`rina@gmail.com`) sengaja **tidak** dijadikan affiliate — pakai akun ini buat testing alur "daftar dari nol" (langkah 4-5 di bawah).
+
+Program affiliate juga udah otomatis `isEnabled: true` dari seed — **langkah 3 (aktifin manual) bisa di-skip** kalau baru `pnpm db:seed`.
+
 ## 1. Jalanin dev server
 
 ```bash
@@ -118,11 +127,26 @@ Overview total affiliate, GMV, komisi terutang. Dari sini bisa ke:
 - Affiliate yang login beda sama yang checkout (self-referral otomatis ditolak kecuali `allowSelfReferral` diaktifkan di Pengaturan).
 - Cookie udah expired (default 30 hari, harusnya gak masalah pas testing).
 
-**Mau reset data testing:**
+**Mau reset data testing (cara paling gampang — pakai seed):**
 ```bash
-mysql -h 127.0.0.1 -uroot -padminpwd onetone_store_db -e "
-DELETE FROM affiliate_commissions; DELETE FROM affiliate_clicks;
-DELETE FROM affiliate_links; DELETE FROM affiliate_payouts;
-DELETE FROM affiliates; DELETE FROM affiliate_settings;
-"
+pnpm db:seed
+```
+(reset semua tabel, bukan cuma affiliate — kalau cuma mau bersihin affiliate doang, hapus manual per tabel di atas.)
+
+## 11. Test cron manual
+
+Dua cron job: `affiliate-approve` (harusnya jalan tiap jam — holding yang `hold_until` udah lewat jadi `approved`) dan `affiliate-tier` (harusnya jalan harian — hitung ulang tier dari GMV 30 hari).
+
+```bash
+# Ambil CRON_SECRET dari .env.local
+curl -H "Authorization: Bearer your_cron_secret" http://localhost:3000/api/cron/affiliate-approve
+curl -H "Authorization: Bearer your_cron_secret" http://localhost:3000/api/cron/affiliate-tier
+```
+
+Tanpa header/token salah → 401. Response sukses: `{"success":true,"approved":N}` dan `{"success":true,"checked":N,"changed":N}`.
+
+**Setup crontab di VPS** (nanti pas deploy, samain sama pola `check-expired-orders` yang udah ada):
+```cron
+0 * * * *  curl -s -H "Authorization: Bearer $CRON_SECRET" https://onetone-store.id/api/cron/affiliate-approve
+0 2 * * *  curl -s -H "Authorization: Bearer $CRON_SECRET" https://onetone-store.id/api/cron/affiliate-tier
 ```
