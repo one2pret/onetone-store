@@ -22,7 +22,11 @@ export default auth((req) => {
 
   if (!ref) return NextResponse.next();
 
-  const cleanUrl = nextUrl.clone();
+  // nextUrl.clone() membawa origin dari header request internal, yang di balik
+  // reverse proxy Docker bisa jadi host container (0.0.0.0:3000) kalau X-Forwarded-*
+  // tidak diteruskan persis. Bangun ulang pakai NEXT_PUBLIC_APP_URL sebagai base.
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || nextUrl.origin;
+  const cleanUrl = new URL(nextUrl.pathname + nextUrl.search, baseUrl);
   cleanUrl.searchParams.delete('ref');
 
   const response = NextResponse.redirect(cleanUrl);

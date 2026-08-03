@@ -44,7 +44,11 @@ function appendUtm(path: string, link: typeof affiliateLinks.$inferSelect): stri
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const origin = req.nextUrl.origin;
+  // req.nextUrl.origin bisa jadi host internal container (0.0.0.0:3000) di balik
+  // reverse proxy Docker kalau header X-Forwarded-* tidak diteruskan persis.
+  // Pakai NEXT_PUBLIC_APP_URL (sudah dipakai konsisten di project ini) sebagai
+  // source of truth base URL publik, bukan header request.
+  const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
   const link = await db.select().from(affiliateLinks)
     .where(eq(affiliateLinks.slug, slug)).limit(1).then((r) => r[0] ?? null);
