@@ -142,7 +142,10 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
 
-            # Migrate schema — jalan sekali, container langsung berhenti sendiri
+            # Migrate schema — jalan sekali, container langsung berhenti sendiri.
+            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
+            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
             docker run --rm --network onetone-store_onetone-net --env-file .env.app \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
 
@@ -195,7 +198,10 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Migrate schema — jalan sekali, container langsung berhenti sendiri
+            # Migrate schema — jalan sekali, container langsung berhenti sendiri.
+            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
+            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
             docker run --rm --network onetone-store_onetone-net --env-file .env.app \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
 
