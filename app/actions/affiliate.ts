@@ -4,7 +4,7 @@
 import { db } from '@/lib/db';
 import {
   affiliates, affiliateLinks, affiliateClicks, affiliateCommissions,
-  affiliatePayouts, affiliateSettings,
+  affiliatePayouts, affiliateSettings, commissionRules, users, orders,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
@@ -17,6 +17,13 @@ async function requireUserId(): Promise<number> {
   const session = await auth();
   if (!session?.user?.id) throw new Error('Silakan login terlebih dahulu');
   return Number(session.user.id);
+}
+
+async function requireAdmin(): Promise<void> {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== 'admin') {
+    throw new Error('Hanya admin yang dapat melakukan aksi ini');
+  }
 }
 
 export async function getMyAffiliate() {
@@ -275,5 +282,319 @@ export async function updateBankAccount(prevState: any, formData: FormData) {
     .where(eq(affiliates.id, affiliate.id));
 
   revalidatePath('/affiliate/dashboard/settings');
+  return { success: true };
+}
+
+// ============ ADMIN ============
+
+export async function getAdminOverview() {
+  await requireAdmin();
+
+  const [affiliateCounts] = await db.select({
+    total: sql<number>`COUNT(*)`,
+    active: sql<number>`SUM(CASE WHEN ${affiliates.status} = 'active' THEN 1 ELSE 0 END)`,
+    pending: sql<number>`SUM(CASE WHEN ${affiliates.status} = 'pending' THEN 1 ELSE 0 END)`,
+  }).from(affiliates);
+
+  const [gmvRow] = await db.select({
+    gmv: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+  }).from(orders).where(sql`${orders.affiliateId} IS NOT NULL AND ${orders.status} != 'cancelled' AND ${orders.status} != 'expired'`);
+
+  const [commissionOwed] = await db.select({
+    owed: sql<string>`COALESCE(SUM(CASE WHEN ${affiliateCommissions.status} IN ('pending','holding','approved') THEN ${affiliateCommissions.amount} END), 0)`,
+  }).from(affiliateCommissions);
+
+  return {
+    totalAffiliates: Number(affiliateCounts?.total ?? 0),
+    activeAffiliates: Number(affiliateCounts?.active ?? 0),
+    pendingAffiliates: Number(affiliateCounts?.pending ?? 0),
+    gmvFromAffiliates: Number(gmvRow?.gmv ?? 0),
+    commissionOwed: Number(commissionOwed?.owed ?? 0),
+  };
+}
+
+export async function getAllAffiliates(status?: string) {
+  await requireAdmin();
+
+  const conditions = status ? [eq(affiliates.status, status as any)] : [];
+
+  const rows = await db.select().from(affiliates)
+    .leftJoin(users, eq(affiliates.userId, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(affiliates.createdAt));
+
+  return rows.map((r) => ({ ...r.affiliates, user: r.users }));
+}
+
+export async function getAffiliateDetail(id: number) {
+  await requireAdmin();
+
+  const row = await db.select().from(affiliates)
+    .leftJoin(users, eq(affiliates.userId, users.id))
+    .where(eq(affiliates.id, id)).limit(1).then((r) => r[0] ?? null);
+  if (!row) return null;
+
+  const [commissions, payouts, linkCount] = await Promise.all([
+    db.select().from(affiliateCommissions).where(eq(affiliateCommissions.affiliateId, id)).orderBy(desc(affiliateCommissions.createdAt)).limit(50),
+    db.select().from(affiliatePayouts).where(eq(affiliatePayouts.affiliateId, id)).orderBy(desc(affiliatePayouts.createdAt)),
+    db.select({ count: sql<number>`COUNT(*)` }).from(affiliateLinks).where(eq(affiliateLinks.affiliateId, id)),
+  ]);
+
+  return {
+    ...row.affiliates,
+    user: row.users,
+    commissions,
+    payouts,
+    linkCount: Number(linkCount[0]?.count ?? 0),
+  };
+}
+
+export async function approveAffiliate(id: number) {
+  await requireAdmin();
+  const session = await auth();
+
+  await db.update(affiliates)
+    .set({ status: 'active', approvedAt: sql`NOW()`, approvedBy: Number(session!.user!.id) })
+    .where(eq(affiliates.id, id));
+
+  revalidatePath('/dashboard/affiliate/members');
+  return { success: true };
+}
+
+export async function rejectAffiliate(id: number) {
+  await requireAdmin();
+
+  await db.update(affiliates)
+    .set({ status: 'rejected' })
+    .where(eq(affiliates.id, id));
+
+  revalidatePath('/dashboard/affiliate/members');
+  return { success: true };
+}
+
+export async function suspendAffiliate(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const id = Number(formData.get('id'));
+  const reason = ((formData.get('reason') as string) || '').trim();
+  if (!reason) return { success: false, error: 'Alasan pembekuan wajib diisi' };
+
+  await db.update(affiliates)
+    .set({ status: 'suspended', suspendedAt: sql`NOW()`, suspendReason: reason })
+    .where(eq(affiliates.id, id));
+
+  revalidatePath('/dashboard/affiliate/members');
+  return { success: true };
+}
+
+export async function reactivateAffiliate(id: number) {
+  await requireAdmin();
+
+  await db.update(affiliates)
+    .set({ status: 'active', suspendedAt: null, suspendReason: null })
+    .where(eq(affiliates.id, id));
+
+  revalidatePath('/dashboard/affiliate/members');
+  return { success: true };
+}
+
+export async function getAllCommissions(status?: string) {
+  await requireAdmin();
+
+  const conditions = status ? [eq(affiliateCommissions.status, status as any)] : [];
+
+  const rows = await db.select().from(affiliateCommissions)
+    .leftJoin(affiliates, eq(affiliateCommissions.affiliateId, affiliates.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(affiliateCommissions.createdAt))
+    .limit(200);
+
+  return rows.map((r) => ({ ...r.affiliate_commissions, affiliate: r.affiliates }));
+}
+
+export async function adjustCommission(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const affiliateId = Number(formData.get('affiliateId'));
+  const orderId = Number(formData.get('orderId')) || null;
+  const amount = Number(formData.get('amount'));
+  const reason = ((formData.get('reason') as string) || '').trim();
+
+  if (!affiliateId || !amount || !reason) {
+    return { success: false, error: 'Affiliate, nominal, dan alasan wajib diisi' };
+  }
+  if (!orderId) {
+    return { success: false, error: 'Order ID wajib diisi untuk adjustment' };
+  }
+
+  await db.insert(affiliateCommissions).values({
+    affiliateId,
+    orderId,
+    entryType: 'adjustment',
+    baseAmount: '0',
+    ratePercent: '0',
+    amount: String(amount),
+    status: 'approved',
+    rejectReason: reason.slice(0, 255),
+  });
+
+  revalidatePath('/dashboard/affiliate/commissions');
+  return { success: true };
+}
+
+export async function getAllPayouts(status?: string) {
+  await requireAdmin();
+
+  const conditions = status ? [eq(affiliatePayouts.status, status as any)] : [];
+
+  const rows = await db.select().from(affiliatePayouts)
+    .leftJoin(affiliates, eq(affiliatePayouts.affiliateId, affiliates.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(affiliatePayouts.createdAt));
+
+  return rows.map((r) => ({ ...r.affiliate_payouts, affiliate: r.affiliates }));
+}
+
+export async function approvePayoutRequest(id: number) {
+  await requireAdmin();
+  const session = await auth();
+
+  await db.update(affiliatePayouts)
+    .set({ status: 'approved', approvedBy: Number(session!.user!.id), approvedAt: sql`NOW()` })
+    .where(eq(affiliatePayouts.id, id));
+
+  revalidatePath('/dashboard/affiliate/payouts');
+  return { success: true };
+}
+
+export async function markPayoutCompleted(id: number) {
+  await requireAdmin();
+
+  await db.update(affiliatePayouts)
+    .set({ status: 'completed', completedAt: sql`NOW()` })
+    .where(eq(affiliatePayouts.id, id));
+
+  revalidatePath('/dashboard/affiliate/payouts');
+  return { success: true };
+}
+
+export async function rejectPayoutRequest(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const id = Number(formData.get('id'));
+  const reason = ((formData.get('reason') as string) || '').trim();
+  if (!reason) return { success: false, error: 'Alasan penolakan wajib diisi' };
+
+  const payout = await db.select().from(affiliatePayouts).where(eq(affiliatePayouts.id, id)).limit(1).then((r) => r[0] ?? null);
+  if (!payout) return { success: false, error: 'Payout tidak ditemukan' };
+
+  await db.transaction(async (tx) => {
+    await tx.update(affiliatePayouts)
+      .set({ status: 'rejected', failureReason: reason.slice(0, 255) })
+      .where(eq(affiliatePayouts.id, id));
+
+    // Kembalikan commission yang sempat ditandai 'paid' ke 'approved' — belum jadi ditarik
+    await tx.update(affiliateCommissions)
+      .set({ status: 'approved', payoutId: null })
+      .where(eq(affiliateCommissions.payoutId, id));
+  });
+
+  revalidatePath('/dashboard/affiliate/payouts');
+  return { success: true };
+}
+
+export async function getCommissionRules() {
+  await requireAdmin();
+  return db.select().from(commissionRules).orderBy(desc(commissionRules.priority));
+}
+
+export async function createCommissionRule(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const scope = formData.get('scope') as 'global' | 'tier' | 'category' | 'product';
+  const scopeTier = (formData.get('scopeTier') as string) || null;
+  const categoryId = formData.get('categoryId') ? Number(formData.get('categoryId')) : null;
+  const productId = formData.get('productId') ? Number(formData.get('productId')) : null;
+  const ratePercent = Number(formData.get('ratePercent'));
+  const maxCommission = formData.get('maxCommission') ? Number(formData.get('maxCommission')) : null;
+  const priority = Number(formData.get('priority') || 0);
+
+  if (!scope || !ratePercent) {
+    return { success: false, error: 'Scope dan rate wajib diisi' };
+  }
+  if (scope === 'tier' && !scopeTier) {
+    return { success: false, error: 'Pilih tier untuk scope tier' };
+  }
+  if (scope === 'category' && !categoryId) {
+    return { success: false, error: 'Pilih kategori untuk scope category' };
+  }
+  if (scope === 'product' && !productId) {
+    return { success: false, error: 'Pilih produk untuk scope product' };
+  }
+
+  await db.insert(commissionRules).values({
+    scope,
+    scopeTier: scope === 'tier' ? (scopeTier as any) : null,
+    categoryId: scope === 'category' ? categoryId : null,
+    productId: scope === 'product' ? productId : null,
+    ratePercent: String(ratePercent),
+    maxCommission: maxCommission != null ? String(maxCommission) : null,
+    priority,
+  });
+
+  revalidatePath('/dashboard/affiliate/rules');
+  return { success: true };
+}
+
+export async function toggleCommissionRule(id: number, isActive: boolean) {
+  await requireAdmin();
+
+  await db.update(commissionRules).set({ isActive }).where(eq(commissionRules.id, id));
+  revalidatePath('/dashboard/affiliate/rules');
+  return { success: true };
+}
+
+export async function deleteCommissionRule(id: number) {
+  await requireAdmin();
+
+  await db.delete(commissionRules).where(eq(commissionRules.id, id));
+  revalidatePath('/dashboard/affiliate/rules');
+  return { success: true };
+}
+
+export async function updateAffiliateSettings(prevState: any, formData: FormData) {
+  await requireAdmin();
+
+  const isEnabled = formData.get('isEnabled') === 'on';
+  const autoApproveRegistration = formData.get('autoApproveRegistration') === 'on';
+  const allowSelfReferral = formData.get('allowSelfReferral') === 'on';
+  const cookieWindowDays = Number(formData.get('cookieWindowDays') || 30);
+  const holdPeriodDays = Number(formData.get('holdPeriodDays') || 7);
+  const defaultRatePercent = Number(formData.get('defaultRatePercent') || 5);
+  const minPayoutAmount = Number(formData.get('minPayoutAmount') || 50000);
+  const payoutAdminFee = Number(formData.get('payoutAdminFee') || 0);
+  const termsContent = ((formData.get('termsContent') as string) || '').trim() || null;
+
+  const existing = await db.select({ id: affiliateSettings.id }).from(affiliateSettings).limit(1);
+
+  const values = {
+    isEnabled,
+    autoApproveRegistration,
+    allowSelfReferral,
+    cookieWindowDays,
+    holdPeriodDays,
+    defaultRatePercent: String(defaultRatePercent),
+    minPayoutAmount: String(minPayoutAmount),
+    payoutAdminFee: String(payoutAdminFee),
+    termsContent,
+  };
+
+  if (existing.length > 0) {
+    await db.update(affiliateSettings).set(values).where(eq(affiliateSettings.id, existing[0].id));
+  } else {
+    await db.insert(affiliateSettings).values(values);
+  }
+
+  revalidatePath('/dashboard/affiliate/settings');
   return { success: true };
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, Star, Coins, Tag, Package, MapPin } from 'lucide-react';
+import { User, Star, Coins, Tag, Package, MapPin, Handshake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACCOUNT_LINKS = [
@@ -13,6 +13,7 @@ const ACCOUNT_LINKS = [
   { href: '/account/vouchers', icon: Tag, label: 'Voucher' },
   { href: '/orders', icon: Package, label: 'Pesanan Saya' },
   { href: '/addresses', icon: MapPin, label: 'Alamat Saya' },
+  { href: '/affiliate', icon: Handshake, label: 'Affiliate' },
 ];
 
 export function AccountNav() {

@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { getMyMembership } from '@/app/actions/membership';
 import { getMyProfile } from '@/app/actions/profile';
 import {
-  User, Star, Coins, Tag, Package, MapPin, ChevronRight,
+  User, Star, Coins, Tag, Package, MapPin, ChevronRight, Handshake,
 } from 'lucide-react';
 
 function getInitials(name?: string | null) {
@@ -35,6 +35,7 @@ export default async function AccountPage() {
     { href: '/account/vouchers', icon: Tag, label: 'Voucher', desc: 'Voucher aktif' },
     { href: '/orders', icon: Package, label: 'Pesanan Saya', desc: 'Riwayat order' },
     { href: '/addresses', icon: MapPin, label: 'Alamat Saya', desc: 'Buku alamat' },
+    { href: '/affiliate', icon: Handshake, label: 'Affiliate', desc: 'Dapat komisi jualan' },
   ];
 
   return (
