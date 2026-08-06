@@ -1,16 +1,18 @@
 // app/(admin)/dashboard/settings/staff/_components/AddStaffForm.tsx
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { createStaffUser } from '@/app/actions/staff';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function AddStaffForm() {
   const [state, formAction, pending] = useActionState(createStaffUser, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (state?.success) {
@@ -45,7 +47,24 @@ export function AddStaffForm() {
         </div>
         <div>
           <Label htmlFor="password" className="text-sm">Password *</Label>
-          <Input id="password" name="password" type="password" className="mt-1" placeholder="Min. 6 karakter" />
+          <div className="relative mt-1">
+            <Input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              className="pr-10"
+              placeholder="Min. 6 karakter"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              aria-pressed={showPassword}
+              className="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-lg"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
           {state?.errors?.password && <p className="text-destructive text-xs mt-0.5">{state.errors.password[0]}</p>}
         </div>
       </div>

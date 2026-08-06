@@ -4,7 +4,7 @@
 import { useState, useTransition } from 'react';
 import { deleteStaffUser, updateStaffUser } from '@/app/actions/staff';
 import { formatDate } from '@/lib/utils';
-import { Pencil, Trash2, ShieldCheck, X, Check } from 'lucide-react';
+import { Pencil, Trash2, ShieldCheck, X, Check, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ function EditForm({ staff, onClose }: { staff: Staff; onClose: () => void }) {
   const action = updateStaffUser.bind(null, staff.id);
   const [state, setState] = useState<any>(null);
   const [pending, startTransition] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +61,23 @@ function EditForm({ staff, onClose }: { staff: Staff; onClose: () => void }) {
       </div>
       <div>
         <Label className="text-xs">Password Baru</Label>
-        <Input name="password" type="password" className="mt-1 h-8 text-sm" placeholder="Kosongkan jika tidak ubah" />
+        <div className="relative mt-1">
+          <Input
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            className="h-8 text-sm pr-8"
+            placeholder="Kosongkan jika tidak ubah"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+            aria-pressed={showPassword}
+            className="absolute right-0 top-0 h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+          >
+            {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
         {state?.errors?.password && <p className="text-destructive text-xs mt-0.5">{state.errors.password[0]}</p>}
       </div>
       {state?.error && <p className="text-destructive text-xs">{state.error}</p>}
