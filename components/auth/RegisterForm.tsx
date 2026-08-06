@@ -1,16 +1,17 @@
 'use client';
 // components/auth/RegisterForm.tsx
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { register } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const initialState = { success: false, error: '', errors: undefined };
 
 export function RegisterForm() {
   const [state, formAction, isPending] = useActionState(register, initialState);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -74,15 +75,27 @@ export function RegisterForm() {
       {/* Password */}
       <div className="space-y-1.5">
         <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          placeholder="Minimal 6 karakter"
-          autoComplete="new-password"
-          disabled={isPending}
-          className={state?.errors?.password ? 'border-destructive' : ''}
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Minimal 6 karakter"
+            autoComplete="new-password"
+            disabled={isPending}
+            className={`pr-10 ${state?.errors?.password ? 'border-destructive' : ''}`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            disabled={isPending}
+            aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+            aria-pressed={showPassword}
+            className="absolute right-0 top-0 h-full w-10 flex items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-lg"
+          >
+            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
         {state?.errors?.password && (
           <p className="text-xs text-destructive">{state.errors.password[0]}</p>
         )}

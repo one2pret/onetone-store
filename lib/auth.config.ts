@@ -1,9 +1,22 @@
 // lib/auth.config.ts
 // Edge-compatible auth config (no Node.js modules)
 import type { NextAuthConfig } from 'next-auth';
+import { decode as defaultDecode } from 'next-auth/jwt';
 
 export const authConfig = {
   providers: [], // Providers added in lib/auth.ts (needs Node.js runtime)
+  jwt: {
+    // Cookie session lama (mis. AUTH_SECRET pernah diganti) gagal decode dan
+    // default behavior next-auth v5 throw JWTSessionError sampai ke error.tsx.
+    // Treat gagal decode sebagai logged-out (return null) daripada crash.
+    async decode(params) {
+      try {
+        return await defaultDecode(params);
+      } catch {
+        return null;
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
