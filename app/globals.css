@@ -214,6 +214,19 @@ body {
   animation: goldShimmer 3s linear infinite;
 }
 
+/* Shimmer untuk elemen ber-mask (logo wordmark) — gradient jadi background,
+   di-clip oleh mask-image elemen, bukan background-clip:text. */
+.wordmark-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--premium) 0%,
+    color-mix(in srgb, var(--premium) 55%, #fff) 50%,
+    var(--premium) 100%
+  );
+  background-size: 200% auto;
+  animation: goldShimmer 3s linear infinite;
+}
+
 /* Ken-burns — hero foto slow zoom untuk mood editorial */
 @keyframes kenBurns {
   0%   { transform: scale(1.05) translate(0, 0); }

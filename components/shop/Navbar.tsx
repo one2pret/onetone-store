@@ -12,6 +12,7 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { logout } from '@/app/actions/auth';
 import { cn } from '@/lib/utils';
+import { LogoWordmark } from '@/components/shop/LogoWordmark';
 
 // Toggle search: set true saat backend search endpoint sudah siap.
 // Bisa juga override via env: NEXT_PUBLIC_SEARCH_ENABLED=true
@@ -287,10 +288,10 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <Link
                     href="/"
                     aria-label="Onetone — kembali ke beranda"
-                    className="shrink-0 flex items-center gap-2 text-xl md:text-2xl font-bold tracking-[0.18em] md:tracking-[0.2em] uppercase leading-none"
+                    className="shrink-0 flex items-center gap-2 leading-none"
                   >
-                    <Image src="/images/logo-white.png" alt="Onetone" width={44} height={44} className="h-11 w-11 object-contain" priority />
-                    <span className="text-white font-bold">ONETONE</span>
+                    <Image src="/images/logo-white.png" alt="Onetone" width={56} height={56} className="h-14 w-14 object-contain" priority />
+                    <LogoWordmark className="text-white text-[1.75rem] md:text-3xl" />
                   </Link>
 
                   {/* Kolom 2: Search form — desktop */}
@@ -377,9 +378,9 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                 <Link
                   href="/"
                   aria-label="Onetone — kembali ke beranda"
-                  className="absolute left-1/2 -translate-x-1/2 text-[1.375rem] md:text-[1.625rem] font-bold tracking-[0.32em] md:tracking-[0.38em] uppercase leading-none"
+                  className="absolute left-1/2 -translate-x-1/2 leading-none"
                 >
-                  <span className="animate-gold-shimmer">ONETONE</span>
+                  <LogoWordmark shimmer className="text-[1.5rem] md:text-[1.875rem]" />
                 </Link>
 
                 {/* Kanan: actions */}
