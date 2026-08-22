@@ -2,8 +2,6 @@ import { getProduct, getCategories } from '@/app/actions/products';
 import { getProductVariants, getVariantIdsUsedInOrders, getVariantIdsUsedInCarts } from '@/app/actions/product-variants';
 import { getProductImages } from '@/app/actions/product-images';
 import { ProductForm } from '../../_components/ProductForm';
-import { ProductImageUploader } from '@/components/admin/ProductImageUploader';
-import { GoogleDrivePicker } from '@/components/admin/GoogleDrivePicker';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -46,22 +44,11 @@ export default async function EditProductPage({ params }: Props) {
           product={product}
           categories={categories}
           variants={variants}
+          images={images}
           usedInOrderIds={usedInOrderIds}
           usedInCartIds={usedInCartIds}
           primaryImageUrl={images.find(img => img.isPrimary)?.url ?? images[0]?.url}
         />
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Foto Produk</h2>
-            <GoogleDrivePicker productId={productId} />
-          </div>
-          <ProductImageUploader
-            productId={productId}
-            initialImages={images}
-            variantColors={[...new Set(variants.map((v) => v.color).filter(Boolean))] as string[]}
-          />
-        </div>
       </div>
     </div>
   );

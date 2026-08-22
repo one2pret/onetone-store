@@ -1,10 +1,10 @@
 // app/(admin)/dashboard/products/_components/ProductForm.tsx
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { createProduct, updateProduct } from '@/app/actions/products';
+import { createProduct, updateProduct, deleteProduct, createDraftProduct } from '@/app/actions/products';
 import { upsertProductVariants } from '@/app/actions/product-variants';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,15 +13,25 @@ import { Label } from '@/components/ui/label';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { ImageIcon, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { VariantManager, type VariantRow } from './VariantManager';
-import type { Product, Category, ProductVariant } from '@/lib/db/schema';
+import { ProductImageUploader } from '@/components/admin/ProductImageUploader';
+import { GoogleDrivePicker } from '@/components/admin/GoogleDrivePicker';
+import type { Product, Category, ProductVariant, ProductImage } from '@/lib/db/schema';
+
+interface ImageWithUrl extends ProductImage {
+  url: string;
+  thumbUrl: string | null;
+}
 
 interface Props {
   product?: Product | null;
   categories: Category[];
   variants?: ProductVariant[];
+  images?: ImageWithUrl[];
   usedInOrderIds?: number[];
   usedInCartIds?: number[];
   primaryImageUrl?: string;
+  /** Produk draft dibuat otomatis pas halaman create dibuka — belum benar-benar disubmit user */
+  isDraft?: boolean;
 }
 
 type ActionResult = {
@@ -106,11 +116,26 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 }
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
-export function ProductForm({ product, categories, variants = [], usedInOrderIds = [], usedInCartIds = [], primaryImageUrl }: Props) {
+export function ProductForm({ product, categories, variants = [], images = [], usedInOrderIds = [], usedInCartIds = [], primaryImageUrl, isDraft = false }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ActionResult>(null);
   const [isPending, startTransition] = useTransition();
+  const [isCancelling, setIsCancelling] = useState(false);
   const [variantManagerKey, setVariantManagerKey] = useState(0);
+
+  // Draft product dibuat sekali di client saat form create benar-benar di-mount
+  // (bukan di Server Component page) — Link prefetch bisa eksekusi Server Component
+  // lebih dulu tanpa navigasi beneran terjadi, yang kalau draft dibuat di sana bisa
+  // menghasilkan row duplikat dan upload gambar nyangkut ke draft yang tidak dipakai.
+  const [draftProductId, setDraftProductId] = useState<number | null>(null);
+  const draftCreatedRef = useRef(false);
+  const activeProductId = product?.id ?? draftProductId ?? undefined;
+
+  useEffect(() => {
+    if (!isDraft || product || draftCreatedRef.current) return;
+    draftCreatedRef.current = true;
+    createDraftProduct().then(setDraftProductId);
+  }, [isDraft, product]);
 
   const existingImages: string[] = (() => {
     try { return product?.images ? JSON.parse(product.images) : []; } catch { return []; }
@@ -144,14 +169,14 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
     startTransition(async () => {
       let result: ActionResult;
 
-      if (product) {
-        // UPDATE — no redirect() in action, so this returns properly
-        result = await updateProduct(product.id, null, formData);
+      if (activeProductId) {
+        // UPDATE — draft (create flow) atau produk asli (edit flow), no redirect() in action
+        result = await updateProduct(activeProductId, null, formData);
         if (result?.success) {
-          await upsertProductVariants(product.id, variantRows);
+          await upsertProductVariants(activeProductId, variantRows);
         }
       } else {
-        // CREATE — action returns { success, productId }
+        // Fallback — draft belum selesai dibuat pas submit ditekan
         result = await createProduct(null, formData);
         if (result?.success && result.productId) {
           await upsertProductVariants(result.productId, variantRows);
@@ -161,7 +186,10 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
       setState(result);
 
       if (result?.success) {
-        if (product) {
+        if (isDraft) {
+          toast.success('Produk berhasil dibuat');
+          router.push(`/dashboard/products/${result.productId}/edit`);
+        } else if (product) {
           toast.success('Produk berhasil diperbarui');
           setVariantManagerKey((k) => k + 1);
           router.refresh();
@@ -221,11 +249,27 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
 
       {/* ── Foto Produk ────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-base font-semibold text-foreground mb-1">Foto Produk</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-semibold text-foreground">Foto Produk</h2>
+          {activeProductId && <GoogleDrivePicker productId={activeProductId} />}
+        </div>
         <p className="text-xs text-muted-foreground mb-5">
-          Gunakan URL dari Cloudinary, Google Drive (share link), atau hosting lain.
+          Upload langsung atau import dari Google Drive.
         </p>
-        <div className="space-y-6">
+        {activeProductId ? (
+          <ProductImageUploader
+            productId={activeProductId}
+            initialImages={images}
+            variantColors={[...new Set(variantRows.map((v) => v.color).filter(Boolean))] as string[]}
+          />
+        ) : (
+          <div className="border-2 border-dashed rounded-xl p-8 text-center text-sm text-muted-foreground">
+            Menyiapkan slot upload...
+          </div>
+        )}
+
+        {/* Input URL manual — disembunyikan sementara, digantikan uploader + Google Drive di atas */}
+        <div className="hidden space-y-6 mt-6">
           <ImageUrlInput name="_mainImageDisplay" label="Foto Utama *" value={mainImage}
             onChange={setMainImage}
             placeholder="https://res.cloudinary.com/..."
@@ -300,10 +344,21 @@ export function ProductForm({ product, categories, variants = [], usedInOrderIds
 
       <div className="flex items-center gap-4">
         <Button type="submit" disabled={isPending}>
-          {isPending ? 'Menyimpan...' : product ? 'Update Produk' : 'Tambah Produk'}
+          {isPending ? 'Menyimpan...' : (!product || isDraft) ? 'Tambah Produk' : 'Update Produk'}
         </Button>
-        <Button variant="ghost" asChild>
-          <a href="/dashboard/products">Batal</a>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={isCancelling}
+          onClick={async () => {
+            if (isDraft && draftProductId) {
+              setIsCancelling(true);
+              await deleteProduct(draftProductId);
+            }
+            router.push('/dashboard/products');
+          }}
+        >
+          {isCancelling ? 'Membatalkan...' : 'Batal'}
         </Button>
       </div>
     </form>

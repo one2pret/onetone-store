@@ -22,7 +22,7 @@ export default async function CreateProductPage() {
       </div>
 
       <div className="max-w-2xl">
-        <ProductForm categories={categories} />
+        <ProductForm categories={categories} isDraft />
       </div>
     </div>
   );
