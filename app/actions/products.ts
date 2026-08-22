@@ -220,6 +220,33 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
   return { success: true, productId: id };
 }
 
+/**
+ * Buat row produk draft minimal saat halaman "Tambah Produk" dibuka —
+ * supaya productId ada dari awal, sehingga uploader gambar & Google Drive
+ * import bisa langsung dipakai tanpa nunggu submit pertama.
+ * Slug pakai timestamp biar unik walau nama masih kosong/default.
+ */
+export async function createDraftProduct() {
+  const slug = `draft-${Date.now()}`;
+  const inserted = await db
+    .insert(products)
+    .values({
+      name: 'Produk Baru',
+      slug,
+      price: '0',
+      stock: 0,
+      weight: 0,
+      image: '',
+      images: '[]',
+      isActive: false,
+      isFeatured: false,
+      channel: 'all',
+    })
+    .$returningId();
+
+  return inserted[0]?.id as number;
+}
+
 export async function deleteProduct(id: number) {
   try {
     await db.delete(products).where(eq(products.id, id));
