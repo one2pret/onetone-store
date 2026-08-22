@@ -630,14 +630,14 @@
     "semantic_hash": "a3f26b0564579e0f2c02977467e6ca8b"
   },
   "app/(admin)/dashboard/settings/staff/_components/AddStaffForm.tsx": {
-    "mtime": 1785990083.0705607,
-    "ast_hash": "5371bfdc0f87da788cf3e6fbe451388f",
-    "semantic_hash": ""
+    "mtime": 1784640959.0386014,
+    "ast_hash": "7613537c3434036681d746e34d658926",
+    "semantic_hash": "7613537c3434036681d746e34d658926"
   },
   "app/(admin)/dashboard/settings/staff/_components/StaffList.tsx": {
-    "mtime": 1785990083.070765,
-    "ast_hash": "cc398d5852b2f5b7ba0cf29c07530c1a",
-    "semantic_hash": ""
+    "mtime": 1784641030.2449424,
+    "ast_hash": "51394c0666c5d15d9728960b73d00680",
+    "semantic_hash": "51394c0666c5d15d9728960b73d00680"
   },
   "app/(admin)/dashboard/settings/staff/page.tsx": {
     "mtime": 1784638722.092937,
@@ -1205,9 +1205,9 @@
     "semantic_hash": "af2ae5944337fe273991d80adabd3029"
   },
   "app/layout.tsx": {
-    "mtime": 1786411865.8460948,
-    "ast_hash": "db6532b97f5ce09faa0b080d5c9a1e4b",
-    "semantic_hash": ""
+    "mtime": 1784040128.1139235,
+    "ast_hash": "0d9ecfe82cc4b7b345cf45b9017dc1f5",
+    "semantic_hash": "0d9ecfe82cc4b7b345cf45b9017dc1f5"
   },
   "app/r/[slug]/route.ts": {
     "mtime": 1785751570.682483,
@@ -1270,14 +1270,14 @@
     "semantic_hash": "c1a6e353e83d1921949ad86bb6abed0c"
   },
   "components/auth/LoginForm.tsx": {
-    "mtime": 1785990083.0709138,
-    "ast_hash": "72befeee22530b9102b976e0b99760ad",
-    "semantic_hash": ""
+    "mtime": 1783434674.3360581,
+    "ast_hash": "b29fe7edb97c7a73acc0b90de78a1bb4",
+    "semantic_hash": "b29fe7edb97c7a73acc0b90de78a1bb4"
   },
   "components/auth/RegisterForm.tsx": {
-    "mtime": 1785990083.0710673,
-    "ast_hash": "b62cff74aa4850b7839043f2cc699d2d",
-    "semantic_hash": ""
+    "mtime": 1783434740.0616834,
+    "ast_hash": "cea7ff0f59a5de1725f581251290dbb9",
+    "semantic_hash": "cea7ff0f59a5de1725f581251290dbb9"
   },
   "components/pos/CashierScreen.tsx": {
     "mtime": 1784677700.7566514,
@@ -1350,9 +1350,9 @@
     "semantic_hash": "fa9b7a484797f88529c6bdecd1fdee38"
   },
   "components/shop/Navbar.tsx": {
-    "mtime": 1786413941.0206966,
-    "ast_hash": "80900691774a676f82ab873e20bf69e8",
-    "semantic_hash": ""
+    "mtime": 1785134201.9504802,
+    "ast_hash": "d97c8869a92d070af2e9d1fe19f8c800",
+    "semantic_hash": "d97c8869a92d070af2e9d1fe19f8c800"
   },
   "components/shop/OrderStepper.tsx": {
     "mtime": 1784542980.3945606,
@@ -1520,9 +1520,9 @@
     "semantic_hash": "1ed92f0cdd9db2f5af00a452778ff817"
   },
   "lib/auth.config.ts": {
-    "mtime": 1785990083.0711966,
-    "ast_hash": "b693034453b7af5eee9b46652e125c4e",
-    "semantic_hash": ""
+    "mtime": 1784004907.6951082,
+    "ast_hash": "fcfc82f1818ab7c6f4d7382f75c88dc6",
+    "semantic_hash": "fcfc82f1818ab7c6f4d7382f75c88dc6"
   },
   "lib/auth.ts": {
     "mtime": 1782524360.7217665,
@@ -2273,15 +2273,5 @@
     "mtime": 1784951331.069536,
     "ast_hash": "a7ac72c612840cd5e22e57de397569fc",
     "semantic_hash": "a7ac72c612840cd5e22e57de397569fc"
-  },
-  "components/shop/LogoWordmark.tsx": {
-    "mtime": 1786413196.2872908,
-    "ast_hash": "3afe2b8e38d994be82b7bcae766312bb",
-    "semantic_hash": ""
-  },
-  "public/images/onetone-wordmark-mask.png": {
-    "mtime": 1786413161.7893577,
-    "ast_hash": "4ec2b9f9c1a132156a936880ee0d9669",
-    "semantic_hash": ""
   }
 }

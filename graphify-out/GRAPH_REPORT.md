@@ -1,200 +1,208 @@
-# Graph Report - .  (2026-08-04)
+# Graph Report - onetone-store  (2026-08-11)
 
 ## Corpus Check
-- 455 files · ~480,330 words
+- 446 files · ~480,872 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3965 nodes · 9674 edges · 188 communities (162 shown, 26 thin omitted)
+- 3968 nodes · 9681 edges · 191 communities (165 shown, 26 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 150 edges (avg confidence: 0.71)
-- Token cost: 849,776 input · 0 output
+- Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `b074b5a5`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- Impeccable Skill: Live Browser
-- Admin Dashboard Pages
-- App Actions: Misc Server Actions
-- Impeccable Skill: Detector
-- Shared UI Primitives
-- API Routes
-- Impeccable Skill: Live Browser
-- DB Schema & Client
-- API Routes
-- Admin Dashboard Pages
-- Impeccable Skill: Live Browser
-- Admin Dashboard Pages
-- App Actions: Misc Server Actions
-- Impeccable Skill: Live Browser
-- Impeccable Skill: Modern Screenshot.Umd
-- Impeccable Skill: Live Browser
-- API Routes
-- Impeccable Skill: Live Commit Manual Edits
-- Test Fixtures/Helpers
-- Impeccable Skill: Detector
-- Impeccable Skill: Hook Lib
-- App Actions: Misc Server Actions
-- Impeccable Skill: Lib
-- Impeccable Skill: Live Server
-- Impeccable Skill: Live Inject
-- Impeccable Skill: Hook Admin
-- Impeccable Skill: Hook Before Edit
-- Impeccable Skill: Live
-- App Actions: Misc Server Actions
-- Impeccable Skill: Detector
-- Impeccable Skill: Live
-- Impeccable Skill: Detector
-- App Actions: Misc Server Actions
-- Impeccable Skill: Detector
-- Impeccable Skill: Live Wrap
-- Impeccable Skill: Lib
-- Impeccable Skill: Detector
-- Impeccable Skill: Live Accept
-- Package Config (package.json)
-- Impeccable Skill: Live Copy Edit Agent
-- Impeccable Skill: Detector
-- Shop UI Components
-- Admin Dashboard Pages
-- TypeScript Config (tsconfig.json)
-- Checkout Flow Pages
-- App Actions: Misc Server Actions
-- Impeccable Skill: Live Poll
-- Marketplace Customer Pages
-- Package Config (package.json)
-- Impeccable Skill: Live
-- Impeccable Skill: Live Manual Edit Evidence
-- Docs: Design System
-- Admin Dashboard Pages
-- Impeccable Skill: Live Browser
-- Test Fixtures/Helpers
-- Impeccable Skill: Lib
-- Impeccable Skill: Live
-- Impeccable Skill: Live Browser
-- Admin UI Components
-- .Impeccable/Critique
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Docs: Devs
-- Docs: Missing Flows.Md
-- App Actions: Misc Server Actions
-- Impeccable Skill: Context
-- Impeccable Skill: Live Browser
-- Impeccable Skill: Live Browser
-- Impeccable Skill: Live Browser
-- Checkout Flow Pages
-- Shop Storefront Pages
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- App Actions: Misc Server Actions
-- App/Design System
-- Impeccable Skill: Hook Lib
-- Impeccable Skill: Hook Lib
-- Affiliate Core Logic
-- Admin Dashboard Pages
-- Admin Dashboard Pages
-- Impeccable Skill: Detector
-- Componentson
-- Docs: Marketplace
-- Admin Dashboard Pages
-- Impeccable Skill: Interaction Design.Md
-- Impeccable Skill: Context Signals
-- Impeccable Skill: Detector
-- Docs: Mengajar Backend
-- Impeccable Skill: Skill.Md
-- Impeccable Skill: Colorize.Md
-- Impeccable Skill: Detector
-- Docs: Mengajar Backend
-- App Actions: Misc Server Actions
-- Impeccable Skill: Context
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Impeccable Skill: Live
-- Impeccable Skill: Live Browser
-- Impeccable Skill: Live
-- Docs: Biteship Testing.Md
-- Docs: Mengajar Backend
-- Package Config (package.json)
-- .Agents/Skills
-- App Actions: Misc Server Actions
-- Impeccable Skill: Critique Storage
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Impeccable Skill: Live Resume
-- Docs: Marketplace
-- Impeccable Skill: Critique.Md
-- Impeccable Skill: Context
-- Impeccable Skill: Detector
-- Impeccable Skill: Live
-- Docs: Devs
-- Docs: Mengajar Backend
-- Admin UI Components
-- Impeccable Skill: Context
-- Impeccable Skill: Detect Csp
-- Impeccable Skill: Palette
-- Impeccable Skill: Pin
-- Docs: Mengajar Backend
-- App Actions: Misc Server Actions
-- Impeccable Skill: Live
-- Impeccable Skill: Hook Lib
-- Docs: Integration Plan.Md
-- Docs: Mengajar Backend
-- Docs: Mengajar Backend
-- Impeccable Skill: Lib
-- Docs: Mengajar Backend
-- Marketplace Customer Pages
-- Arsip Lain/Generate Storage
-- Impeccable Skill: Context
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Impeccable Skill: Detector
-- Impeccable Skill: Live
-- Docs: Analysis Bitship Xendit.Md
-- Docs: Integration Plan.Md
-- Docs: Marketplace
-- Impeccable Skill: Brand.Md
-- Docs: Deploy Vps Ubuntu.Md
-- Docs: Devs
-- Arsip Lain/Generate Storage
-- Impeccable Skill: Document.Md
-- Shop UI Components
-- Docs: Devs
-- Types/Next Auth.D
-- App/Layoutx
-- Arsip Lain/Generate Storage
-- Impeccable Skill: Detector
-- Impeccable Skill: Lib
-- Docs: Analysis Bitship Xendit.Md
-- Impeccable Skill: Animate.Md
-- Impeccable Skill: Detect
-- Impeccable Skill: Detector
-- .Github/Workflows
-- Test Fixtures/Helpers
-- Impeccable Skill: Delight.Md
-- Test Fixtures/Helpers
-- Deploy.Sh
-- Docs: Devs
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Next.Config
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Package Config (package.json)
-- Postcss.Config.Mjs
-- API Routes
-- App/Icon.Png
-- Impeccable Skill: Overdrive.Md
-- Docs: Devs
-- Static Assets
-- Static Assets
-- Static Assets
+- live-browser.js
+- utils.ts
+- affiliate.ts
+- checks.mjs
+- cn
+- orders.ts
+- setLiveState
+- schema.ts
+- [slug]/route.ts
+- label.tsx
+- resumeSession
+- button.tsx
+- CheckoutForm.tsx
+- initPageChat
+- modern-screenshot.umd.js
+- el
+- index.ts
+- live-commit-manual-edits.mjs
+- fixtures.ts
+- design-system.mjs
+- hook-lib.mjs
+- products
+- impeccable-config.mjs
+- live-server.mjs
+- live-inject.mjs
+- hook-admin.mjs
+- hook-before-edit.mjs
+- manual-apply.mjs
+- products.ts
+- css-cascade.mjs
+- svelte-component.mjs
+- detect-antipatterns-browser.js
+- pos-sessions.ts
+- detect-html.mjs
+- live-wrap.mjs
+- design-parser.mjs
+- detect-antipatterns.mjs
+- live-accept.mjs
+- devDependencies
+- live-copy-edit-agent.mjs
+- parseRgb
+- lib/auth.ts
+- ProductForm.tsx
+- compilerOptions
+- AddressManager.tsx
+- db
+- live-poll.mjs
+- profile.ts
+- dependencies
+- insert-ui.mjs
+- live-manual-edit-evidence.mjs
+- Design System: Color Tokens
+- BannerForm.tsx
+- documentRefForElement
+- categories.ts
+- impeccable-paths.mjs
+- manual-edit-routes.mjs
+- handleManualEditActivity
+- AdminHeader.tsx
+- DESIGN.md — Design System: Onetone Store
+- index.mjs
+- getMyAffiliate
+- Affiliate Module — Rencana Implementasi
+- Missing Flows & Features - Gap Analysis Lanjutan
+- LinksManager.tsx
+- context.mjs
+- initGlobalBar
+- onAnnotDown
+- captureElementToBlob
+- sveltekit-adapter.mjs
+- ProductDetail.tsx
+- resolveLengthPx
+- GENERIC_FONTS
+- CashierScreen.tsx
+- syncPageChatFocus
+- design-system/page.tsx
+- renderGroupedTemplate
+- runHook
+- pos/page.tsx
+- RollbackStatusForm.tsx
+- StaffList.tsx
+- parseAnyColor
+- components.json
+- Solved 2 - Search Bar Tidak Muncul di VPS
+- dashboard/members/[id]/page.tsx
+- impeccable reference/craft.md
+- context-signals.mjs
+- serializeFindings
+- Sesi 02 - Database (MySQL + Drizzle ORM)
+- impeccable SKILL.md
+- impeccable reference/live.md
+- sampleCssBackground
+- Sesi 04 - Server Actions (CRUD Produk)
+- couriers.ts
+- collectVisualContrastCandidates
+- collectBrowserFindings
+- StaticElement
+- session-store.mjs
+- refreshParamsPanel
+- event-validation.mjs
+- Biteship Alur Integrasi & Pengujian
+- Sesi 06 - Cart & Order Flow
+- scripts
+- design-taste-frontend SKILL.md
+- product-variants.ts
+- critique-storage.mjs
+- sampleCssBackground
+- scheduleLazyVisualContrast
+- readLiveServerInfo
+- Master Plan: Onetone Store to Marketplace
+- impeccable reference/audit.md
+- inline-ignores.mjs
+- scheduleLazyVisualContrast
+- ui-core.mjs
+- POS Module Documentation
+- Course Roadmap (Sesi 01-10)
+- CloseSessionForm.tsx
+- cli
+- detect-csp.mjs
+- palette.mjs
+- pin.mjs
+- Sesi 08 - Shipping API (Bitship/Biteship)
+- SAFE_TAGS
+- live.mjs
+- expandScanTargets
+- lib/order-status.ts
+- Sesi 00 - Overview & Arsitektur Next Olshop
+- Sesi 05 - REST API untuk Flutter
+- ReceiptView.tsx
+- Sesi 07 - Payment Gateway Xendit
+- vouchers/page.tsx
+- generate-storage/storage.ts
+- sessions/[id]/page.tsx
+- collectBrowserFindings
+- collectVisualContrastCandidates
+- isScreenReaderOnlyTextStyle
+- applyDeferredSvelteComponentAccepts
+- MySCI Storefront (Reference)
+- Analisis Integrasi Bitship & Xendit
+- Onetone Store Marketplace Evolution Session Summary
+- impeccable reference/brand.md
+- Deploy VPS Ubuntu Guide
+- drive-import-LIB.ts
+- generate-storage/image-processor.ts
+- impeccable reference/document.md
+- OrderStepper.tsx
+- Google Drive Picker Setup & Implementasi
+- next-auth.d.ts
+- app/layout.tsx
+- schema-product-images.ts
+- resolveObjectImageRect
+- isGeneratedFile
+- shippings table
+- impeccable reference/animate.md
+- detect.mjs
+- serializeFindings
+- GitHub Actions: Build & Deploy onetone-store
+- mock-auth.ts
+- impeccable reference/delight.md
+- mock-db.ts
+- deploy.sh
+- closeSession() Z-report flow
+- jose
+- next
+- next-auth
+- next.config.ts
+- nuqs
+- radix-ui
+- react
+- react-dom
+- react-leaflet
+- sonner
+- @tanstack/react-table
+- zod
+- postcss.config.mjs
+- { GET, POST }
+- onetone-store App Icon / Favicon
+- Impeccable Reference: Overdrive
+- affiliate_settings table
+- Biteship Logo
+- onetone Logomark (dark, source asset)
+- onetone Logo (White)
+- BORDER_SAFE_TAGS
+- points/page.tsx
+- seed-production.ts
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 105 edges
+1. `cn()` - 107 edges
 2. `db` - 71 edges
 3. `formatRupiah()` - 67 edges
 4. `Button()` - 58 edges
@@ -234,638 +242,650 @@
 - **Bitship Shipping Flow (Rates → Send Order → Webhook Tracking)** — docs_mengajar_backend_08_shipping_bitship_calculate_shipping_rates_action, docs_mengajar_backend_08_shipping_bitship_send_order_to_bitship_action, docs_mengajar_backend_08_shipping_bitship_webhook_route, docs_mengajar_backend_02_database_schema_shippings [EXTRACTED 0.90]
 - **NEXT_PUBLIC_* Env Var Deploy Pipeline (env local, deploy.yml, Dockerfile, docker run)** — docs_marketplace_problem_solved_solved_2_search_vps_cache_next_public_four_places_rule, docs_marketplace_problem_solved_solved_2_search_vps_cache_dockerfile, docs_marketplace_problem_solved_solved_2_search_vps_cache_deploy_yml, docs_marketplace_problem_solved_solved_4_otomasi_db_migration_migrator_docker_stage [INFERRED 0.80]
 
-## Communities (188 total, 26 thin omitted)
+## Communities (191 total, 26 thin omitted)
 
-### Community 0 - "Impeccable Skill: Live Browser"
+### Community 0 - "live-browser.js"
 Cohesion: 0.03
-Nodes (122): acceptedDomAlreadyClean(), addManualContextText(), applyPlaceholderSizingStyles(), applySvelteComponentVariantStyle(), bindEditBadgeProxy(), bufferToBase64(), buildCollapsible(), buildColorModels() (+114 more)
+Nodes (125): acceptedDomAlreadyClean(), addManualContextText(), applyPlaceholderSizingStyles(), applySvelteComponentVariantStyle(), bindEditBadgeProxy(), bufferToBase64(), buildCollapsible(), buildColorModels() (+117 more)
 
-### Community 1 - "Admin Dashboard Pages"
-Cohesion: 0.04
-Nodes (74): getAffiliateDetail(), getMyCommissions(), getAllOrders(), getDashboardStats(), getOrder(), getPosOrder(), AdminAffiliateDetailPage(), COMMISSION_STATUS_STYLE (+66 more)
+### Community 1 - "utils.ts"
+Cohesion: 0.06
+Nodes (59): getAffiliateDetail(), getMyCommissions(), getAllOrders(), getDashboardStats(), getOrder(), AdminAffiliateDetailPage(), COMMISSION_STATUS_STYLE, STATUS_STYLE (+51 more)
 
-### Community 2 - "App Actions: Misc Server Actions"
-Cohesion: 0.05
-Nodes (65): adjustCommission(), AffiliateBalance, approveAffiliate(), approvePayoutRequest(), createAffiliateLink(), deactivateAffiliateLink(), deleteCommissionRule(), getAdminOverview() (+57 more)
-
-### Community 3 - "Impeccable Skill: Detector"
-Cohesion: 0.05
-Nodes (80): borderColorsFromStyle(), borderWidthsFromStyle(), checkClippedOverflow(), checkCreamPalette(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementGptBorderShadow(), checkElementGptBorderShadowDOM() (+72 more)
-
-### Community 4 - "Shared UI Primitives"
-Cohesion: 0.05
-Nodes (55): TargetType, ACCOUNT_LINKS, AccountNav(), AlertDialog(), AlertDialogAction(), AlertDialogCancel(), AlertDialogContent(), AlertDialogDescription() (+47 more)
-
-### Community 5 - "API Routes"
+### Community 2 - "affiliate.ts"
 Cohesion: 0.07
-Nodes (55): cancelOrderByAdmin(), cancelOrderByCustomer(), createOrder(), getOrderTracking(), getUserOrders(), queryOrdersWithItems(), repayOrder(), _syncCache (+47 more)
+Nodes (43): adjustCommission(), AffiliateBalance, approveAffiliate(), approvePayoutRequest(), createCommissionRule(), deleteCommissionRule(), getAdminOverview(), getAllAffiliates() (+35 more)
 
-### Community 6 - "Impeccable Skill: Live Browser"
-Cohesion: 0.09
-Nodes (70): abortSvelteComponentInjection(), applyEditing(), buildPickedAnchorSnapshot(), cancelEditing(), cancelEditingToPicking(), cancelInsertConfigure(), cleanup(), cleanupAcceptedSession() (+62 more)
+### Community 3 - "checks.mjs"
+Cohesion: 0.05
+Nodes (96): borderColorsFromStyle(), borderWidthsFromStyle(), checkClippedOverflow(), checkColors(), checkCreamPalette(), checkElementAIPaletteDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM() (+88 more)
 
-### Community 7 - "DB Schema & Client"
+### Community 4 - "cn"
+Cohesion: 0.05
+Nodes (46): ProductImageUploader(), ACCOUNT_LINKS, AccountNav(), LogoWordmark(), AlertDialog(), AlertDialogAction(), AlertDialogCancel(), AlertDialogContent() (+38 more)
+
+### Community 5 - "orders.ts"
+Cohesion: 0.06
+Nodes (60): cancelOrderByAdmin(), cancelOrderByCustomer(), createOrder(), getOrderTracking(), getUserOrders(), queryOrdersWithItems(), repayOrder(), _syncCache (+52 more)
+
+### Community 6 - "setLiveState"
+Cohesion: 0.08
+Nodes (70): abortSvelteComponentInjection(), applyEditing(), buildLocatorForLeaf(), buildPickedAnchorSnapshot(), cancelEditing(), cancelEditingToPicking(), cancelInsertConfigure(), cleanup() (+62 more)
+
+### Community 7 - "schema.ts"
 Cohesion: 0.03
-Nodes (64): addressesRelations, AffiliateClick, affiliateClicksRelations, AffiliateCommission, affiliateCommissionsRelations, affiliateLinksRelations, AffiliatePayout, affiliatePayoutsRelations (+56 more)
+Nodes (70): GET(), GET(), GET(), addressesRelations, AffiliateClick, affiliateClicksRelations, AffiliateCommission, affiliateCommissionsRelations (+62 more)
 
-### Community 8 - "API Routes"
+### Community 8 - "[slug]/route.ts"
+Cohesion: 0.15
+Nodes (18): GET(), resolveTier(), TIER_THRESHOLDS, appendUtm(), GET(), resolveTargetPath(), AFFILIATE_COOKIE_NAME, AffiliateCookiePayload (+10 more)
+
+### Community 9 - "label.tsx"
 Cohesion: 0.06
-Nodes (41): ONETONE_CATEGORIES, ONETONE_PRODUCTS, POST(), registerSchema, GET(), GET(), GET(), resolveTier() (+33 more)
+Nodes (39): login(), register(), ImportResult, HeroConfig, upsertStoreSettings(), updateTier(), SettingsForm(), ActionState (+31 more)
 
-### Community 9 - "Admin Dashboard Pages"
-Cohesion: 0.06
-Nodes (40): createCommissionRule(), getAllCommissions(), login(), register(), HeroConfig, upsertStoreSettings(), updateTier(), AdjustmentForm() (+32 more)
-
-### Community 10 - "Impeccable Skill: Live Browser"
+### Community 10 - "resumeSession"
 Cohesion: 0.08
 Nodes (56): applyOriginalAttrsToSvelteAnchor(), applySavedSessionMeta(), clampVariantIndex(), clearHandled(), commitAcceptedSvelteComponentToDom(), elementMatchesOriginalMarkup(), ensureInsertPlaceholder(), enterRecoveryWaitingForAnchor() (+48 more)
 
-### Community 11 - "Admin Dashboard Pages"
-Cohesion: 0.06
-Nodes (37): getAllCategories(), deleteProduct(), seedCategories(), seedProducts(), sendOrderToBitship(), CategoriesTable(), DeleteCategoryButton(), Props (+29 more)
+### Community 11 - "button.tsx"
+Cohesion: 0.08
+Nodes (28): getProducts(), CategoriesTable(), Props, Props, DeleteCategoryButton(), Props, AdminCategoriesPage(), Props (+20 more)
 
-### Community 12 - "App Actions: Misc Server Actions"
+### Community 12 - "CheckoutForm.tsx"
 Cohesion: 0.07
-Nodes (43): VariantInput, variantSchema, calculateShippingRates(), GroupedRates, ShippingRouteInfo, AvailableVoucher, getAvailableVouchers(), validateVoucher() (+35 more)
+Nodes (44): calculateShippingRates(), GroupedRates, sendOrderToBitship(), ShippingRouteInfo, AvailableVoucher, getAvailableVouchers(), validateVoucher(), VoucherValidationResult (+36 more)
 
-### Community 13 - "Impeccable Skill: Live Browser"
-Cohesion: 0.07
-Nodes (54): applyGlobalBarLabelState(), armPageChatForTyping(), attachSteerFocusDebug(), attachSteerFocusGuard(), buildSteerProcessingDots(), checkpointPayload(), clearSteerAwaitTimer(), clearSteerFocusRecoverTimer() (+46 more)
+### Community 13 - "initPageChat"
+Cohesion: 0.10
+Nodes (39): applyGlobalBarLabelState(), armPageChatForTyping(), buildSteerProcessingDots(), checkpointPayload(), clearSteerAwaitTimer(), collapsePageChat(), configureVoiceContext(), expandPageChat() (+31 more)
 
-### Community 14 - "Impeccable Skill: Modern Screenshot.Umd"
+### Community 14 - "modern-screenshot.umd.js"
 Cohesion: 0.09
 Nodes (52): ae(), be(), bt(), Ce(), Ct(), de(), dt(), _e() (+44 more)
 
-### Community 15 - "Impeccable Skill: Live Browser"
+### Community 15 - "el"
 Cohesion: 0.08
 Nodes (53): actionLabel(), applyConfigureBarChrome(), bindConfigureCountPillTooltip(), bindConfigureInlineControlHover(), bindConfigureModifierPillHover(), buildConfigureActionControl(), buildConfigureCountControl(), buildConfigureRow() (+45 more)
 
-### Community 16 - "API Routes"
-Cohesion: 0.07
-Nodes (36): PUT(), addressSchema, DELETE(), GET(), getOwnedAddress(), PUT(), addressSchema, GET() (+28 more)
+### Community 16 - "index.ts"
+Cohesion: 0.08
+Nodes (35): PUT(), addressSchema, DELETE(), GET(), getOwnedAddress(), PUT(), addressSchema, GET() (+27 more)
 
-### Community 17 - "Impeccable Skill: Live Commit Manual Edits"
+### Community 17 - "live-commit-manual-edits.mjs"
 Cohesion: 0.10
 Nodes (50): allEntryIds(), argVal(), buildRepairBatch(), candidatesForEntry(), changedFilesSinceSnapshot(), clearAppliedEntries(), collectApplyOwnedFiles(), collectRollbackFiles() (+42 more)
 
-### Community 18 - "Test Fixtures/Helpers"
-Cohesion: 0.05
-Nodes (34): GET(), CartItem, Courier, Invoice, Order, OrderItem, Shipping, StoreSetting (+26 more)
+### Community 18 - "fixtures.ts"
+Cohesion: 0.06
+Nodes (32): GET(), CartItem, Courier, Invoice, Order, OrderItem, Shipping, StoreSetting (+24 more)
 
-### Community 19 - "Impeccable Skill: Detector"
+### Community 19 - "design-system.mjs"
 Cohesion: 0.10
-Nodes (48): addColorObject(), addDesignColor(), addRoundedScale(), addRoundedToken(), addSidecarColors(), addSidecarRadii(), addTypographyFonts(), canonicalDesignFindingKey() (+40 more)
+Nodes (47): addColorObject(), addDesignColor(), addRoundedScale(), addRoundedToken(), addSidecarColors(), addSidecarRadii(), addTypographyFonts(), canonicalDesignFindingKey() (+39 more)
 
-### Community 20 - "Impeccable Skill: Hook Lib"
+### Community 20 - "hook-lib.mjs"
 Cohesion: 0.07
-Nodes (47): ACK_EXTS, applyConfigSource(), applyDetectorConfigSource(), applyPatchText(), clampByte(), cloneDefaultConfig(), CO_SCAN_STYLE_NAMES, colorIgnoreKey() (+39 more)
+Nodes (49): ACK_EXTS, applyConfigSource(), applyDetectorConfigSource(), applyPatchText(), clampByte(), cloneDefaultConfig(), CO_SCAN_STYLE_NAMES, colorIgnoreKey() (+41 more)
 
-### Community 21 - "App Actions: Misc Server Actions"
-Cohesion: 0.09
-Nodes (33): ImportResult, syncProductPrimaryImage(), deleteProductImage(), setImageAsPrimary(), syncProductPrimaryImage(), updateImageVariantColor(), uploadProductImage(), ImageWithUrl (+25 more)
+### Community 21 - "products"
+Cohesion: 0.07
+Nodes (46): importFromDrive(), ImportResult, syncProductPrimaryImage(), removePosQris(), requireAdmin(), updateReceiptFooter(), uploadPosQris(), upsertSetting() (+38 more)
 
-### Community 22 - "Impeccable Skill: Lib"
+### Community 22 - "impeccable-config.mjs"
 Cohesion: 0.10
-Nodes (47): applyDetectionConfigSource(), clampByte(), cleanIgnoreValueDisplay(), cloneDetectionConfig(), cloneRawDetectionConfig(), colorIgnoreKey(), DEFAULT_DETECTION_CONFIG, DETECTOR_CONFIG_KEYS (+39 more)
+Nodes (48): applyDetectionConfigSource(), clampByte(), cleanIgnoreValueDisplay(), cloneDetectionConfig(), cloneRawDetectionConfig(), colorIgnoreKey(), DEFAULT_DETECTION_CONFIG, DETECTOR_CONFIG_KEYS (+40 more)
 
-### Community 23 - "Impeccable Skill: Live Server"
+### Community 23 - "live-server.mjs"
 Cohesion: 0.09
 Nodes (43): assembleLiveBrowserScript(), assertLiveBrowserScriptParts(), LIVE_BROWSER_SCRIPT_PARTS, readLiveBrowserScriptParts(), resolveLiveBrowserScriptParts(), acknowledgePendingEvent(), activeSessionSummaries(), agentPollingConnected() (+35 more)
 
-### Community 24 - "Impeccable Skill: Live Inject"
-Cohesion: 0.09
-Nodes (43): appendOriginToDirective(), buildTagBlock(), commentClose(), commentOpen(), CONFIG_PATH, detectLineEnding(), __dirname, ensureLiveGitIgnores() (+35 more)
+### Community 24 - "live-inject.mjs"
+Cohesion: 0.14
+Nodes (25): appendOriginToDirective(), buildTagBlock(), commentClose(), commentOpen(), CONFIG_PATH, detectLineEnding(), __dirname, ensureLiveGitIgnores() (+17 more)
 
-### Community 25 - "Impeccable Skill: Hook Admin"
-Cohesion: 0.13
-Nodes (41): ACTIONS, addIgnoreFile(), addIgnoreRule(), addIgnoreValue(), DETECTOR_CONFIG_KEYS, detectorSection(), fileHasImpeccableHookMarker(), HOOK_MANIFEST_TARGETS (+33 more)
+### Community 25 - "hook-admin.mjs"
+Cohesion: 0.14
+Nodes (40): ACTIONS, addIgnoreFile(), addIgnoreRule(), addIgnoreValue(), DETECTOR_CONFIG_KEYS, detectorSection(), fileHasImpeccableHookMarker(), HOOK_MANIFEST_TARGETS (+32 more)
 
-### Community 26 - "Impeccable Skill: Hook Before Edit"
+### Community 26 - "hook-before-edit.mjs"
 Cohesion: 0.11
-Nodes (40): allow(), bumpCursorDenial(), deny(), detectProposedHtml(), done(), escapeRegExp(), findingSignature(), firstMatch() (+32 more)
+Nodes (39): allow(), bumpCursorDenial(), deny(), detectProposedHtml(), done(), escapeRegExp(), findingSignature(), firstMatch() (+31 more)
 
-### Community 27 - "Impeccable Skill: Live"
+### Community 27 - "manual-apply.mjs"
 Cohesion: 0.10
 Nodes (36): addOpToManualApplyChunk(), APPLY_EVENT_HARD_TIMEOUT_MS, APPLY_EVENT_SOFT_DEADLINE_MS, buildManualApplyAgentAction(), clearManualApplyTransaction(), collectManualApplyFiles(), compactManualApplyBatch(), compactManualApplyCandidates() (+28 more)
 
-### Community 28 - "App Actions: Misc Server Actions"
-Cohesion: 0.09
-Nodes (30): getActiveBanners(), getEditorialBreaks(), getPosSettings(), getActiveProducts(), getBestSellerProducts(), getFeaturedProducts(), queryProductsWithCategory(), getHeroConfig() (+22 more)
+### Community 28 - "products.ts"
+Cohesion: 0.05
+Nodes (68): bannerSchema, createBanner(), getActiveBanners(), isValidImageUrl(), updateBanner(), getAllCategories(), DEFAULT_COPY, deleteSetting() (+60 more)
 
-### Community 29 - "Impeccable Skill: Detector"
+### Community 29 - "css-cascade.mjs"
 Cohesion: 0.10
-Nodes (30): applyStaticDeclaration(), buildBorderOverrideMap(), buildStaticStyleMap(), buildStaticWindow(), collectStaticCssRules(), compareStaticPriority(), cssPropToCamel(), expandStaticBoxValues() (+22 more)
+Nodes (29): applyStaticDeclaration(), buildBorderOverrideMap(), buildStaticStyleMap(), collectStaticCssRules(), compareStaticPriority(), cssPropToCamel(), expandStaticBoxValues(), expandStaticDeclaration() (+21 more)
 
-### Community 30 - "Impeccable Skill: Live"
+### Community 30 - "svelte-component.mjs"
 Cohesion: 0.11
 Nodes (39): appendCssToSvelteStyle(), appendSanitizedCssRule(), bakeParamValuesInCss(), buildInsertVariantStub(), buildPropContract(), buildPropsScript(), buildVariantStub(), componentSessionDir() (+31 more)
 
-### Community 31 - "Impeccable Skill: Detector"
-Cohesion: 0.09
-Nodes (34): checkBorders(), checkClippedOverflow(), checkElementBorders(), checkElementBordersDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementItalicSerif(), checkElementItalicSerifDOM() (+26 more)
+### Community 31 - "detect-antipatterns-browser.js"
+Cohesion: 0.08
+Nodes (35): checkBorders(), checkClippedOverflow(), checkElementBorders(), checkElementBordersDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementItalicSerif(), checkElementItalicSerifDOM() (+27 more)
 
-### Community 32 - "App Actions: Misc Server Actions"
-Cohesion: 0.09
-Nodes (31): getPosProducts(), getRecentPosOrders(), requireCashier(), closeSession(), closeSessionSchema, getActiveSession(), getAllPosSessions(), getCashierUsers() (+23 more)
+### Community 32 - "pos-sessions.ts"
+Cohesion: 0.23
+Nodes (14): closeSession(), closeSessionSchema, getActiveSession(), getAllPosSessions(), getPosSessionDetail(), getSessionSummary(), getTodayPosSales(), openSession() (+6 more)
 
-### Community 33 - "Impeccable Skill: Detector"
-Cohesion: 0.09
-Nodes (28): CSS_IN_JS_EXTENSIONS, extFromFilePath(), extractCSSinJS(), extractStyleBlocks(), isNeutralBorderColor(), PAGE_ANALYZER_EXTS, REGEX_ANALYZERS, REGEX_MATCHERS (+20 more)
+### Community 33 - "detect-html.mjs"
+Cohesion: 0.11
+Nodes (36): detectUrl(), runVisualContrastFallback(), serializeDesignSystemForBrowser(), CSS_IN_JS_EXTENSIONS, detectText(), extFromFilePath(), extractCSSinJS(), extractStyleBlocks() (+28 more)
 
-### Community 34 - "Impeccable Skill: Live Wrap"
+### Community 34 - "live-wrap.mjs"
 Cohesion: 0.13
 Nodes (35): argVal(), buildInsertWrapperLines(), computeInsertLine(), INSERT_POSITIONS, insertCli(), isInsertPosition(), resolveElementMatch(), buildSvelteComponentCssAuthoring() (+27 more)
 
-### Community 35 - "Impeccable Skill: Lib"
+### Community 35 - "design-parser.mjs"
 Cohesion: 0.15
 Nodes (33): buildColor(), CANONICAL_SECTIONS, collectBullets(), collectColorValues(), collectParagraphs(), detectFormat(), extractColors(), extractComponents() (+25 more)
 
-### Community 36 - "Impeccable Skill: Detector"
-Cohesion: 0.16
-Nodes (29): confirm(), detectCli(), formatFindings(), formatFindingSummary(), handleStdin(), printUsage(), loadDesignSystemForCwd(), resolveDesignSidecarPath() (+21 more)
+### Community 36 - "detect-antipatterns.mjs"
+Cohesion: 0.15
+Nodes (27): confirm(), detectCli(), formatFindings(), formatFindingSummary(), handleStdin(), printUsage(), loadDesignSystemForCwd(), parseFrontmatter() (+19 more)
 
-### Community 37 - "Impeccable Skill: Live Accept"
+### Community 37 - "live-accept.mjs"
 Cohesion: 0.14
 Nodes (32): acceptCli(), argVal(), buildCarbonizeReplacement(), decodeHtmlAttr(), deindentContent(), detectCommentSyntax(), escapeRegExp(), expandReplaceRange() (+24 more)
 
-### Community 38 - "Package Config (package.json)"
+### Community 38 - "devDependencies"
 Cohesion: 0.06
 Nodes (33): drizzle-kit, eslint, eslint-config-next, jsdom, devDependencies, drizzle-kit, eslint, eslint-config-next (+25 more)
 
-### Community 39 - "Impeccable Skill: Live Copy Edit Agent"
+### Community 39 - "live-copy-edit-agent.mjs"
 Cohesion: 0.14
 Nodes (31): applyMockWrites(), buildCopyEditBatchPrompt(), checkFrameworkSourceSyntax(), chooseCopyEditAgent(), COMMAND_AUTH_CACHE, commandAuthed(), commandExists(), compactBatchForPrompt() (+23 more)
 
-### Community 40 - "Impeccable Skill: Detector"
-Cohesion: 0.13
-Nodes (31): analyzeVisualContrast(), analyzeVisualContrastCandidate(), checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlow(), checkElementGlowDOM() (+23 more)
+### Community 40 - "parseRgb"
+Cohesion: 0.18
+Nodes (23): checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlow(), checkElementGlowDOM(), checkElementIconTile(), checkElementIconTileDOM() (+15 more)
 
-### Community 41 - "Shop UI Components"
-Cohesion: 0.12
-Nodes (21): getMyLinks(), logout(), getCartCount(), getCategories(), CreateProductPage(), CheckoutLayout(), LinksManager(), AffiliateLinksPage() (+13 more)
+### Community 41 - "lib/auth.ts"
+Cohesion: 0.08
+Nodes (33): logout(), getCart(), getCartCount(), getCartTotal(), removeFromCart(), updateCartItem(), variantPrice(), getCategories() (+25 more)
 
-### Community 42 - "Admin Dashboard Pages"
-Cohesion: 0.10
-Nodes (24): upsertProductVariants(), createProduct(), updateProduct(), Props, Props, ActionResult, ProductForm(), Props (+16 more)
+### Community 42 - "ProductForm.tsx"
+Cohesion: 0.11
+Nodes (19): ActionResult, Props, emptyRow(), makeKey(), PRESET_COLORS, Props, rowFromVariant(), SIZE_OPTIONS (+11 more)
 
-### Community 43 - "TypeScript Config (tsconfig.json)"
+### Community 43 - "compilerOptions"
 Cohesion: 0.07
 Nodes (29): arsip-lain, dom, dom.iterable, esnext, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node_modules (+21 more)
 
-### Community 44 - "Checkout Flow Pages"
+### Community 44 - "AddressManager.tsx"
 Cohesion: 0.14
 Nodes (21): addressSchema, createAddress(), deleteAddress(), getAddress(), getAuthUserId(), getUserAddresses(), setDefaultAddress(), updateAddress() (+13 more)
 
-### Community 45 - "App Actions: Misc Server Actions"
-Cohesion: 0.10
-Nodes (18): adminLogout(), loginSchema, LoginState, registerSchema, RegisterState, getMembers(), getMemberTiers(), tierSchema (+10 more)
+### Community 45 - "db"
+Cohesion: 0.07
+Nodes (38): loginSchema, LoginState, registerSchema, RegisterState, getMembers(), getMemberTiers(), tierSchema, AdminMembersPage() (+30 more)
 
-### Community 46 - "Impeccable Skill: Live Poll"
+### Community 46 - "live-poll.mjs"
 Cohesion: 0.16
 Nodes (26): completionAckForAcceptResult(), completionTypeForAcceptResult(), augmentEventWithAcceptHandling(), buildAcceptScriptArgs(), buildPollReplyPayload(), DEFAULT_EVENT_LEASE_MS, EVENT_TYPES_NEEDING_AGENT_REPLY, fetchNextEvent() (+18 more)
 
-### Community 47 - "Marketplace Customer Pages"
-Cohesion: 0.12
-Nodes (20): getMyMembership(), getMyPoints(), getMyProfile(), profileSchema, ProfileState, updateProfile(), formatRp(), MembershipPage() (+12 more)
+### Community 47 - "profile.ts"
+Cohesion: 0.16
+Nodes (15): getMyMembership(), getMyProfile(), profileSchema, ProfileState, updateProfile(), formatRp(), MembershipPage(), TIER_STYLE (+7 more)
 
-### Community 48 - "Package Config (package.json)"
+### Community 48 - "dependencies"
 Cohesion: 0.07
 Nodes (27): @aws-sdk/client-s3, bcryptjs, class-variance-authority, clsx, drizzle-orm, leaflet, lucide-react, mysql2 (+19 more)
 
-### Community 49 - "Impeccable Skill: Live"
+### Community 49 - "insert-ui.mjs"
 Cohesion: 0.09
 Nodes (13): canCreateInsert(), clampPlaceholderSize(), computeInsertPosition(), groupSiblingRows(), hitSiblingInsertGap(), horizontalOverlap(), insertCreateDisabledReason(), insertLineCoords() (+5 more)
 
-### Community 50 - "Impeccable Skill: Live Manual Edit Evidence"
+### Community 50 - "live-manual-edit-evidence.mjs"
 Cohesion: 0.16
 Nodes (26): analyzeSourceHint(), buildCandidatesForOp(), buildContextHintsByRef(), buildManualEditEvidence(), collectSearchFiles(), countOps(), decodeBasicHtml(), escapeRegExp() (+18 more)
 
-### Community 51 - "Docs: Design System"
+### Community 51 - "Design System: Color Tokens"
 Cohesion: 0.09
 Nodes (27): Accent by Inversion Principle, Design System: Color Tokens, Premium Micro-Accent Gold Token, White-Dark Monokrom + Micro-Gold (Opsi B), Design System: Typography, Geist Sans/Mono Font System, 4px Grid Spacing System, Design System: Spacing & Layout (+19 more)
 
-### Community 52 - "Admin Dashboard Pages"
-Cohesion: 0.13
-Nodes (19): bannerSchema, createBanner(), deleteBanner(), getAllBanners(), getBanner(), isValidImageUrl(), updateBanner(), ActionState (+11 more)
+### Community 52 - "BannerForm.tsx"
+Cohesion: 0.14
+Nodes (15): deleteBanner(), getAllBanners(), getBanner(), ActionState, ALLOWED_HOSTNAMES, BannerForm(), BannerFormProps, checkImageUrl() (+7 more)
 
-### Community 53 - "Impeccable Skill: Live Browser"
+### Community 53 - "documentRefForElement"
 Cohesion: 0.10
 Nodes (26): canRestoreManualEditElement(), copyEditContainerContext(), copyEditLeafContext(), cssIdent(), directMixedTextRestoreNodes(), documentRefClassSuffix(), documentRefForElement(), documentRefIdSuffix() (+18 more)
 
-### Community 54 - "Test Fixtures/Helpers"
-Cohesion: 0.14
-Nodes (18): categorySchema, createCategory(), deleteCategory(), getCategory(), updateCategory(), ActionState, CategoryForm(), EditCategoryPage() (+10 more)
+### Community 54 - "categories.ts"
+Cohesion: 0.11
+Nodes (23): categorySchema, createCategory(), deleteCategory(), getCategory(), updateCategory(), ONETONE_CATEGORIES, ONETONE_PRODUCTS, seedCategories() (+15 more)
 
-### Community 55 - "Impeccable Skill: Lib"
-Cohesion: 0.14
-Nodes (22): CRITIQUE_DIR, firstExisting(), getDesignSidecarCandidates(), getDesignSidecarPath(), getImpeccableDir(), getLegacyLiveConfigPath(), getLegacyLiveServerPath(), getLiveAnnotationsDir() (+14 more)
+### Community 55 - "impeccable-paths.mjs"
+Cohesion: 0.16
+Nodes (22): resolveProjectRoot(), CRITIQUE_DIR, firstExisting(), getDesignSidecarCandidates(), getDesignSidecarPath(), getImpeccableDir(), getLegacyLiveAnnotationsDir(), getLegacyLiveConfigPath() (+14 more)
 
-### Community 56 - "Impeccable Skill: Live"
-Cohesion: 0.18
-Nodes (20): getLiveDir(), args, cwd, pageUrlFilter, remaining, compactManualLogText(), summarizeManualApplyFailures(), summarizeManualDiagnostics() (+12 more)
+### Community 56 - "manual-edit-routes.mjs"
+Cohesion: 0.19
+Nodes (19): args, cwd, pageUrlFilter, remaining, compactManualLogText(), summarizeManualApplyFailures(), summarizeManualDiagnostics(), summarizeManualLogFile() (+11 more)
 
-### Community 57 - "Impeccable Skill: Live Browser"
+### Community 57 - "handleManualEditActivity"
 Cohesion: 0.19
 Nodes (24): clearStoredManualApplyState(), fetchPendingCount(), handleManualEditActivity(), hidePendingApplyDock(), manualApplyLoadingText(), manualApplyStateKey(), manualEditEventForCurrentPage(), numberOrNull() (+16 more)
 
-### Community 58 - "Admin UI Components"
+### Community 58 - "AdminHeader.tsx"
 Cohesion: 0.13
-Nodes (18): searchAdmin(), SearchResultItem, AdminHeader(), getInitials(), getPageTitle(), pageTitles, Props, AdminSearchBar() (+10 more)
+Nodes (19): adminLogout(), searchAdmin(), SearchResultItem, AdminHeader(), getInitials(), getPageTitle(), pageTitles, Props (+11 more)
 
-### Community 59 - ".Impeccable/Critique"
+### Community 59 - "DESIGN.md — Design System: Onetone Store"
 Cohesion: 0.13
 Nodes (23): Storage Layer — Panduan Implementasi, CLAUDE.md — Project Rules & AI Context, Impeccable Reference: Onboard, Impeccable Reference: Optimize, Impeccable Reference: Polish, Impeccable Reference: Product Register, Impeccable Reference: Quieter, Impeccable Reference: Shape (+15 more)
 
-### Community 60 - "Impeccable Skill: Detector"
+### Community 60 - "index.mjs"
 Cohesion: 0.14
 Nodes (19): browserColorsClose(), browserHasDirectText(), browserRadiusTokens(), browserSampleText(), checkElementDesignSystemDOM(), enableCycleMode(), getSpotlightBackdrop(), isBrowserDesignColorAllowed() (+11 more)
 
-### Community 61 - "Impeccable Skill: Detector"
-Cohesion: 0.21
-Nodes (22): checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlowDOM(), checkElementIconTile(), checkElementIconTileDOM(), checkGlow() (+14 more)
+### Community 61 - "getMyAffiliate"
+Cohesion: 0.12
+Nodes (21): getAffiliateSettings(), getMyAffiliate(), getMyBalance(), getMyPayouts(), getMyStats(), requestPayout(), updateBankAccount(), AdminAffiliateSettingsPage() (+13 more)
 
-### Community 62 - "Docs: Devs"
+### Community 62 - "Affiliate Module — Rencana Implementasi"
 Cohesion: 0.12
 Nodes (23): Additive-Only Schema Principle, affiliate_clicks table, affiliate_commissions table (ledger), affiliate_links table, affiliate_payouts table, affiliates table, Affiliate Anti-Fraud Measures, Commission Lifecycle State Machine (+15 more)
 
-### Community 63 - "Docs: Missing Flows.Md"
+### Community 63 - "Missing Flows & Features - Gap Analysis Lanjutan"
 Cohesion: 0.09
 Nodes (23): cancelOrderByCustomer server action, app/api/cron/check-expired-orders/route.ts, lib/stock.ts (deduct/restore/validate), repayOrder server action, repayOrder Xendit Integration Update, A1: Address Management System (Buku Alamat), C2: Admin Notification (Order Masuk), C4: Cart Validation Before Checkout (+15 more)
 
-### Community 64 - "App Actions: Misc Server Actions"
-Cohesion: 0.13
-Nodes (15): CSV_TEMPLATE_HEADERS, getProducts(), importProductsFromCsv(), ImportResult, ImportRowError, parseCsv(), productSchema, ImportProductsForm() (+7 more)
+### Community 64 - "LinksManager.tsx"
+Cohesion: 0.15
+Nodes (15): createAffiliateLink(), deactivateAffiliateLink(), getMyLinks(), LinksManager(), TargetType, AffiliateLinksPage(), Select(), SelectContent() (+7 more)
 
-### Community 65 - "Impeccable Skill: Context"
-Cohesion: 0.16
-Nodes (20): buildMissingTargetDirective(), buildResolvedContextDirective(), buildTargetSelectionDirective(), buildUpdateDirective(), cli(), compareSemver(), computeUpdateDirective(), DESIGN_NAMES (+12 more)
+### Community 65 - "context.mjs"
+Cohesion: 0.08
+Nodes (57): buildUpdateDirective(), compareSemver(), computeUpdateDirective(), contextSourcePath(), contextSourceStatus(), DESIGN_NAMES, directChildDirs(), discoverRootsForPattern() (+49 more)
 
-### Community 66 - "Impeccable Skill: Live Browser"
+### Community 66 - "initGlobalBar"
 Cohesion: 0.16
 Nodes (22): barPaletteForTheme(), brandMarkSvg(), detectPageTheme(), ensureAgentPollTooltip(), fetchAgentPollingStatus(), hideAgentPollTooltip(), initActionPicker(), initBar() (+14 more)
 
-### Community 67 - "Impeccable Skill: Live Browser"
+### Community 67 - "onAnnotDown"
 Cohesion: 0.15
 Nodes (21): applyPlaceholderDimensions(), beginEditPin(), buildAnnotationsForCapture(), buildPinElement(), cancelEditingPin(), clampPlaceholderSize(), finalizeEditingPin(), initAnnotOverlay() (+13 more)
 
-### Community 68 - "Impeccable Skill: Live Browser"
-Cohesion: 0.13
-Nodes (21): averageRgb01(), captureAndEmit(), captureChromeNodes(), captureElementFromRenderedAncestor(), captureElementToBlob(), compileShader(), cssColorToRgb01(), dominantRgb01() (+13 more)
+### Community 68 - "captureElementToBlob"
+Cohesion: 0.15
+Nodes (19): averageRgb01(), captureAndEmit(), captureElementFromRenderedAncestor(), captureElementToBlob(), compileShader(), cssColorToRgb01(), dominantRgb01(), findBackdropAncestor() (+11 more)
 
-### Community 69 - "Checkout Flow Pages"
-Cohesion: 0.21
-Nodes (14): getCart(), getCartTotal(), removeFromCart(), updateCartItem(), variantPrice(), CartItemRow(), Props, CartPage() (+6 more)
+### Community 69 - "sveltekit-adapter.mjs"
+Cohesion: 0.18
+Nodes (18): applySvelteKitLiveAdapter(), buildSvelteLiveRootComponent(), defaultSvelteLayout(), detectSvelteKitProject(), ensureSvelteLiveRootComponent(), escapeRegExp(), fileIncludes(), findSvelteKitAppHtml() (+10 more)
 
-### Community 70 - "Shop Storefront Pages"
+### Community 70 - "ProductDetail.tsx"
 Cohesion: 0.13
 Nodes (16): addToCart(), AddToCartButton(), Props, Variant, GalleryImage, parseDescription(), ProductDescription(), ProductDetail() (+8 more)
 
-### Community 71 - "Impeccable Skill: Detector"
-Cohesion: 0.11
-Nodes (20): checkElementHeroEyebrow(), checkElementHeroEyebrowDOM(), checkElementOversizedH1(), checkElementOversizedH1DOM(), checkElementQuality(), checkElementQualityDOM(), checkHeroEyebrow(), checkOversizedH1() (+12 more)
+### Community 71 - "resolveLengthPx"
+Cohesion: 0.18
+Nodes (13): checkElementHeroEyebrow(), checkElementHeroEyebrowDOM(), checkHeroEyebrow(), checkRepeatedSectionKickers(), checkRepeatedSectionKickersDOM(), checkRepeatedSectionKickersFromDoc(), cleanInlineText(), collectRepeatedSectionKickerCandidates() (+5 more)
 
-### Community 72 - "Impeccable Skill: Detector"
-Cohesion: 0.14
-Nodes (19): checkPageTypography(), checkTypography(), isBrandFontOnOwnDomain(), checkStaticPageTypography(), checkBorders(), checkElementBorders(), checkElementBordersDOM(), checkPageTypography() (+11 more)
+### Community 72 - "GENERIC_FONTS"
+Cohesion: 0.18
+Nodes (16): checkPageTypography(), checkTypography(), isBrandFontOnOwnDomain(), resolveSerif(), checkStaticPageTypography(), checkPageTypography(), checkTypography(), resolveSerif() (+8 more)
 
-### Community 73 - "Impeccable Skill: Detector"
-Cohesion: 0.23
-Nodes (17): detectUrl(), runVisualContrastFallback(), serializeDesignSystemForBrowser(), collectStaticCssText(), captureVisualContrastCandidate(), compareScreenshotContrast(), sanitizeScreenshotClip(), createDetectorProfile() (+9 more)
+### Community 73 - "CashierScreen.tsx"
+Cohesion: 0.16
+Nodes (11): CartLine, CartPanel(), PosProduct, PosVariant, ProductCard(), RecentOrder, VariantPickerSheet(), PaymentMethod (+3 more)
 
-### Community 74 - "App Actions: Misc Server Actions"
-Cohesion: 0.23
-Nodes (17): DEFAULT_COPY, deleteSetting(), EditorialBreakConfig, EditorialCopy, EditorialMode, getEditorialBreak(), keys(), removeEditorialImage() (+9 more)
+### Community 74 - "syncPageChatFocus"
+Cohesion: 0.29
+Nodes (14): attachSteerFocusDebug(), attachSteerFocusGuard(), clearSteerFocusRecoverTimer(), focusConfigureInput(), focusSteerChat(), notePagePointerDown(), pageHasHostTextSelection(), scheduleSteerFocusRecover() (+6 more)
 
-### Community 75 - "App/Design System"
-Cohesion: 0.15
-Nodes (12): AdminCurrencyInputDemo(), DashboardUIPage(), formatRp(), CurrencyInputDemo(), DesignSystemPage(), formatRp(), mockProducts, sections (+4 more)
+### Community 75 - "design-system/page.tsx"
+Cohesion: 0.32
+Nodes (5): CurrencyInputDemo(), DesignSystemPage(), formatRp(), mockProducts, sections
 
-### Community 76 - "Impeccable Skill: Hook Lib"
+### Community 76 - "renderGroupedTemplate"
 Cohesion: 0.15
 Nodes (19): cursorBlockMessage(), clampGroupedToBudget(), clampToBudget(), cleanIgnoreValueDisplay(), directiveFooter(), extractFindingIgnoreValue(), extractFindingIgnoreValueRaw(), extractMotionIgnoreValue() (+11 more)
 
-### Community 77 - "Impeccable Skill: Hook Lib"
+### Community 77 - "runHook"
 Cohesion: 0.18
 Nodes (17): bumpEditCount(), dedupeAgainstCache(), depthIsSet(), ensureFile(), ensureSession(), findingCacheKey(), payload(), relativize() (+9 more)
 
-### Community 78 - "Affiliate Core Logic"
-Cohesion: 0.19
-Nodes (13): AffiliateTier, calculateCommission(), CommissionCalcResult, getDefaultRatePercent(), createCommissionsForOrder(), RateResolutionParams, resolveRate(), resolveRateFromRules() (+5 more)
+### Community 78 - "pos/page.tsx"
+Cohesion: 0.22
+Nodes (11): getPosProducts(), getRecentPosOrders(), requireCashier(), getCashierUsers(), dynamic, PosPage(), CashierScreen(), CashierOption (+3 more)
 
-### Community 79 - "Admin Dashboard Pages"
-Cohesion: 0.19
-Nodes (13): changeOrderStatus(), rollbackOrderStatus(), Props, RollbackStatusForm(), STATUS_LABEL, Props, StatusUpdateForm(), getNextStatuses() (+5 more)
+### Community 79 - "RollbackStatusForm.tsx"
+Cohesion: 0.22
+Nodes (11): changeOrderStatus(), rollbackOrderStatus(), Props, RollbackStatusForm(), STATUS_LABEL, getNextStatuses(), ORDER_STATUSES, OrderStatus (+3 more)
 
-### Community 80 - "Admin Dashboard Pages"
+### Community 80 - "StaffList.tsx"
 Cohesion: 0.22
 Nodes (12): createStaffSchema, createStaffUser(), deleteStaffUser(), getStaffUsers(), requireAdmin(), updateStaffSchema, updateStaffUser(), AddStaffForm() (+4 more)
 
-### Community 81 - "Impeccable Skill: Detector"
-Cohesion: 0.17
-Nodes (17): borderColorsFromStyle(), borderWidthsFromStyle(), checkElementGptBorderShadow(), checkElementGptBorderShadowDOM(), checkGptThinBorderWideShadow(), checkQuality(), colorsNearlyMatch(), cssColorAlpha() (+9 more)
+### Community 81 - "parseAnyColor"
+Cohesion: 0.13
+Nodes (22): borderColorsFromStyle(), borderWidthsFromStyle(), checkCreamPalette(), checkElementGptBorderShadow(), checkElementGptBorderShadowDOM(), checkElementQualityDOM(), checkGptThinBorderWideShadow(), checkQuality() (+14 more)
 
-### Community 82 - "Componentson"
+### Community 82 - "components.json"
 Cohesion: 0.12
 Nodes (16): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+8 more)
 
-### Community 83 - "Docs: Marketplace"
+### Community 83 - "Solved 2 - Search Bar Tidak Muncul di VPS"
 Cohesion: 0.13
 Nodes (17): Browser Cache Layer Issue, .github/workflows/deploy.yml, Dockerfile, Dockerfile ARG/ENV Not Declared Root Cause, components/shop/Navbar.tsx, NEXT_PUBLIC_* Build-Time Baking Issue, NEXT_PUBLIC_* Four Places Update Rule, Solved 2 - Search Bar Tidak Muncul di VPS (+9 more)
 
-### Community 84 - "Admin Dashboard Pages"
+### Community 84 - "dashboard/members/[id]/page.tsx"
 Cohesion: 0.17
 Nodes (13): getMember(), getMemberOrders(), getAllTiers(), overrideMemberTier(), Props, Tier, TierOverride(), MemberDetailPage() (+5 more)
 
-### Community 85 - "Impeccable Skill: Interaction Design.Md"
+### Community 85 - "impeccable reference/craft.md"
 Cohesion: 0.13
 Nodes (16): Content-Driven Breakpoints Principle, impeccable reference/adapt.md, Mobile Adaptation Strategy (layout/interaction/content/nav), The Button Label Problem (never OK/Submit/Yes-No), impeccable reference/clarify.md, Error Message Formula (what/why/how-to-fix), impeccable_asset_producer Subagent, impeccable reference/codex.md (+8 more)
 
-### Community 86 - "Impeccable Skill: Context Signals"
-Cohesion: 0.22
-Nodes (14): extractRegister(), loadContext(), safeRead(), cli(), COMMON_DEV_PORTS, devServerSignals(), gatherSignals(), gitSignals() (+6 more)
+### Community 86 - "context-signals.mjs"
+Cohesion: 0.25
+Nodes (12): extractRegister(), cli(), COMMON_DEV_PORTS, devServerSignals(), gatherSignals(), gitSignals(), hasCode(), latestCritique() (+4 more)
 
-### Community 87 - "Impeccable Skill: Detector"
-Cohesion: 0.13
-Nodes (16): browserColorsClose(), browserHasDirectText(), browserRadiusTokens(), browserSampleText(), buildSelectorSegment(), checkElementDesignSystemDOM(), generateSelector(), isBrowserDesignColorAllowed() (+8 more)
+### Community 87 - "serializeFindings"
+Cohesion: 0.25
+Nodes (9): buildSelectorSegment(), generateSelector(), isElementHidden(), isLikelyHashedClass(), postSerializedFindings(), renderBrowserFindings(), scanResultMeta(), serializeFindings() (+1 more)
 
-### Community 88 - "Docs: Mengajar Backend"
+### Community 88 - "Sesi 02 - Database (MySQL + Drizzle ORM)"
 Cohesion: 0.17
 Nodes (16): Drizzle vs Prisma Rationale, lib/db/index.ts (DB connection), lib/db/seed.ts, Sesi 02 - Database (MySQL + Drizzle ORM), schema.ts addresses table, schema.ts cartItems table, schema.ts categories table, schema.ts invoices table (+8 more)
 
-### Community 89 - "Impeccable Skill: Skill.Md"
+### Community 89 - "impeccable SKILL.md"
 Cohesion: 0.15
 Nodes (15): Bolder AI Slop Trap Warning, Design-System Lock Principle, impeccable reference/bolder.md, impeccable reference/extract.md, Extraction Rule of Three (used 3+ times), impeccable reference/harden.md, Edge Case & Extreme Input Testing, i18n Text Expansion Budget (German +30%) (+7 more)
 
-### Community 90 - "Impeccable Skill: Colorize.Md"
+### Community 90 - "impeccable reference/live.md"
 Cohesion: 0.17
 Nodes (15): The 60-30-10 Rule (visual weight), impeccable reference/colorize.md, Live-Mode color-amount Param Contract, OKLCH Color Space Guidance, impeccable reference/distill.md, Find the Essence Principle (obstacles vs features), impeccable reference/layout.md, Live-Mode density Param Contract (+7 more)
 
-### Community 91 - "Impeccable Skill: Detector"
-Cohesion: 0.20
-Nodes (15): blendRgba(), clampByte(), firstCssUrl(), getLayerValue(), loadVisualContrastImage(), parseObjectPosition(), parsePositionPair(), parsePositionToken() (+7 more)
+### Community 91 - "sampleCssBackground"
+Cohesion: 0.24
+Nodes (13): firstCssUrl(), getLayerValue(), loadVisualContrastImage(), parseObjectPosition(), parsePositionPair(), parsePositionToken(), pointToImageSource(), resolveObjectImageRect() (+5 more)
 
-### Community 92 - "Docs: Mengajar Backend"
+### Community 92 - "Sesi 04 - Server Actions (CRUD Produk)"
 Cohesion: 0.14
 Nodes (15): JWT vs Session Rationale (Edge Runtime), lib/auth.config.ts, lib/auth.ts, loginAction server action, middleware.ts (route protection), Sesi 03 - Authentication (NextAuth v5), createProduct server action, Sesi 04 - Server Actions (CRUD Produk) (+7 more)
 
-### Community 93 - "App Actions: Misc Server Actions"
+### Community 93 - "couriers.ts"
 Cohesion: 0.23
 Nodes (11): courierSchema, createCourier(), deleteCourier(), getActiveCouriers(), getCouriers(), requireAdmin(), updateCourier(), mockDeleteReturn (+3 more)
 
-### Community 94 - "Impeccable Skill: Context"
-Cohesion: 0.16
-Nodes (14): contextSourcePath(), contextSourceStatus(), findMonorepoRoot(), firstExisting(), hasGitBoundary(), isPathInside(), isPathInsideOrEqual(), resolveCandidateContextSummary() (+6 more)
+### Community 94 - "collectVisualContrastCandidates"
+Cohesion: 0.20
+Nodes (12): analyzeVisualContrastCandidate(), blendRgba(), checkElementTextOverflowDOM(), clampByte(), classSelector(), collectVisualContrastCandidates(), collectVisualContrastReasons(), getDirectText() (+4 more)
 
-### Community 95 - "Impeccable Skill: Detector"
-Cohesion: 0.18
-Nodes (14): browserDesignSystemConfig(), browserFindingsFromMap(), browserPrimaryFont(), checkBrowserDesignSystemSources(), checkCreamPalette(), checkHtmlPatterns(), checkPageQualityDOM(), checkPageQualityFromDoc() (+6 more)
+### Community 95 - "collectBrowserFindings"
+Cohesion: 0.12
+Nodes (19): browserColorsClose(), browserDesignSystemConfig(), browserFindingsFromMap(), browserHasDirectText(), browserPrimaryFont(), browserRadiusTokens(), browserSampleText(), checkBrowserDesignSystemSources() (+11 more)
 
-### Community 97 - "Impeccable Skill: Live"
-Cohesion: 0.22
-Nodes (11): getLegacyLiveSessionsDir(), getLiveSessionsDir(), applyEvent(), baseSnapshot(), COMPLETED_PHASES, getJournalPath(), getSnapshotPath(), rebuildSnapshotFromJournal() (+3 more)
+### Community 97 - "session-store.mjs"
+Cohesion: 0.27
+Nodes (9): applyEvent(), baseSnapshot(), COMPLETED_PHASES, getJournalPath(), getSnapshotPath(), rebuildSnapshotFromJournal(), safeSessionId(), toPendingEvent() (+1 more)
 
-### Community 98 - "Impeccable Skill: Live Browser"
+### Community 98 - "refreshParamsPanel"
 Cohesion: 0.24
 Nodes (14): applyParamDefaults(), applyParamValue(), buildParamsPanel(), closedClipPath(), formatRangeValue(), getVisibleVariantEl(), hideParamsPanel(), openTunePopover() (+6 more)
 
-### Community 99 - "Impeccable Skill: Live"
+### Community 99 - "event-validation.mjs"
 Cohesion: 0.26
 Nodes (12): FORBIDDEN_MANUAL_EDIT_TEXT_CHARS, INSERT_POSITIONS, isValidId(), isValidVariantId(), validateAnnotationFields(), validateEvent(), validateInsertGenerate(), validateManualEditEvent() (+4 more)
 
-### Community 100 - "Docs: Biteship Testing.Md"
-Cohesion: 0.18
-Nodes (14): Analisis Integrasi Bitship & Xendit, MySCI Admin (Reference), Bug: delivery_type 'later' vs 'now' (commit 2797cc2), Biteship Alur Integrasi & Pengujian, lib/bitship.ts (client), SendOrderButton Component, app/actions/shipping.ts, components/shop/TrackingTimeline.tsx (+6 more)
+### Community 100 - "Biteship Alur Integrasi & Pengujian"
+Cohesion: 0.38
+Nodes (7): Bug: delivery_type 'later' vs 'now' (commit 2797cc2), Biteship Alur Integrasi & Pengujian, lib/bitship.ts (client), SendOrderButton Component, app/actions/shipping.ts, components/shop/TrackingTimeline.tsx, lib/bitship.ts
 
-### Community 101 - "Docs: Mengajar Backend"
+### Community 101 - "Sesi 06 - Cart & Order Flow"
 Cohesion: 0.14
 Nodes (14): lib/utils.ts (cn, formatRupiah, formatDate), app/api/orders/route.ts (GET), changeOrderStatus server action (admin), createOrder server action, Sesi 06 - Cart & Order Flow, generateOrderNumber() helper, lib/order-status.ts (status machine), Snapshot Pattern Rationale (order_items, shipping address) (+6 more)
 
-### Community 102 - "Package Config (package.json)"
+### Community 102 - "scripts"
 Cohesion: 0.14
 Nodes (13): name, private, scripts, build, db:push, db:seed, db:studio, dev (+5 more)
 
-### Community 103 - ".Agents/Skills"
+### Community 103 - "design-taste-frontend SKILL.md"
 Cohesion: 0.19
 Nodes (13): Anti-Default Discipline, Brief Inference (Read the Room), design-taste-frontend SKILL.md, Eyebrow Restraint Rule, Layout Discipline (Hero fit, nav single line, bento rules), HorizontalPan Canonical Skeleton (GSAP ScrollTrigger), Image & Visual Asset Priority Order, Premium-Consumer Palette Ban (beige/brass/oxblood) (+5 more)
 
-### Community 104 - "App Actions: Misc Server Actions"
-Cohesion: 0.27
-Nodes (11): getProductImages(), getProductVariants(), getVariantIdsUsedInCarts(), getVariantIdsUsedInOrders(), SIZES_ORDER, getProduct(), getProductBySlug(), EditProductPage() (+3 more)
+### Community 104 - "product-variants.ts"
+Cohesion: 0.10
+Nodes (27): getProductImages(), getProductVariants(), getVariantIdsUsedInCarts(), getVariantIdsUsedInOrders(), SIZES_ORDER, upsertProductVariants(), VariantInput, variantSchema (+19 more)
 
-### Community 105 - "Impeccable Skill: Critique Storage"
+### Community 105 - "critique-storage.mjs"
 Cohesion: 0.32
 Nodes (11): kebab(), listSnapshotsForSlug(), main(), nowFilenameStamp(), parseFrontmatter(), readLatestSnapshot(), readTrend(), serializeFrontmatter() (+3 more)
 
-### Community 106 - "Impeccable Skill: Detector"
+### Community 106 - "sampleCssBackground"
 Cohesion: 0.23
 Nodes (13): analyzeVisualContrastCandidate(), blendRgba(), clampByte(), firstCssUrl(), getLayerValue(), loadVisualContrastImage(), pickWorstContrastColor(), pointToImageSource() (+5 more)
 
-### Community 107 - "Impeccable Skill: Detector"
+### Community 107 - "scheduleLazyVisualContrast"
 Cohesion: 0.18
-Nodes (13): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), clearOverlays(), detachOverlay(), disconnectLazyVisualContrastObserver(), postExtensionError(), rememberVisualContrastAnalysis() (+5 more)
+Nodes (14): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), analyzeVisualContrast(), clearOverlays(), detachOverlay(), disconnectLazyVisualContrastObserver(), postExtensionError() (+6 more)
 
-### Community 108 - "Impeccable Skill: Live Resume"
-Cohesion: 0.32
-Nodes (11): collectManualApplyFiles(), manualApplyReplyCommand(), manualApplyResumeHint(), parseArgs(), resumeCli(), summarizeManualApplyEvent(), createLiveSessionStore(), fetchServerStatus() (+3 more)
+### Community 108 - "readLiveServerInfo"
+Cohesion: 0.22
+Nodes (16): readLiveServerInfo(), completeCli(), completeThroughServer(), parseArgs(), readServerInfo(), collectManualApplyFiles(), manualApplyReplyCommand(), manualApplyResumeHint() (+8 more)
 
-### Community 109 - "Docs: Marketplace"
+### Community 109 - "Master Plan: Onetone Store to Marketplace"
 Cohesion: 0.17
 Nodes (13): Single-Tier Commission Model Decision, Tier Naming Collision with member_tiers, Fase 3: Account Area (Saya), Master Plan: Onetone Store to Marketplace, (marketplace) Route Group, member_tiers table, Fase 4: Membership Mechanics di Checkout, memberships table (+5 more)
 
-### Community 110 - "Impeccable Skill: Critique.Md"
+### Community 110 - "impeccable reference/audit.md"
 Cohesion: 0.21
 Nodes (12): Design Audit Checklist (typography/color/layout/interactivity/content), redesign-existing-projects SKILL.md, Fix Priority Order, Upgrade Techniques (typography/layout/motion/surface), impeccable reference/audit.md, Audit Health Score (5-dimension 0-4 scoring), P0-P3 Severity Tagging, Cognitive Load Assessment (intrinsic/extraneous/germane) (+4 more)
 
-### Community 111 - "Impeccable Skill: Context"
-Cohesion: 0.23
-Nodes (12): escapeRegExp(), expandSimplePattern(), isExcludedByWorkspacePattern(), MONOREPO_FALLBACK_PROJECT_DIRS, nearestPackageRootBetween(), nearestProjectLikeRoot(), normalizeWorkspacePattern(), projectRootFromDoubleStarPattern() (+4 more)
+### Community 111 - "inline-ignores.mjs"
+Cohesion: 0.40
+Nodes (9): addRules(), applyInlineIgnores(), getSet(), hasDirectives(), isInlineIgnored(), normalizeRule(), parseInlineIgnores(), parseRuleList() (+1 more)
 
-### Community 112 - "Impeccable Skill: Detector"
+### Community 112 - "scheduleLazyVisualContrast"
 Cohesion: 0.21
 Nodes (12): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), analyzeVisualContrast(), clearOverlays(), detachOverlay(), disconnectLazyVisualContrastObserver(), rememberVisualContrastAnalysis() (+4 more)
 
-### Community 113 - "Impeccable Skill: Live"
+### Community 113 - "ui-core.mjs"
 Cohesion: 0.23
 Nodes (10): createLiveBrowserDomHelpers(), activeElementDeep(), appendStyleToLiveUiRoot(), appendToLiveUiRoot(), escapeCssIdent(), getLiveUiElementById(), LIVE_CHROME_MOUNT_CONTRACT, LIVE_UI_COMPONENT_IDS (+2 more)
 
-### Community 114 - "Docs: Devs"
-Cohesion: 0.17
-Nodes (12): app/api/cron/check-expired-orders/route.ts, lib/stock.ts, lib/xendit.ts, Phase 8: Xendit Payment Gateway, next/image unoptimized fix for R2 CDN images, components/pos/CashierScreen.tsx, orders.channel enum (online/pos), createPosOrder() flow (+4 more)
+### Community 114 - "POS Module Documentation"
+Cohesion: 0.22
+Nodes (9): lib/stock.ts, next/image unoptimized fix for R2 CDN images, components/pos/CashierScreen.tsx, orders.channel enum (online/pos), createPosOrder() flow, POS Module Documentation, app/actions/pos-orders.ts, pos_sessions table (+1 more)
 
-### Community 115 - "Docs: Mengajar Backend"
+### Community 115 - "Course Roadmap (Sesi 01-10)"
 Cohesion: 0.18
 Nodes (12): Course Roadmap (Sesi 01-10), Route Group Folder Convention (parentheses), Sesi 01 - Setup Project Next.js 16, tests/helpers/fixtures.ts, vitest.config.ts, Sesi 09 - Testing (Vitest), Let's Encrypt Certbot SSL Setup, ecosystem.config.js (PM2) (+4 more)
 
-### Community 116 - "Admin UI Components"
+### Community 116 - "CloseSessionForm.tsx"
 Cohesion: 0.25
-Nodes (9): importFromDrive(), GoogleDrivePicker(), loadScript(), Props, Window, GoogleDrivePicker(), loadScript(), Props (+1 more)
+Nodes (7): Props, BreakdownRow(), CloseSessionForm(), Props, ReconciliationRow(), Summary, PosSession
 
-### Community 117 - "Impeccable Skill: Context"
-Cohesion: 0.24
-Nodes (11): directChildDirs(), discoverRootsForPattern(), discoverTargetCandidates(), findTargetExample(), hasFallbackWorkspaceChildren(), isCandidateProjectRoot(), isIgnoredWorkspaceDiscoveryDir(), isMonorepoRoot() (+3 more)
+### Community 117 - "cli"
+Cohesion: 0.29
+Nodes (8): buildMissingTargetDirective(), buildResolvedContextDirective(), buildTargetSelectionDirective(), cli(), hasTargetOption(), parseCliOptions(), pathExistsForTarget(), shouldWarnMissingTarget()
 
-### Community 118 - "Impeccable Skill: Detect Csp"
+### Community 118 - "detect-csp.mjs"
 Cohesion: 0.35
 Nodes (10): detectCsp(), INLINE_HEADER_SIGNALS, LAYOUT_EXTS, MONOREPO_HELPER_SIGNALS, NUXT_ROUTE_RULES_SIGNALS, NUXT_SECURITY_SIGNALS, SCAN_EXTS, SKIP_DIRS (+2 more)
 
-### Community 119 - "Impeccable Skill: Palette"
+### Community 119 - "palette.mjs"
 Cohesion: 0.24
 Nodes (7): args, buildWeights(), hashUnit(), pickSeed(), seed, SEEDS, weightedPick()
 
-### Community 120 - "Impeccable Skill: Pin"
+### Community 120 - "pin.mjs"
 Cohesion: 0.25
 Nodes (9): __dirname, findHarnessDirs(), generatePinnedSkill(), HARNESS_DIRS, loadCommandMetadata(), pin(), root, unpin() (+1 more)
 
-### Community 121 - "Docs: Mengajar Backend"
+### Community 121 - "Sesi 08 - Shipping API (Bitship/Biteship)"
 Cohesion: 0.20
 Nodes (11): Sesi 08 - Shipping API (Bitship/Biteship), calculateShippingRates server action, lib/bitship.ts (rates, createShipment, getTracking), sendOrderToBitship server action (admin), ShippingOptions UI component, app/api/webhooks/bitship/route.ts, tests/unit/bitship.test.ts, B4: Bitship Send Order Idempotency & Error Recovery (+3 more)
 
-### Community 122 - "App Actions: Misc Server Actions"
-Cohesion: 0.40
-Nodes (8): removePosQris(), requireAdmin(), updateReceiptFooter(), uploadPosQris(), upsertSetting(), PosSettingsCard(), Props, validateImageBuffer()
+### Community 122 - "SAFE_TAGS"
+Cohesion: 0.36
+Nodes (8): checkElementMotion(), checkElementMotionDOM(), checkMotion(), checkElementMotion(), checkElementMotionDOM(), checkMotion(), LAYOUT_TRANSITION_PROPS, SAFE_TAGS
 
-### Community 123 - "Impeccable Skill: Live"
-Cohesion: 0.40
-Nodes (9): resolveTargetSelection(), __dirname, ensureServerRunning(), globToRegex(), liveCli(), missingLiveContext(), runScript(), safeParse() (+1 more)
+### Community 123 - "live.mjs"
+Cohesion: 0.19
+Nodes (15): loadContext(), resolveTargetSelection(), safeRead(), parseTargetOptions(), parseTargetPath(), TargetArgError, __dirname, ensureServerRunning() (+7 more)
 
-### Community 124 - "Impeccable Skill: Hook Lib"
+### Community 124 - "expandScanTargets"
 Cohesion: 0.27
 Nodes (10): coLocatedStylesheets(), expandScanTargets(), hasPathTraversal(), isInsideProject(), looksLikeProjectRoot(), normalizeScanTargets(), parseStaticStyleImports(), resolveCacheCwd() (+2 more)
 
-### Community 125 - "Docs: Integration Plan.Md"
-Cohesion: 0.22
-Nodes (10): Order Status Flow, app/api/webhooks/bitship/route.ts, app/api/webhooks/xendit/route.ts, resolveAffiliateAttribution() (lib/affiliate/attribution.ts), createOrder() (app/actions/orders.ts), app/api/cron/check-expired-orders/route.ts, lib/order-status.ts, sendOrderToBitship() action (+2 more)
+### Community 125 - "lib/order-status.ts"
+Cohesion: 0.12
+Nodes (18): app/api/cron/check-expired-orders/route.ts, Development Plan & Checklist, lib/xendit.ts, Order Status Flow, Phase 8: Xendit Payment Gateway, Phase 9: Bitship Shipping Integration, app/api/webhooks/bitship/route.ts, app/api/webhooks/xendit/route.ts (+10 more)
 
-### Community 126 - "Docs: Mengajar Backend"
+### Community 126 - "Sesi 00 - Overview & Arsitektur Next Olshop"
 Cohesion: 0.20
 Nodes (10): Dual Persona: Admin & Customer, Sesi 00 - Overview & Arsitektur Next Olshop, Order Status Machine, Tech Stack Rationale Table, JagoFlutter Academy (FIC Batch 24), Mengajar Backend Next Olshop - Panduan Step by Step, Filosofi Mengajar (Build > Theory), Account & Data Deletion Policy (Google Play compliance) (+2 more)
 
-### Community 127 - "Docs: Mengajar Backend"
+### Community 127 - "Sesi 05 - REST API untuk Flutter"
 Cohesion: 0.22
 Nodes (10): lib/api-auth.ts (JWT bearer token helpers), Bearer Token Auth Strategy for Flutter, app/api/cart/[id]/route.ts, app/api/cart/route.ts, Daftar Endpoint Lengkap Table, app/api/auth/login/route.ts, app/api/products/route.ts, app/api/auth/register/route.ts (+2 more)
 
-### Community 128 - "Impeccable Skill: Lib"
+### Community 128 - "ReceiptView.tsx"
 Cohesion: 0.33
-Nodes (6): resolveProjectRoot(), getLegacyLiveAnnotationsDir(), parseTargetOptions(), parseTargetPath(), TargetArgError, resolveLiveTarget()
+Nodes (5): getPosOrder(), PAYMENT_LABELS, Props, ReceiptData, ReceiptView()
 
-### Community 129 - "Docs: Mengajar Backend"
+### Community 129 - "Sesi 07 - Payment Gateway Xendit"
 Cohesion: 0.25
 Nodes (9): Always Return 200 to Webhook Rule, Sesi 07 - Payment Gateway Xendit, Webhook Idempotency Best Practice, app/api/webhooks/xendit/route.ts, tests/api/webhooks-xendit.test.ts, B2: Webhook Idempotency Detail, Setup Xendit (Payment Gateway) - Staging/Sandbox, Xendit Test Mode Account Setup (+1 more)
 
-### Community 130 - "Marketplace Customer Pages"
+### Community 130 - "vouchers/page.tsx"
 Cohesion: 0.39
 Nodes (6): getMyVouchers(), CopyButton(), formatDate(), formatValue(), TYPE_LABEL, VouchersPage()
 
-### Community 131 - "Arsip Lain/Generate Storage"
+### Community 131 - "generate-storage/storage.ts"
 Cohesion: 0.25
 Nodes (4): r2Client, storage, UploadOptions, UploadResult
 
-### Community 132 - "Impeccable Skill: Context"
-Cohesion: 0.32
-Nodes (8): parseYamlFlowList(), readJson(), readLernaWorkspaces(), readPackageWorkspaces(), readPnpmWorkspaces(), readWorkspacePatterns(), stripYamlInlineComment(), unquoteYamlValue()
+### Community 132 - "sessions/[id]/page.tsx"
+Cohesion: 0.33
+Nodes (5): BreakdownRow(), dynamic, PAYMENT_LABELS, PosSessionDetailPage(), Props
 
-### Community 133 - "Impeccable Skill: Detector"
+### Community 133 - "collectBrowserFindings"
 Cohesion: 0.32
 Nodes (8): browserDesignSystemConfig(), browserFindingsFromMap(), browserPrimaryFont(), checkBrowserDesignSystemSources(), collectBrowserFindings(), collectBrowserFindingsAsync(), decodeBrowserGoogleFamily(), normalizeBrowserFontName()
 
-### Community 134 - "Impeccable Skill: Detector"
+### Community 134 - "collectVisualContrastCandidates"
 Cohesion: 0.32
 Nodes (8): buildSelectorSegment(), collectVisualContrastCandidates(), collectVisualContrastReasons(), generateSelector(), getDirectText(), getDirectTextRect(), isLikelyHashedClass(), css
 
-### Community 135 - "Impeccable Skill: Detector"
-Cohesion: 0.32
-Nodes (8): checkElementTextOverflowDOM(), classSelector(), clippedByInset(), clippedByRect(), expandBoxShorthand(), firstMetricLengthPx(), isScreenReaderOnlyTextStyle(), metricLengthPx()
+### Community 135 - "isScreenReaderOnlyTextStyle"
+Cohesion: 0.47
+Nodes (6): clippedByInset(), clippedByRect(), expandBoxShorthand(), firstMetricLengthPx(), isScreenReaderOnlyTextStyle(), metricLengthPx()
 
-### Community 136 - "Impeccable Skill: Live"
+### Community 136 - "applyDeferredSvelteComponentAccepts"
 Cohesion: 0.32
 Nodes (8): applyLegacyDeferredAcceptsOnStartup(), applyDeferredSvelteComponentAccepts(), deferredAcceptsPath(), findSvelteComponentManifest(), manifestPathForSession(), readDeferredAccepts(), readManifest(), writeDeferredAccept()
 
-### Community 137 - "Docs: Analysis Bitship Xendit.Md"
+### Community 137 - "MySCI Storefront (Reference)"
 Cohesion: 0.25
 Nodes (8): Bitship /orders Endpoint, Bitship /rates/couriers Endpoint, Bitship /trackings/{id} Endpoint, Bitship Tracking Webhook, MySCI Storefront (Reference), Xendit createInvoice Flow, Xendit SDK (xendit-node), Xendit Payment Webhook
 
-### Community 138 - "Docs: Integration Plan.Md"
-Cohesion: 0.25
-Nodes (8): addresses table (buku alamat), couriers table, Integration Plan: Bitship & Xendit, Leaflet vs Google Maps Decision (free, no API key), Leaflet Map Picker (components/ui/map-picker.tsx), Order Status State Machine (validateStatusTransition), Phase 0: Prerequisites (store_settings, addresses, weight, couriers), store_settings table
+### Community 138 - "Analisis Integrasi Bitship & Xendit"
+Cohesion: 0.20
+Nodes (10): Analisis Integrasi Bitship & Xendit, MySCI Admin (Reference), addresses table (buku alamat), couriers table, Integration Plan: Bitship & Xendit, Leaflet vs Google Maps Decision (free, no API key), Leaflet Map Picker (components/ui/map-picker.tsx), Order Status State Machine (validateStatusTransition) (+2 more)
 
-### Community 139 - "Docs: Marketplace"
+### Community 139 - "Onetone Store Marketplace Evolution Session Summary"
 Cohesion: 0.25
 Nodes (8): Onetone Store Marketplace Evolution Session Summary, Marketplace Phase Execution Plan (Phase 0-5+), SOP Wajib Setiap Schema Berubah, store_id Production Incident (Unknown column error), White-Dark Rebrand Decision (Gold to Monochrome), --env-file .env.app Override Rationale (drizzle.config.ts reads DATABASE_URL at runtime), drizzle.config.ts, deploy.sh script
 
-### Community 140 - "Impeccable Skill: Brand.Md"
+### Community 140 - "impeccable reference/brand.md"
 Cohesion: 0.33
 Nodes (7): Brand Bans (monospace-as-tech, all-caps body, zero imagery), impeccable reference/brand.md, Reflex-Reject Aesthetic Lanes (editorial-typographic), Font Reflex-Reject List (Fraunces, Newsreader, Inter, ...), The Brand Slop Test (aesthetic lane naming), Register Hypothesis (brand vs product), Identity Lock (Phase A extraction, default vs departure mode)
 
-### Community 141 - "Docs: Deploy Vps Ubuntu.Md"
+### Community 141 - "Deploy VPS Ubuntu Guide"
 Cohesion: 0.29
 Nodes (7): Certbot SSL Setup, Deploy VPS Ubuntu Guide, deploy.sh Script, Nginx Reverse Proxy Setup, PM2 Process Manager, SOP Migrasi Otomatis via deploy.yml, Minggu 4: Checkout + Deploy
 
-### Community 142 - "Docs: Devs"
+### Community 142 - "drive-import-LIB.ts"
 Cohesion: 0.38
 Nodes (6): ALLOWED_MIME, downloadBatchFromDrive(), DownloadedFile, downloadFromDrive(), DriveFileMeta, getDriveFileMeta()
 
-### Community 143 - "Arsip Lain/Generate Storage"
+### Community 143 - "generate-storage/image-processor.ts"
 Cohesion: 0.47
 Nodes (5): ALLOWED_MIME, detectMimeFromBuffer(), ProcessedImages, processProductImage(), validateImageBuffer()
 
-### Community 144 - "Impeccable Skill: Document.Md"
+### Community 144 - "impeccable reference/document.md"
 Cohesion: 0.40
 Nodes (6): DESIGN.md Format Spec (YAML frontmatter + six sections), impeccable reference/document.md, Scan Mode vs Seed Mode, .impeccable/design.json Sidecar Schema, impeccable reference/init.md, PRODUCT.md Template
 
-### Community 145 - "Shop UI Components"
+### Community 145 - "OrderStepper.tsx"
 Cohesion: 0.47
 Nodes (5): getStepIndex(), MAIN_STEPS, OrderStepper(), Props, StepKey
 
-### Community 146 - "Docs: Devs"
+### Community 146 - "Google Drive Picker Setup & Implementasi"
 Cohesion: 0.67
 Nodes (6): Execution Prompts — Google Drive Picker, app/actions/drive-import.ts, components/admin/GoogleDrivePicker.tsx, lib/drive-import.ts, Google Drive Picker Setup & Implementasi, OAuth Client ID vs Client Secret
 
-### Community 147 - "Types/Next Auth.D"
+### Community 147 - "next-auth.d.ts"
 Cohesion: 0.33
 Nodes (5): JWT, next-auth, next-auth/jwt, Session, User
 
-### Community 148 - "App/Layoutx"
-Cohesion: 0.40
-Nodes (3): geistMono, geistSans, metadata
+### Community 148 - "app/layout.tsx"
+Cohesion: 0.33
+Nodes (4): baloo2, geistMono, geistSans, metadata
 
-### Community 149 - "Arsip Lain/Generate Storage"
+### Community 149 - "schema-product-images.ts"
 Cohesion: 0.40
 Nodes (4): NewProductImage, ProductImage, productImages, productImagesRelations
 
-### Community 150 - "Impeccable Skill: Detector"
+### Community 150 - "resolveObjectImageRect"
 Cohesion: 0.50
 Nodes (5): parseObjectPosition(), parsePositionPair(), parsePositionToken(), resolveObjectImageRect(), resolvePaintedImageRect()
 
-### Community 151 - "Impeccable Skill: Lib"
+### Community 151 - "isGeneratedFile"
 Cohesion: 0.70
 Nodes (4): hasGeneratedHeader(), HEADER_MARKERS, isGeneratedFile(), isGitIgnored()
 
-### Community 152 - "Docs: Analysis Bitship Xendit.Md"
+### Community 152 - "shippings table"
 Cohesion: 0.40
 Nodes (5): couriers table, invoices table, orders table (Next Olshop target), shipping_histories table, shippings table
 
-### Community 153 - "Impeccable Skill: Animate.Md"
+### Community 153 - "impeccable reference/animate.md"
 Cohesion: 0.50
 Nodes (4): impeccable reference/animate.md, The 100/300/500 Duration Rule, Motion Materials (transform/opacity/blur/clip-path/shadow), Perceived Performance (80ms threshold, optimistic UI)
 
-### Community 154 - "Impeccable Skill: Detect"
+### Community 154 - "detect.mjs"
 Cohesion: 0.50
 Nodes (3): candidates, detectorPath, __dirname
 
-### Community 155 - "Impeccable Skill: Detector"
+### Community 155 - "serializeFindings"
 Cohesion: 0.67
 Nodes (4): postSerializedFindings(), renderBrowserFindings(), scanResultMeta(), serializeFindings()
 
-### Community 158 - "Impeccable Skill: Delight.Md"
+### Community 158 - "impeccable reference/delight.md"
 Cohesion: 0.67
 Nodes (3): Delight Amplifies, Never Blocks Principle, impeccable reference/delight.md, Cliched Loading Message Ban (Herding pixels, etc.)
+
+### Community 188 - "BORDER_SAFE_TAGS"
+Cohesion: 0.40
+Nodes (6): isNeutralBorderColor(), checkBorders(), checkElementBorders(), checkElementBordersDOM(), isNeutralColor(), BORDER_SAFE_TAGS
+
+### Community 189 - "points/page.tsx"
+Cohesion: 0.60
+Nodes (4): getMyPoints(), formatDate(), PointsPage(), REASON_LABEL
+
+### Community 190 - "seed-production.ts"
+Cohesion: 0.40
+Nodes (3): ADMIN, COURIERS, STORE_SETTINGS
 
 ## Ambiguous Edges - Review These
 - `Sesi 00 - Overview & Arsitektur Next Olshop` → `Next Elektronik (privacy policy brand name)`  [AMBIGUOUS]
   public/privacy-policy.html · relation: semantically_similar_to
 
 ## Knowledge Gaps
-- **656 isolated node(s):** `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES`, `DESIGN_NAMES`, `FALLBACK_DIRS` (+651 more)
+- **657 isolated node(s):** `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES`, `DESIGN_NAMES`, `FALLBACK_DIRS` (+652 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -874,15 +894,15 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Sesi 00 - Overview & Arsitektur Next Olshop` and `Next Elektronik (privacy policy brand name)`?**
   _Edge tagged AMBIGUOUS (relation: semantically_similar_to) - confidence is low._
-- **Why does `buffer` connect `App Actions: Misc Server Actions` to `Impeccable Skill: Detector`, `App Actions: Misc Server Actions`, `App Actions: Misc Server Actions`, `Impeccable Skill: Hook Lib`, `Docs: Devs`, `Impeccable Skill: Live Server`, `Impeccable Skill: Detect Csp`, `Impeccable Skill: Lib`, `Impeccable Skill: Live`, `Impeccable Skill: Live Inject`, `Impeccable Skill: Hook Before Edit`?**
+- **Why does `buffer` connect `products` to `detect-antipatterns.mjs`, `runHook`, `drive-import-LIB.ts`, `live-server.mjs`, `detect-csp.mjs`, `isGeneratedFile`, `manual-edit-routes.mjs`, `live-inject.mjs`, `hook-before-edit.mjs`, `products.ts`?**
   _High betweenness centrality (0.394) - this node is a cross-community bridge._
-- **Why does `handleStdin()` connect `Impeccable Skill: Detector` to `App Actions: Misc Server Actions`?**
+- **Why does `handleStdin()` connect `detect-antipatterns.mjs` to `detect-html.mjs`, `products`?**
   _High betweenness centrality (0.246) - this node is a cross-community bridge._
-- **Why does `el()` connect `Impeccable Skill: Live Browser` to `Impeccable Skill: Live Browser`, `Impeccable Skill: Live Browser`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`, `Impeccable Skill: Live Browser`, `Impeccable Skill: Detector`, `Impeccable Skill: Live Browser`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`, `Impeccable Skill: Live Browser`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`, `Impeccable Skill: Detector`?**
+- **Why does `el()` connect `el` to `live-browser.js`, `detect-html.mjs`, `refreshParamsPanel`, `checks.mjs`, `initGlobalBar`, `collectVisualContrastCandidates`, `setLiveState`, `GENERIC_FONTS`, `initPageChat`, `design-system.mjs`, `serializeFindings`, `serializeFindings`, `css-cascade.mjs`, `collectVisualContrastCandidates`, `detect-antipatterns-browser.js`?**
   _High betweenness centrality (0.219) - this node is a cross-community bridge._
 - **Are the 16 inferred relationships involving `el()` (e.g. with `collectVisualContrastCandidates()` and `renderBrowserFindings()`) actually correct?**
   _`el()` has 16 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES` to the rest of the system?**
-  _656 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Impeccable Skill: Live Browser` be split into smaller, more focused modules?**
-  _Cohesion score 0.03238709677419355 - nodes in this community are weakly interconnected._
+  _657 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `live-browser.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.031496062992125984 - nodes in this community are weakly interconnected._
