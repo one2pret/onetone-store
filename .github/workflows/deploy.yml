@@ -91,6 +91,7 @@ jobs:
             AUTH_SECRET=build_time_dummy
             AUTH_URL=${{ steps.vars.outputs.app_url }}
             NEXT_PUBLIC_APP_URL=${{ steps.vars.outputs.app_url }}
+            NEXT_PUBLIC_CDN_URL=https://cdn.onetone-store.id
             NEXT_PUBLIC_BASE_URL=${{ steps.vars.outputs.app_url }}
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
             NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY }}
