@@ -157,7 +157,7 @@ export function ProductForm({ product, categories, variants = [], images = [], u
   // FIX: init with full VariantRow shape including _key and isActive
   const [variantRows, setVariantRows] = useState<VariantRow[]>(
     variants.map((v) => ({
-      _key: Math.random().toString(36).slice(2),
+      _key: `variant-${v.id}`,
       id: v.id,
       size: v.size,
       color: v.color,
@@ -405,7 +405,7 @@ export function ProductForm({ product, categories, variants = [], images = [], u
       </div>
 
       {/* ── Varian Produk ─────────────────────────────────── */}
-      <VariantManager key={variantManagerKey} initial={variants} barcodes={barcodes} onChange={setVariantRows} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
+      <VariantManager key={variantManagerKey} initial={variants} basePrice={Number(product?.price ?? 0)} barcodes={barcodes} onChange={setVariantRows} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
 
       {/* ── Pengaturan ──────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">

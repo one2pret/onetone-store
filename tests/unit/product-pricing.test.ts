@@ -36,6 +36,11 @@ describe('resolveProductPrice', () => {
     }, now)).toMatchObject({ regularPrice: 110_000, finalPrice: 85_000, isOnSale: true });
   });
 
+  it('keeps the base price when a variant has no price difference', () => {
+    expect(resolveProductPrice({ price: 110_000, priceModifier: 0 }, now))
+      .toMatchObject({ regularPrice: 110_000, finalPrice: 110_000, isOnSale: false });
+  });
+
   it('rejects a promotional candidate that is not lower than regular price', () => {
     expect(resolveProductPrice({ price: 100_000, salePrice: 100_000 }, now))
       .toMatchObject({ finalPrice: 100_000, isOnSale: false });

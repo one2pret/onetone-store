@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { productVariants, cartItems, orderItems } from '@/lib/db/schema';
+import { productVariants, cartItems, orderItems, products } from '@/lib/db/schema';
 import { setOnlineInventoryStock } from '@/lib/inventory-stock';
 import { assertBarcodeAvailable, setPrimaryBarcode } from '@/lib/product-barcodes';
 import { eq, and } from 'drizzle-orm';
@@ -67,6 +67,23 @@ export async function upsertProductVariants(
   }
   variants = parsedVariants.data;
 
+  const productRows = await db
+    .select({ price: products.price })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+  const basePrice = Number(productRows[0]?.price);
+  if (!Number.isFinite(basePrice)) {
+    return { success: false, error: 'Produk tidak ditemukan' };
+  }
+  const invalidPrice = variants.find(variant => basePrice + variant.priceModifier <= 0);
+  if (invalidPrice) {
+    return {
+      success: false,
+      error: `Harga akhir varian ${invalidPrice.size} / ${invalidPrice.color} harus lebih dari Rp0`,
+    };
+  }
+
   const incomingBarcodes = variants.map(variant => variant.barcode?.trim()).filter((code): code is string => Boolean(code));
   if (new Set(incomingBarcodes).size !== incomingBarcodes.length) {
     return { success: false, error: 'Barcode antarvarian tidak boleh sama' };
@@ -89,12 +106,6 @@ export async function upsertProductVariants(
   );
 
   for (const variant of variantsToRemove) {
-    const hasCartItems = await db
-      .select({ id: cartItems.id })
-      .from(cartItems)
-      .where(eq(cartItems.variantId, variant.id))
-      .limit(1);
-
     const hasOrderItems = await db
       .select({ id: orderItems.id })
       .from(orderItems)

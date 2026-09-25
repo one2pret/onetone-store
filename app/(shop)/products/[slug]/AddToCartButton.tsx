@@ -43,12 +43,10 @@ export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt,
 
   // Variant state managed here, updated by VariantSelector
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
-  const [finalPrice, setFinalPrice] = useState(basePrice);
   const [currentStock, setCurrentStock] = useState(initialStock);
 
   const handleVariantChange = (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => {
     setSelectedVariantId(variantId);
-    setFinalPrice(price);
     setCurrentStock(stock);
     setQuantity(1);
     onVariantPriceChange?.(variantId, price, stock, pricing);
@@ -165,11 +163,10 @@ export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt,
               : 'border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground'
           }`}
         >
-          {loading ? 'Menambahkan...' : added ? (
-            <><Check className="w-5 h-5" /> Ditambahkan!</>
-          ) : (
-            <><ShoppingCart className="w-5 h-5" /> Keranjang</>
-          )}
+          <span className="inline-flex items-center gap-2">
+            {added ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+            <span>{loading ? 'Menambahkan...' : added ? 'Ditambahkan!' : 'Keranjang'}</span>
+          </span>
         </button>
 
         <button
@@ -181,9 +178,10 @@ export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt,
               : 'bg-primary text-primary-foreground hover:bg-primary-hover'
           }`}
         >
-          {buyNowLoading ? 'Memproses...' : (
-            <><CreditCard className="w-5 h-5" /> Bayar Sekarang</>
-          )}
+          <span className="inline-flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            <span>{buyNowLoading ? 'Memproses...' : 'Bayar Sekarang'}</span>
+          </span>
         </button>
       </div>
     </div>
