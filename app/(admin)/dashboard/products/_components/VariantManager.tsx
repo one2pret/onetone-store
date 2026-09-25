@@ -80,6 +80,7 @@ function emptyRow(): VariantRow {
 // ---- Component ----
 interface Props {
   initial?: ProductVariant[];
+  basePrice?: number;
   barcodes?: { code: string; variantId: number | null }[];
   onChange: (rows: VariantRow[]) => void;
   /** ID varian yang sudah dipakai di order — tidak bisa dihapus, hanya bisa dinonaktifkan */
@@ -88,7 +89,7 @@ interface Props {
   usedInCartIds?: number[];
 }
 
-export function VariantManager({ initial = [], barcodes = [], onChange, usedInOrderIds = [], usedInCartIds = [] }: Props) {
+export function VariantManager({ initial = [], basePrice = 0, barcodes = [], onChange, usedInOrderIds = [], usedInCartIds = [] }: Props) {
   const orderIdSet = new Set(usedInOrderIds);
   const cartIdSet = new Set(usedInCartIds);
   const [rows, setRows] = useState<VariantRow[]>(() =>
@@ -186,7 +187,7 @@ export function VariantManager({ initial = [], barcodes = [], onChange, usedInOr
                 <span>Warna *</span>
                 <span>Warna Hex</span>
                 <span>Stok *</span>
-                <span>+/- Harga</span>
+                <span>Selisih harga</span>
                 <span>Harga Promo</span>
                 <span>SKU</span>
                 <span className="text-center">Aktif</span>
@@ -197,6 +198,7 @@ export function VariantManager({ initial = [], barcodes = [], onChange, usedInOr
                 <VariantRowItem
                   key={row._key}
                   row={row}
+                  basePrice={basePrice}
                   onUpdate={(field, value) => update(row._key, field, value)}
                   onRemove={() => remove(row._key)}
                   isUsedInOrder={row.id !== undefined && orderIdSet.has(row.id)}
@@ -240,12 +242,14 @@ export function VariantManager({ initial = [], barcodes = [], onChange, usedInOr
 // ---- Single row ----
 function VariantRowItem({
   row,
+  basePrice,
   onUpdate,
   onRemove,
   isUsedInOrder = false,
   isUsedInCart = false,
 }: {
   row: VariantRow;
+  basePrice: number;
   onUpdate: (field: keyof VariantRow, value: unknown) => void;
   onRemove: () => void;
   isUsedInOrder?: boolean;
@@ -325,14 +329,16 @@ function VariantRowItem({
 
         {/* Price Modifier */}
         <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">+/- Harga</Label>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Selisih harga</Label>
           <Input
             type="number"
             value={row.priceModifier}
             onChange={(e) => onUpdate('priceModifier', Number(e.target.value))}
             placeholder="0"
             className="h-8 text-sm"
+            title={`Bukan harga final. Harga varian saat ini: Rp ${(basePrice + row.priceModifier).toLocaleString('id-ID')}`}
           />
+          <p className="mt-1 text-[10px] text-muted-foreground">Final: Rp {(basePrice + row.priceModifier).toLocaleString('id-ID')}</p>
         </div>
 
         {/* SKU */}
