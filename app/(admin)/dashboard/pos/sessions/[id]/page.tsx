@@ -7,7 +7,7 @@ import { getPosSessionDetail } from "@/app/actions/pos-sessions";
 import { formatRupiah } from "@/lib/utils";
 import {
   ArrowLeft, Banknote, QrCode, ArrowRightLeft, Receipt,
-  Wallet, TrendingUp, CircleDot, CheckCircle2, User,
+  Wallet, TrendingUp, CircleDot, CheckCircle2, User, Tag, RotateCcw,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export default async function PosSessionDetailPage({ params }: Props) {
               <h2 className="font-semibold text-foreground">Z-Report</h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-3 mb-5 md:grid-cols-4">
               <div className="p-3 bg-muted/40 rounded-xl">
                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
                   <TrendingUp className="w-3 h-3" />
@@ -91,12 +91,28 @@ export default async function PosSessionDetailPage({ params }: Props) {
                 <p className="mt-2 text-xl font-bold text-foreground">{detail.totalTransactions}</p>
               </div>
               <div className="p-3 bg-muted/40 rounded-xl">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-50 text-rose-700">
+                  <RotateCcw className="w-3 h-3" />
+                  Refund
+                </div>
+                <p className="mt-2 text-xl font-bold text-foreground">{formatRupiah(detail.totalRefunds)}</p>
+              </div>
+              <div className="p-3 bg-muted/40 rounded-xl">
                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">
                   <Wallet className="w-3 h-3" />
                   Penjualan
                 </div>
                 <p className="mt-2 text-xl font-bold text-foreground">
                   {formatRupiah(detail.totalSales)}
+                </p>
+              </div>
+              <div className="p-3 bg-muted/40 rounded-xl">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
+                  <Tag className="w-3 h-3" />
+                  Diskon
+                </div>
+                <p className="mt-2 text-xl font-bold text-foreground">
+                  {formatRupiah(detail.totalDiscounts)}
                 </p>
               </div>
             </div>
@@ -166,6 +182,11 @@ export default async function PosSessionDetailPage({ params }: Props) {
                       {t.posPaymentMethod && (
                         <p className="text-[10px] text-muted-foreground uppercase">
                           {PAYMENT_LABELS[t.posPaymentMethod]}
+                        </p>
+                      )}
+                      {Number(t.discountAmount ?? 0) > 0 && (
+                        <p className="text-[10px] font-medium text-amber-700">
+                          Diskon {formatRupiah(Number(t.discountAmount))}
                         </p>
                       )}
                     </div>

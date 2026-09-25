@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   orders, orderItems, invoices, shippings, addresses,
-  cartItems, products, users,
+  cartItems, products, productVariants, users,
 } from '@/lib/db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
@@ -11,6 +11,7 @@ import { generateOrderNumber } from '@/lib/utils';
 import { validateStock, deductStock } from '@/lib/stock';
 import { createInvoice } from '@/lib/xendit';
 import { z } from 'zod';
+import { resolveProductPrice } from '@/lib/product-pricing';
 
 // GET /api/orders — user's orders with invoice & shipping info
 export async function GET(request: Request) {
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
     const cart = await db.select()
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
+      .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
       .where(eq(cartItems.userId, user.id));
 
     if (cart.length === 0) {
@@ -118,8 +120,11 @@ export async function POST(request: Request) {
     // 3. Validate stock
     const stockItems = cart.map(row => ({
       productId: row.cart_items.productId,
+      variantId: row.cart_items.variantId ?? undefined,
       quantity: row.cart_items.quantity ?? 1,
-      productName: row.products!.name,
+      productName: row.products!.name + (row.product_variants
+        ? ` (${row.product_variants.size} / ${row.product_variants.color})`
+        : ''),
     }));
 
     const stockResult = await validateStock(stockItems);
@@ -131,8 +136,14 @@ export async function POST(request: Request) {
     }
 
     // 4. Calculate totals
+    const pricingNow = new Date();
     const subtotal = cart.reduce((sum, row) => {
-      return sum + (Number(row.products!.price) * (row.cart_items.quantity ?? 1));
+      const unitPrice = resolveProductPrice({
+        ...row.products!,
+        priceModifier: row.product_variants?.priceModifier,
+        variantSalePriceOverride: row.product_variants?.salePriceOverride,
+      }, pricingNow).finalPrice;
+      return sum + unitPrice * (row.cart_items.quantity ?? 1);
     }, 0);
 
     const total = subtotal + courierPrice;
@@ -157,15 +168,29 @@ export async function POST(request: Request) {
 
     // 6. Create order items
     await db.insert(orderItems).values(
-      cart.map((row) => ({
-        orderId,
-        productId: row.cart_items.productId,
-        productName: row.products!.name,
-        productImage: row.products!.image,
-        price: row.products!.price,
-        quantity: row.cart_items.quantity ?? 1,
-        subtotal: String(Number(row.products!.price) * (row.cart_items.quantity ?? 1)),
-      })),
+      cart.map((row) => {
+        const pricing = resolveProductPrice({
+          ...row.products!,
+          priceModifier: row.product_variants?.priceModifier,
+          variantSalePriceOverride: row.product_variants?.salePriceOverride,
+        }, pricingNow);
+        const unitPrice = pricing.finalPrice;
+        return {
+          orderId,
+          productId: row.cart_items.productId,
+          variantId: row.cart_items.variantId,
+          productName: row.products!.name,
+          productImage: row.products!.image,
+          variantLabel: row.product_variants
+            ? `${row.product_variants.size} / ${row.product_variants.color}`
+            : null,
+          price: String(unitPrice),
+          regularPrice: String(pricing.regularPrice),
+          productDiscountAmount: String(pricing.discountAmount),
+          quantity: row.cart_items.quantity ?? 1,
+          subtotal: String(unitPrice * (row.cart_items.quantity ?? 1)),
+        };
+      }),
     );
 
     // 7. Create shipping record
@@ -187,6 +212,7 @@ export async function POST(request: Request) {
     await deductStock(
       cart.map(row => ({
         productId: row.cart_items.productId,
+        variantId: row.cart_items.variantId ?? undefined,
         quantity: row.cart_items.quantity ?? 1,
       })),
     );

@@ -8,6 +8,8 @@ import {
   text,
   boolean,
   mysqlEnum,
+  uniqueIndex,
+  index,
 } from 'drizzle-orm/mysql-core';
 import { relations, InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
@@ -109,9 +111,13 @@ export const products = mysqlTable('products', {
   storeId: int('store_id').references(() => stores.id),          // Phase 1: nullable, backfill ke Onetone
   categoryId: int('category_id').references(() => categories.id),
   name: varchar('name', { length: 255 }).notNull(),
+  posName: varchar('pos_name', { length: 60 }),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   description: text('description'),
   price: decimal('price', { precision: 12, scale: 2 }).notNull(),
+  salePrice: decimal('sale_price', { precision: 12, scale: 2 }),
+  saleStartsAt: timestamp('sale_starts_at'),
+  saleEndsAt: timestamp('sale_ends_at'),
   stock: int('stock').default(0),
   weight: int('weight').default(0), // grams
   image: varchar('image', { length: 500 }),
@@ -133,11 +139,89 @@ export const productVariants = mysqlTable('product_variants', {
   colorHex: varchar('color_hex', { length: 7 }),      // opsional: #7B3F5E untuk swatch UI
   stock: int('stock').default(0).notNull(),
   priceModifier: decimal('price_modifier', { precision: 10, scale: 2 }).default('0'), // +/- dari harga dasar
+  salePriceOverride: decimal('sale_price_override', { precision: 12, scale: 2 }), // harga final promo varian
   sku: varchar('sku', { length: 100 }),               // opsional: kode SKU per varian
+  posLabel: varchar('pos_label', { length: 60 }),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
+
+export const productBarcodes = mysqlTable('product_barcodes', {
+  id: int('id').primaryKey().autoincrement(),
+  code: varchar('code', { length: 100 }).notNull().unique(),
+  productId: int('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  productIdx: index('product_barcodes_product_idx').on(table.productId),
+  variantIdx: index('product_barcodes_variant_idx').on(table.variantId),
+}));
+
+// ============ INVENTORY LOCATIONS ============
+// Stok fisik dipisahkan per lokasi. Kolom stock pada products/variants tetap
+// menjadi cache kompatibilitas untuk lokasi online default selama transisi.
+export const inventoryLocations = mysqlTable('inventory_locations', {
+  id: int('id').primaryKey().autoincrement(),
+  storeId: int('store_id').references(() => stores.id),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 150 }).notNull(),
+  type: mysqlEnum('type', ['online', 'pos', 'warehouse']).notNull(),
+  isOnlineDefault: boolean('is_online_default').default(false).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const inventoryBalances = mysqlTable('inventory_balances', {
+  id: int('id').primaryKey().autoincrement(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  productId: int('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id, { onDelete: 'cascade' }),
+  quantity: int('quantity').default(0).notNull(),
+  reserved: int('reserved').default(0).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+}, (table) => ({
+  locationProductVariantIdx: uniqueIndex('inventory_balance_location_product_variant_unique')
+    .on(table.locationId, table.productId, table.variantId),
+  productLocationIdx: index('inventory_balance_product_location_idx').on(table.productId, table.locationId),
+}));
+
+export const inventoryTransfers = mysqlTable('inventory_transfers', {
+  id: int('id').primaryKey().autoincrement(),
+  fromLocationId: int('from_location_id').references(() => inventoryLocations.id).notNull(),
+  toLocationId: int('to_location_id').references(() => inventoryLocations.id).notNull(),
+  productId: int('product_id').references(() => products.id).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id),
+  quantity: int('quantity').notNull(),
+  actorUserId: int('actor_user_id').references(() => users.id).notNull(),
+  notes: varchar('notes', { length: 500 }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  createdIdx: index('inventory_transfer_created_idx').on(table.createdAt),
+  fromLocationIdx: index('inventory_transfer_from_location_idx').on(table.fromLocationId),
+  toLocationIdx: index('inventory_transfer_to_location_idx').on(table.toLocationId),
+}));
+
+export const inventoryMovements = mysqlTable('inventory_movements', {
+  id: int('id').primaryKey().autoincrement(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  productId: int('product_id').references(() => products.id).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id),
+  quantityDelta: int('quantity_delta').notNull(),
+  balanceAfter: int('balance_after').notNull(),
+  type: mysqlEnum('type', [
+    'opening_balance', 'online_sale', 'pos_sale', 'return', 'transfer_in', 'transfer_out', 'adjustment',
+  ]).notNull(),
+  referenceType: varchar('reference_type', { length: 50 }),
+  referenceId: int('reference_id'),
+  actorUserId: int('actor_user_id').references(() => users.id),
+  notes: varchar('notes', { length: 500 }),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  locationCreatedIdx: index('inventory_movement_location_created_idx').on(table.locationId, table.createdAt),
+  productCreatedIdx: index('inventory_movement_product_created_idx').on(table.productId, table.createdAt),
+}));
 
 // ============ CART ITEMS ============
 export const cartItems = mysqlTable('cart_items', {
@@ -156,6 +240,7 @@ export const cartItems = mysqlTable('cart_items', {
 export const posSessions = mysqlTable('pos_sessions', {
   id: int('id').primaryKey().autoincrement(),
   cashierId: int('cashier_id').references(() => users.id).notNull(),
+  locationId: int('location_id').references(() => inventoryLocations.id),
   openedAt: timestamp('opened_at').defaultNow(),
   closedAt: timestamp('closed_at'),
   openingCash: decimal('opening_cash', { precision: 12, scale: 2 }).notNull(),
@@ -183,6 +268,8 @@ export const memberships = mysqlTable('memberships', {
 export const vouchers = mysqlTable('vouchers', {
   id: int('id').primaryKey().autoincrement(),
   code: varchar('code', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 120 }),
+  description: text('description'),
   type: mysqlEnum('voucher_type', ['fixed', 'percent', 'free_shipping']).notNull(),
   value: int('value').default(0),                                // nominal/pct diskon; 0 untuk free_shipping
   minSpend: int('min_spend').default(0),                         // minimum order untuk bisa pakai voucher
@@ -190,9 +277,15 @@ export const vouchers = mysqlTable('vouchers', {
   tierId: int('tier_id').references(() => memberTiers.id),       // null = berlaku semua tier
   quota: int('quota'),                                           // null = unlimited
   usedCount: int('used_count').default(0),
+  audience: mysqlEnum('voucher_audience', ['public', 'membership', 'new_user']).default('public').notNull(),
+  validDaysAfterGrant: int('valid_days_after_grant'),
+  maxUsesPerUser: int('max_uses_per_user').default(1).notNull(),
+  firstOrderOnly: boolean('first_order_only').default(false).notNull(),
+  allowPoints: boolean('allow_points').default(true).notNull(),
   startsAt: timestamp('starts_at'),
   endsAt: timestamp('ends_at'),
   isActive: boolean('is_active').default(true),
+  archivedAt: timestamp('archived_at'),
 });
 
 // ============ AFFILIATES ============
@@ -385,6 +478,26 @@ export const orders = mysqlTable('orders', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ USER VOUCHERS ============
+// Kepemilikan voucher per user. Voucher campaign tetap berada di `vouchers`;
+// row ini menjadi guard one-time dan lifecycle reservasi selama pembayaran.
+export const userVouchers = mysqlTable('user_vouchers', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').references(() => users.id).notNull(),
+  voucherId: int('voucher_id').references(() => vouchers.id).notNull(),
+  status: mysqlEnum('user_voucher_status', ['available', 'reserved', 'redeemed', 'expired'])
+    .default('available').notNull(),
+  grantedAt: timestamp('granted_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at'),
+  reservedOrderId: int('reserved_order_id').references(() => orders.id),
+  reservedAt: timestamp('reserved_at'),
+  redeemedOrderId: int('redeemed_order_id').references(() => orders.id),
+  redeemedAt: timestamp('redeemed_at'),
+}, (table) => ({
+  oneCampaignPerUser: uniqueIndex('user_vouchers_user_voucher_unique').on(table.userId, table.voucherId),
+  statusExpiryIdx: index('user_vouchers_status_expiry_idx').on(table.status, table.expiresAt),
+}));
+
 // ============ ORDER ITEMS ============
 export const orderItems = mysqlTable('order_items', {
   id: int('id').primaryKey().autoincrement(),
@@ -395,9 +508,43 @@ export const orderItems = mysqlTable('order_items', {
   productImage: varchar('product_image', { length: 500 }),
   variantLabel: varchar('variant_label', { length: 100 }), // "L / Mauve Wine" — snapshot saat beli
   price: decimal('price', { precision: 12, scale: 2 }).notNull(),
+  regularPrice: decimal('regular_price', { precision: 12, scale: 2 }),
+  productDiscountAmount: decimal('product_discount_amount', { precision: 12, scale: 2 }).default('0'),
   quantity: int('quantity').notNull(),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
 });
+
+// ============ POS RETURNS / REFUNDS ============
+// Separate ledger keeps partial returns auditable without mutating the original sale.
+export const posReturns = mysqlTable('pos_returns', {
+  id: int('id').primaryKey().autoincrement(),
+  returnNumber: varchar('return_number', { length: 50 }).notNull().unique(),
+  orderId: int('order_id').references(() => orders.id).notNull(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  posSessionId: int('pos_session_id').references(() => posSessions.id),
+  actorUserId: int('actor_user_id').references(() => users.id).notNull(),
+  refundMethod: mysqlEnum('refund_method', ['cash', 'qris', 'transfer']).notNull(),
+  refundAmount: decimal('refund_amount', { precision: 12, scale: 2 }).notNull(),
+  reason: varchar('reason', { length: 500 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  orderCreatedIdx: index('pos_returns_order_created_idx').on(table.orderId, table.createdAt),
+  locationCreatedIdx: index('pos_returns_location_created_idx').on(table.locationId, table.createdAt),
+}));
+
+export const posReturnItems = mysqlTable('pos_return_items', {
+  id: int('id').primaryKey().autoincrement(),
+  returnId: int('return_id').references(() => posReturns.id, { onDelete: 'cascade' }).notNull(),
+  orderItemId: int('order_item_id').references(() => orderItems.id).notNull(),
+  productId: int('product_id').references(() => products.id).notNull(),
+  variantId: int('variant_id').references(() => productVariants.id),
+  quantity: int('quantity').notNull(),
+  refundAmount: decimal('refund_amount', { precision: 12, scale: 2 }).notNull(),
+  restocked: boolean('restocked').default(true).notNull(),
+}, (table) => ({
+  returnIdx: index('pos_return_items_return_idx').on(table.returnId),
+  orderItemIdx: index('pos_return_items_order_item_idx').on(table.orderItemId),
+}));
 
 // ============ AFFILIATE COMMISSIONS (LEDGER) ============
 // Satu baris per order_item yang menghasilkan komisi.
@@ -584,11 +731,43 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   addresses: many(addresses),
   posSessions: many(posSessions),
   membership: one(memberships, { fields: [users.id], references: [memberships.userId] }),
+  vouchers: many(userVouchers),
 }));
 
 export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
   cashier: one(users, { fields: [posSessions.cashierId], references: [users.id] }),
+  location: one(inventoryLocations, { fields: [posSessions.locationId], references: [inventoryLocations.id] }),
   orders: many(orders),
+}));
+
+export const inventoryLocationsRelations = relations(inventoryLocations, ({ one, many }) => ({
+  store: one(stores, { fields: [inventoryLocations.storeId], references: [stores.id] }),
+  balances: many(inventoryBalances),
+  movements: many(inventoryMovements),
+  transfersOut: many(inventoryTransfers, { relationName: 'inventoryTransferFrom' }),
+  transfersIn: many(inventoryTransfers, { relationName: 'inventoryTransferTo' }),
+  posSessions: many(posSessions),
+}));
+
+export const inventoryTransfersRelations = relations(inventoryTransfers, ({ one }) => ({
+  fromLocation: one(inventoryLocations, { fields: [inventoryTransfers.fromLocationId], references: [inventoryLocations.id], relationName: 'inventoryTransferFrom' }),
+  toLocation: one(inventoryLocations, { fields: [inventoryTransfers.toLocationId], references: [inventoryLocations.id], relationName: 'inventoryTransferTo' }),
+  product: one(products, { fields: [inventoryTransfers.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [inventoryTransfers.variantId], references: [productVariants.id] }),
+  actor: one(users, { fields: [inventoryTransfers.actorUserId], references: [users.id] }),
+}));
+
+export const inventoryBalancesRelations = relations(inventoryBalances, ({ one }) => ({
+  location: one(inventoryLocations, { fields: [inventoryBalances.locationId], references: [inventoryLocations.id] }),
+  product: one(products, { fields: [inventoryBalances.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [inventoryBalances.variantId], references: [productVariants.id] }),
+}));
+
+export const inventoryMovementsRelations = relations(inventoryMovements, ({ one }) => ({
+  location: one(inventoryLocations, { fields: [inventoryMovements.locationId], references: [inventoryLocations.id] }),
+  product: one(products, { fields: [inventoryMovements.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [inventoryMovements.variantId], references: [productVariants.id] }),
+  actor: one(users, { fields: [inventoryMovements.actorUserId], references: [users.id] }),
 }));
 
 export const addressesRelations = relations(addresses, ({ one }) => ({
@@ -616,6 +795,14 @@ export const vouchersRelations = relations(vouchers, ({ one, many }) => ({
   store: one(stores, { fields: [vouchers.storeId], references: [stores.id] }),
   tier: one(memberTiers, { fields: [vouchers.tierId], references: [memberTiers.id] }),
   orders: many(orders),
+  grants: many(userVouchers),
+}));
+
+export const userVouchersRelations = relations(userVouchers, ({ one }) => ({
+  user: one(users, { fields: [userVouchers.userId], references: [users.id] }),
+  voucher: one(vouchers, { fields: [userVouchers.voucherId], references: [vouchers.id] }),
+  reservedOrder: one(orders, { fields: [userVouchers.reservedOrderId], references: [orders.id], relationName: 'reservedVoucherOrder' }),
+  redeemedOrder: one(orders, { fields: [userVouchers.redeemedOrderId], references: [orders.id], relationName: 'redeemedVoucherOrder' }),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -629,6 +816,9 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   cartItems: many(cartItems),
   orderItems: many(orderItems),
   images: many(productImages),
+  inventoryBalances: many(inventoryBalances),
+  inventoryMovements: many(inventoryMovements),
+  barcodes: many(productBarcodes),
 }));
 
 export const productImagesRelations = relations(productImages, ({ one }) => ({
@@ -642,6 +832,14 @@ export const productVariantsRelations = relations(productVariants, ({ one, many 
   product: one(products, { fields: [productVariants.productId], references: [products.id] }),
   cartItems: many(cartItems),
   orderItems: many(orderItems),
+  inventoryBalances: many(inventoryBalances),
+  inventoryMovements: many(inventoryMovements),
+  barcodes: many(productBarcodes),
+}));
+
+export const productBarcodesRelations = relations(productBarcodes, ({ one }) => ({
+  product: one(products, { fields: [productBarcodes.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [productBarcodes.variantId], references: [productVariants.id] }),
 }));
 
 export const cartItemsRelations = relations(cartItems, ({ one }) => ({
@@ -751,6 +949,8 @@ export type NewMembership = InferInsertModel<typeof memberships>;
 
 export type Voucher = InferSelectModel<typeof vouchers>;
 export type NewVoucher = InferInsertModel<typeof vouchers>;
+export type UserVoucher = InferSelectModel<typeof userVouchers>;
+export type NewUserVoucher = InferInsertModel<typeof userVouchers>;
 
 export type PointsLedgerEntry = InferSelectModel<typeof pointsLedger>;
 export type NewPointsLedgerEntry = InferInsertModel<typeof pointsLedger>;
@@ -774,6 +974,8 @@ export type NewOrder = InferInsertModel<typeof orders>;
 
 export type OrderItem = InferSelectModel<typeof orderItems>;
 export type NewOrderItem = InferInsertModel<typeof orderItems>;
+export type PosReturn = InferSelectModel<typeof posReturns>;
+export type PosReturnItem = InferSelectModel<typeof posReturnItems>;
 
 export type Invoice = InferSelectModel<typeof invoices>;
 

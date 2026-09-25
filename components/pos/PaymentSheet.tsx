@@ -6,9 +6,10 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { X, Banknote, QrCode, ArrowRightLeft, ArrowLeft } from "lucide-react";
+import { X, Banknote, QrCode, ArrowRightLeft, ArrowLeft, Tag } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { createPosOrder } from "@/app/actions/pos-orders";
+import { calculatePosDiscountPricing, type PosDiscount } from "@/lib/pos-discounts";
 import type { CartLine } from "./CashierScreen";
 
 const QUICK_CASH = [
@@ -26,23 +27,50 @@ interface Props {
   sessionId: number;
   cart: CartLine[];
   total: number;
+  maxDiscountPercent: number;
   qrisUrl: string | null;
   onClose: () => void;
   onSuccess: (orderId: number) => void;
 }
 
-export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSuccess }: Props) {
+export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisUrl, onClose, onSuccess }: Props) {
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cashInput, setCashInput] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [lineDiscounts, setLineDiscounts] = useState<Record<string, PosDiscount>>({});
+  const [orderDiscount, setOrderDiscount] = useState<PosDiscount>({ type: "percent", value: 0 });
   const [isPending, startTransition] = useTransition();
 
+  const discountPricing = useMemo(() => {
+    try {
+      return {
+        value: calculatePosDiscountPricing(
+          cart.map(line => ({
+            key: line.key,
+            unitPrice: line.unitPrice,
+            quantity: line.quantity,
+            discount: lineDiscounts[line.key],
+          })),
+          orderDiscount,
+          maxDiscountPercent,
+        ),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        value: null,
+        error: error instanceof Error ? error.message : "Diskon tidak valid",
+      };
+    }
+  }, [cart, lineDiscounts, maxDiscountPercent, orderDiscount]);
+  const payableTotal = discountPricing.value?.total ?? total;
   const cashReceived = Number(cashInput) || 0;
   const change = useMemo(
-    () => (method === "cash" ? cashReceived - total : 0),
-    [method, cashReceived, total]
+    () => (method === "cash" ? cashReceived - payableTotal : 0),
+    [method, cashReceived, payableTotal]
   );
-  const cashOk = method !== "cash" || cashReceived >= total;
+  const cashOk = method !== "cash" || cashReceived >= payableTotal;
 
   function numpadPress(key: string) {
     if (key === "back") {
@@ -57,8 +85,12 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
   }
 
   function handleConfirm() {
+    if (!discountPricing.value) {
+      toast.error(discountPricing.error ?? "Diskon tidak valid");
+      return;
+    }
     if (!cashOk) {
-      toast.error(`Uang kurang. Butuh ${formatRupiah(total)}`);
+      toast.error(`Uang kurang. Butuh ${formatRupiah(payableTotal)}`);
       return;
     }
 
@@ -69,10 +101,12 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
           productId: l.productId,
           variantId: l.variantId,
           quantity: l.quantity,
+          discount: lineDiscounts[l.key]?.value > 0 ? lineDiscounts[l.key] : undefined,
         })),
         paymentMethod: method,
         cashReceived: method === "cash" ? cashReceived : undefined,
         customerName: customerName || undefined,
+        orderDiscount: orderDiscount.value > 0 ? orderDiscount : undefined,
       });
 
       if (result.success && result.orderId) {
@@ -110,7 +144,74 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
         {/* Total */}
         <section className="px-4 py-6 bg-slate-900 text-white text-center">
           <p className="text-xs uppercase tracking-wide text-slate-400">Total Belanja</p>
-          <p className="text-4xl md:text-5xl font-bold mt-1">{formatRupiah(total)}</p>
+          <p className="text-4xl md:text-5xl font-bold mt-1">{formatRupiah(payableTotal)}</p>
+          {discountPricing.value && discountPricing.value.discountTotal > 0 && (
+            <div className="mt-2 flex items-center justify-center gap-2 text-xs">
+              <span className="text-slate-400 line-through">{formatRupiah(discountPricing.value.subtotal)}</span>
+              <span className="font-semibold text-emerald-300">
+                Hemat {formatRupiah(discountPricing.value.discountTotal)}
+              </span>
+            </div>
+          )}
+        </section>
+
+        {/* Discounts */}
+        <section className="border-b border-slate-200 px-4 py-4">
+          <button
+            type="button"
+            onClick={() => setDiscountOpen(value => !value)}
+            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Tag className="h-4 w-4" />
+              Diskon POS
+            </span>
+            <span className="text-xs font-medium text-slate-500">
+              {discountPricing.value?.discountTotal
+                ? `-${formatRupiah(discountPricing.value.discountTotal)}`
+                : discountOpen ? "Tutup" : "Tambah"}
+            </span>
+          </button>
+
+          {discountOpen && (
+            <div className="mt-3 space-y-3">
+              <p className="text-[11px] text-slate-500">
+                Batas diskon gabungan akun ini {maxDiscountPercent}% dari subtotal.
+              </p>
+              {cart.map(line => (
+                <div key={line.key} className="rounded-xl bg-slate-50 p-3">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-slate-800">{line.productName}</p>
+                      {line.variantLabel && <p className="text-[10px] text-slate-500">{line.variantLabel}</p>}
+                    </div>
+                    <span className="shrink-0 text-xs font-medium text-slate-700">
+                      {formatRupiah(line.unitPrice * line.quantity)}
+                    </span>
+                  </div>
+                  <DiscountInput
+                    label="Diskon item"
+                    discount={lineDiscounts[line.key] ?? { type: "percent", value: 0 }}
+                    onChange={discount => setLineDiscounts(current => ({ ...current, [line.key]: discount }))}
+                  />
+                </div>
+              ))}
+
+              <div className="rounded-xl border border-slate-200 p-3">
+                <DiscountInput
+                  label="Diskon transaksi"
+                  discount={orderDiscount}
+                  onChange={setOrderDiscount}
+                />
+              </div>
+
+              {discountPricing.error && (
+                <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                  {discountPricing.error}
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Payment method tabs */}
@@ -164,7 +265,7 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
             {/* Quick amounts */}
             <div className="grid grid-cols-3 gap-2">
               {QUICK_CASH.map((q, i) => {
-                const val = "value" in q ? q.value : q.getValue!(total);
+                const val = "value" in q ? q.value : q.getValue!(payableTotal);
                 return (
                   <button
                     key={i}
@@ -223,7 +324,7 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
                   ? "Tunjukkan QRIS ke customer, lalu konfirmasi setelah dibayar"
                   : "Upload gambar QRIS di /dashboard/settings dulu"}
               </p>
-              <p className="text-lg font-bold text-slate-900 mt-2">{formatRupiah(total)}</p>
+              <p className="text-lg font-bold text-slate-900 mt-2">{formatRupiah(payableTotal)}</p>
             </div>
           </section>
         )}
@@ -237,7 +338,7 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
               <p className="text-sm text-slate-600">
                 Pastikan customer sudah transfer dan dana masuk sebelum konfirmasi.
               </p>
-              <p className="text-lg font-bold text-slate-900 mt-3">{formatRupiah(total)}</p>
+              <p className="text-lg font-bold text-slate-900 mt-3">{formatRupiah(payableTotal)}</p>
             </div>
           </section>
         )}
@@ -261,7 +362,7 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
       <footer className="px-4 py-3 border-t border-slate-200 bg-white">
         <button
           onClick={handleConfirm}
-          disabled={isPending || !cashOk}
+          disabled={isPending || !cashOk || !discountPricing.value}
           className="w-full py-4 text-base font-bold bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           {isPending
@@ -271,6 +372,58 @@ export function PaymentSheet({ sessionId, cart, total, qrisUrl, onClose, onSucce
               : "Sudah Dibayar → Cetak Struk"}
         </button>
       </footer>
+    </div>
+  );
+}
+
+function DiscountInput({
+  label,
+  discount,
+  onChange,
+}: {
+  label: string;
+  discount: PosDiscount;
+  onChange: (discount: PosDiscount) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      <div className="flex gap-2">
+        <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-0.5">
+          {(["percent", "fixed"] as const).map(type => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => onChange({ type, value: discount.value })}
+              className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                discount.type === type ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {type === "percent" ? "%" : "Rp"}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={discount.value || ""}
+          onChange={event => onChange({ ...discount, value: Math.max(0, Number(event.target.value) || 0) })}
+          placeholder="0"
+          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+        {discount.value > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange({ ...discount, value: 0 })}
+            className="rounded-lg px-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+          >
+            Hapus
+          </button>
+        )}
+      </div>
     </div>
   );
 }

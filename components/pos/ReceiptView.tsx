@@ -13,6 +13,8 @@ import { getPosOrder } from "@/app/actions/pos-orders";
 
 type ReceiptData = {
   orderNumber: string;
+  subtotal: number;
+  discountAmount: number;
   total: number;
   cashReceived: number | null;
   cashChange: number | null;
@@ -24,6 +26,7 @@ type ReceiptData = {
     variantLabel: string | null;
     quantity: number;
     unitPrice: number;
+    discountAmount: number;
     subtotal: number;
   }[];
 };
@@ -63,6 +66,8 @@ export function ReceiptView({
       }
       const receipt: ReceiptData = {
         orderNumber: order.orderNumber,
+        subtotal: Number(order.subtotal),
+        discountAmount: Number(order.discountAmount ?? 0),
         total: Number(order.total),
         cashReceived: order.cashReceived ? Number(order.cashReceived) : null,
         cashChange: order.cashChange ? Number(order.cashChange) : null,
@@ -74,6 +79,7 @@ export function ReceiptView({
           variantLabel: it.variantLabel,
           quantity: it.quantity,
           unitPrice: Number(it.price),
+          discountAmount: Math.max(0, Number(it.price) * it.quantity - Number(it.subtotal)),
           subtotal: Number(it.subtotal),
         })),
       };
@@ -104,9 +110,11 @@ export function ReceiptView({
       ...data.items.map(
         (it) =>
           `${it.productName}${it.variantLabel ? ` (${it.variantLabel})` : ""}\n` +
-          `  ${it.quantity} × ${formatRupiah(it.unitPrice)} = ${formatRupiah(it.subtotal)}`
+          `  ${it.quantity} × ${formatRupiah(it.unitPrice)}${it.discountAmount > 0 ? ` - diskon ${formatRupiah(it.discountAmount)}` : ""} = ${formatRupiah(it.subtotal)}`
       ),
       "",
+      data.discountAmount > 0 ? `Subtotal: ${formatRupiah(data.subtotal)}` : "",
+      data.discountAmount > 0 ? `Diskon: -${formatRupiah(data.discountAmount)}` : "",
       `*TOTAL: ${formatRupiah(data.total)}*`,
       data.paymentMethod ? `Bayar: ${PAYMENT_LABELS[data.paymentMethod]}` : "",
       data.cashReceived !== null ? `Diterima: ${formatRupiah(data.cashReceived)}` : "",
@@ -183,19 +191,37 @@ export function ReceiptView({
           {/* Items */}
           <div className="border-t border-dashed border-zinc-300 pt-2 mb-2 space-y-2">
             {data.items.map((it, i) => (
-              <div key={i}>
+              <div key={i} data-receipt-item>
                 <p className="font-semibold text-zinc-900 leading-tight">{it.productName}</p>
                 {it.variantLabel && <p className="text-[10px] text-zinc-500">{it.variantLabel}</p>}
                 <div className="flex justify-between mt-0.5">
                   <span className="text-zinc-600">{it.quantity} × {formatRupiah(it.unitPrice)}</span>
-                  <span className="font-semibold">{formatRupiah(it.subtotal)}</span>
+                  <span className="font-semibold">{formatRupiah(it.unitPrice * it.quantity)}</span>
                 </div>
+                {it.discountAmount > 0 && (
+                  <div className="flex justify-between text-[10px] text-zinc-500">
+                    <span>Diskon item</span>
+                    <span>-{formatRupiah(it.discountAmount)}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
           {/* Total + pembayaran */}
           <div className="border-t border-dashed border-zinc-300 pt-2 space-y-1 text-[11px]">
+            {data.discountAmount > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{formatRupiah(data.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Diskon</span>
+                  <span>-{formatRupiah(data.discountAmount)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between font-bold text-sm">
               <span>TOTAL</span>
               <span>{formatRupiah(data.total)}</span>

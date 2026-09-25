@@ -5,6 +5,13 @@ const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
 const mockUpdateReturn = vi.fn();
 const mockDeleteReturn = vi.fn();
+const { mockAuth } = vi.hoisted(() => ({
+  mockAuth: vi.fn(),
+}));
+
+vi.mock('@/lib/auth', () => ({
+  auth: mockAuth,
+}));
 
 const mockChain = () => {
   const chain: any = {};
@@ -50,7 +57,9 @@ vi.mock('@/lib/db', () => ({
 import {
   createProduct,
   updateProduct,
+  createDraftProduct,
   deleteProduct,
+  importProductsFromCsv,
   getProducts,
   getActiveProducts,
   getProduct,
@@ -59,6 +68,9 @@ import {
 describe('Product Server Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuth.mockResolvedValue({
+      user: { id: '1', name: 'Admin', email: 'admin@example.com', role: 'admin' },
+    });
     mockSelectReturn.mockReturnValue([]);
     mockInsertReturn.mockReturnValue([{ insertId: 1 }]);
   });
@@ -70,7 +82,7 @@ describe('Product Server Actions', () => {
       fd.set('price', '100000');
       fd.set('stock', '10');
 
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       expect(result?.success).toBe(false);
       expect(result?.errors?.name).toBeDefined();
     });
@@ -81,7 +93,7 @@ describe('Product Server Actions', () => {
       fd.set('price', '-1');
       fd.set('stock', '10');
 
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       expect(result?.success).toBe(false);
       expect(result?.errors?.price).toBeDefined();
     });
@@ -94,7 +106,7 @@ describe('Product Server Actions', () => {
 
       // redirect throws inside the action's try-catch, so it returns error
       // This is expected behavior - in real Next.js, redirect is handled specially
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       // The action catches redirect error and returns _form error
       // In real Next.js this works because redirect errors are re-thrown by the framework
       expect(result).toBeDefined();
@@ -107,7 +119,7 @@ describe('Product Server Actions', () => {
       fd.set('stock', '10');
       fd.set('weight', '500');
 
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       expect(result).toBeDefined();
     });
 
@@ -118,7 +130,7 @@ describe('Product Server Actions', () => {
       fd.set('stock', '10');
       fd.set('weight', '-100');
 
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       expect(result?.success).toBe(false);
       expect(result?.errors?.weight).toBeDefined();
     });
@@ -130,7 +142,7 @@ describe('Product Server Actions', () => {
       fd.set('stock', '10');
 
       // Should not fail validation — weight defaults to 0
-      const result = await createProduct(fd);
+      const result = await createProduct(null, fd);
       expect(result).toBeDefined();
     });
   });
@@ -142,7 +154,7 @@ describe('Product Server Actions', () => {
       fd.set('price', '100000');
       fd.set('stock', '10');
 
-      const result = await updateProduct(1, fd);
+      const result = await updateProduct(1, null, fd);
       expect(result?.success).toBe(false);
     });
 
@@ -152,7 +164,7 @@ describe('Product Server Actions', () => {
       fd.set('price', '200000');
       fd.set('stock', '5');
 
-      const result = await updateProduct(1, fd);
+      const result = await updateProduct(1, null, fd);
       expect(result).toBeDefined();
     });
   });
@@ -161,6 +173,57 @@ describe('Product Server Actions', () => {
     it('deletes and returns success', async () => {
       const result = await deleteProduct(1);
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe.each([
+    ['anonymous', null],
+    ['customer', { user: { id: '2', name: 'Customer', email: 'customer@example.com', role: 'customer' } }],
+  ])('authorization: %s', (_label, session) => {
+    beforeEach(() => {
+      mockAuth.mockResolvedValue(session);
+    });
+
+    it('blocks createProduct before accessing the database', async () => {
+      const fd = new FormData();
+      fd.set('name', 'Unauthorized Product');
+      fd.set('price', '100000');
+      fd.set('stock', '10');
+
+      const result = await createProduct(null, fd);
+
+      expect(result).toMatchObject({ success: false, errors: { _form: ['Unauthorized'] } });
+      expect(mockInsertReturn).not.toHaveBeenCalled();
+    });
+
+    it('blocks updateProduct before accessing the database', async () => {
+      const result = await updateProduct(1, null, new FormData());
+
+      expect(result).toMatchObject({ success: false, errors: { _form: ['Unauthorized'] } });
+      expect(mockSelectReturn).not.toHaveBeenCalled();
+      expect(mockUpdateReturn).not.toHaveBeenCalled();
+    });
+
+    it('blocks createDraftProduct before accessing the database', async () => {
+      await expect(createDraftProduct()).resolves.toBeNull();
+      expect(mockInsertReturn).not.toHaveBeenCalled();
+    });
+
+    it('blocks deleteProduct before accessing the database', async () => {
+      await expect(deleteProduct(1)).resolves.toEqual({ success: false, error: 'Unauthorized' });
+      expect(mockDeleteReturn).not.toHaveBeenCalled();
+    });
+
+    it('blocks importProductsFromCsv before reading or writing data', async () => {
+      const result = await importProductsFromCsv(null, new FormData());
+
+      expect(result).toEqual({
+        success: false,
+        imported: 0,
+        errors: [],
+        formError: 'Unauthorized',
+      });
+      expect(mockInsertReturn).not.toHaveBeenCalled();
     });
   });
 

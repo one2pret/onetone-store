@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockSelectReturn = vi.fn();
 const mockUpdateReturn = vi.fn();
+const mockInsertReturn = vi.fn();
 
 const mockChain = (returnFn = mockSelectReturn) => {
   const chain: any = {};
   chain.from = vi.fn().mockReturnValue(chain);
   chain.where = vi.fn().mockReturnValue(chain);
   chain.set = vi.fn().mockReturnValue(chain);
+  chain.values = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
   chain.then = (resolve: any) => resolve(returnFn());
   chain.catch = () => chain;
@@ -18,6 +20,7 @@ vi.mock('@/lib/db', () => ({
   db: {
     select: vi.fn(() => mockChain()),
     update: vi.fn(() => mockChain(mockUpdateReturn)),
+    insert: vi.fn(() => mockChain(mockInsertReturn)),
   },
 }));
 
@@ -29,16 +32,22 @@ describe('Stock Management', () => {
     vi.clearAllMocks();
     mockSelectReturn.mockReturnValue([]);
     mockUpdateReturn.mockReturnValue(undefined);
+    mockInsertReturn.mockReturnValue(undefined);
   });
 
   describe('deductStock', () => {
     it('deducts stock for multiple items', async () => {
+      mockSelectReturn
+        .mockReturnValueOnce([{ id: 10 }])
+        .mockReturnValueOnce([{ id: 101, quantity: 10, reserved: 0 }])
+        .mockReturnValueOnce([{ id: 10 }])
+        .mockReturnValueOnce([{ id: 102, quantity: 10, reserved: 0 }]);
       await deductStock([
         { productId: 1, quantity: 2 },
         { productId: 2, quantity: 3 },
       ]);
 
-      expect(db.update).toHaveBeenCalledTimes(2);
+      expect(db.update).toHaveBeenCalledTimes(4);
     });
 
     it('does nothing for empty items', async () => {
@@ -49,15 +58,17 @@ describe('Stock Management', () => {
 
   describe('restoreStock', () => {
     it('restores stock from order items', async () => {
-      mockSelectReturn.mockReturnValue([
-        { productId: 1, quantity: 2 },
-        { productId: 3, quantity: 1 },
-      ]);
+      mockSelectReturn
+        .mockReturnValueOnce([{ productId: 1, quantity: 2 }, { productId: 3, quantity: 1 }])
+        .mockReturnValueOnce([{ id: 10 }])
+        .mockReturnValueOnce([{ id: 101, quantity: 8, reserved: 0 }])
+        .mockReturnValueOnce([{ id: 10 }])
+        .mockReturnValueOnce([{ id: 103, quantity: 9, reserved: 0 }]);
 
       await restoreStock(1);
 
       expect(db.select).toHaveBeenCalled();
-      expect(db.update).toHaveBeenCalledTimes(2);
+      expect(db.update).toHaveBeenCalledTimes(4);
     });
 
     it('does nothing when order has no items', async () => {
@@ -73,8 +84,8 @@ describe('Stock Management', () => {
   describe('validateStock', () => {
     it('returns valid for sufficient stock', async () => {
       mockSelectReturn
-        .mockReturnValueOnce([{ id: 1, stock: 50 }])
-        .mockReturnValueOnce([{ id: 2, stock: 30 }]);
+        .mockReturnValueOnce([{ id: 1, stock: 50, isActive: true }])
+        .mockReturnValueOnce([{ id: 2, stock: 30, isActive: true }]);
 
       const result = await validateStock([
         { productId: 1, quantity: 2, productName: 'Earbuds' },
@@ -87,8 +98,8 @@ describe('Stock Management', () => {
 
     it('returns invalid for insufficient stock', async () => {
       mockSelectReturn
-        .mockReturnValueOnce([{ id: 1, stock: 1 }])
-        .mockReturnValueOnce([{ id: 2, stock: 0 }]);
+        .mockReturnValueOnce([{ id: 1, stock: 1, isActive: true }])
+        .mockReturnValueOnce([{ id: 2, stock: 0, isActive: true }]);
 
       const result = await validateStock([
         { productId: 1, quantity: 5, productName: 'Earbuds' },
@@ -102,7 +113,7 @@ describe('Stock Management', () => {
     });
 
     it('returns invalid for zero stock', async () => {
-      mockSelectReturn.mockReturnValueOnce([{ id: 1, stock: 0 }]);
+      mockSelectReturn.mockReturnValueOnce([{ id: 1, stock: 0, isActive: true }]);
 
       const result = await validateStock([
         { productId: 1, quantity: 1, productName: 'Earbuds' },

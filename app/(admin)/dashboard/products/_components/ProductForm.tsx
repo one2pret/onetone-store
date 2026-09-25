@@ -32,6 +32,7 @@ interface Props {
   primaryImageUrl?: string;
   /** Produk draft dibuat otomatis pas halaman create dibuka — belum benar-benar disubmit user */
   isDraft?: boolean;
+  barcodes?: { id: number; code: string; productId: number; variantId: number | null; createdAt: Date | null }[];
 }
 
 type ActionResult = {
@@ -39,6 +40,13 @@ type ActionResult = {
   errors?: Record<string, string[]>;
   productId?: number;
 } | null;
+
+function toDatetimeLocal(value: Date | string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 // ── Image URL Input ──────────────────────────────────────────────────────────
 function ImageUrlInput({
@@ -95,7 +103,7 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
           <Plus className="w-3.5 h-3.5" /> Tambah Foto
         </Button>
       </div>
-      {value.length === 0 && <p className="text-xs text-muted-foreground py-1">Opsional — foto galeri tambahan.</p>}
+      {value.length === 0 && <p className="text-xs text-muted-foreground py-1">Opsional, untuk foto galeri tambahan.</p>}
       <div className="space-y-2">
         {value.map((url, i) => (
           <div key={i} className="flex gap-2 items-center">
@@ -116,12 +124,14 @@ function MultiImageInput({ value, onChange }: { value: string[]; onChange: (v: s
 }
 
 // ── Main ProductForm ─────────────────────────────────────────────────────────
-export function ProductForm({ product, categories, variants = [], images = [], usedInOrderIds = [], usedInCartIds = [], primaryImageUrl, isDraft = false }: Props) {
+export function ProductForm({ product, categories, variants = [], images = [], usedInOrderIds = [], usedInCartIds = [], primaryImageUrl, isDraft = false, barcodes = [] }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ActionResult>(null);
   const [isPending, startTransition] = useTransition();
   const [isCancelling, setIsCancelling] = useState(false);
   const [variantManagerKey, setVariantManagerKey] = useState(0);
+  const [promoEnabled, setPromoEnabled] = useState(Boolean(product?.salePrice));
+  const [posNamePreview, setPosNamePreview] = useState(product?.posName ?? '');
 
   // Draft product dibuat sekali di client saat form create benar-benar di-mount
   // (bukan di Server Component page) — Link prefetch bisa eksekusi Server Component
@@ -148,12 +158,16 @@ export function ProductForm({ product, categories, variants = [], images = [], u
   const [variantRows, setVariantRows] = useState<VariantRow[]>(
     variants.map((v) => ({
       _key: Math.random().toString(36).slice(2),
+      id: v.id,
       size: v.size,
       color: v.color,
       colorHex: v.colorHex ?? '',
       stock: v.stock,
       priceModifier: parseFloat(String(v.priceModifier ?? 0)),
+      salePriceOverride: v.salePriceOverride === null ? null : Number(v.salePriceOverride),
       sku: v.sku ?? '',
+      posLabel: v.posLabel ?? '',
+      barcode: barcodes.find(barcode => barcode.variantId === v.id)?.code ?? '',
       isActive: v.isActive ?? true,
     }))
   );
@@ -168,19 +182,22 @@ export function ProductForm({ product, categories, variants = [], images = [], u
 
     startTransition(async () => {
       let result: ActionResult;
-
-      if (activeProductId) {
-        // UPDATE — draft (create flow) atau produk asli (edit flow), no redirect() in action
-        result = await updateProduct(activeProductId, null, formData);
-        if (result?.success) {
-          await upsertProductVariants(activeProductId, variantRows);
+      try {
+        if (activeProductId) {
+          result = await updateProduct(activeProductId, null, formData);
+          if (result?.success) {
+            const variantResult = await upsertProductVariants(activeProductId, variantRows);
+            if (!variantResult.success) result = { success: false, errors: { _form: [variantResult.error ?? 'Gagal menyimpan varian'] } };
+          }
+        } else {
+          result = await createProduct(null, formData);
+          if (result?.success && result.productId) {
+            const variantResult = await upsertProductVariants(result.productId, variantRows);
+            if (!variantResult.success) result = { success: false, errors: { _form: [variantResult.error ?? 'Gagal menyimpan varian'] } };
+          }
         }
-      } else {
-        // Fallback — draft belum selesai dibuat pas submit ditekan
-        result = await createProduct(null, formData);
-        if (result?.success && result.productId) {
-          await upsertProductVariants(result.productId, variantRows);
-        }
+      } catch (error) {
+        result = { success: false, errors: { _form: [error instanceof Error ? error.message : 'Gagal menyimpan katalog POS'] } };
       }
 
       setState(result);
@@ -225,6 +242,20 @@ export function ProductForm({ product, categories, variants = [], images = [], u
             <Input id="name" name="name" type="text" defaultValue={product?.name}
               required className="mt-1" placeholder="Contoh: Legging Sports ONETONE" />
             {state?.errors?.name && <p className="text-destructive text-sm mt-1">{state.errors.name[0]}</p>}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="posName" className="text-foreground">Nama pendek POS</Label>
+              <Input id="posName" name="posName" maxLength={60} value={posNamePreview} onChange={(event) => setPosNamePreview(event.target.value)} className="mt-1" placeholder="Contoh: Anker PB 20K Black" />
+              <p className="mt-1 text-xs text-muted-foreground">Dipakai pada kartu kasir dan struk. Maksimal 60 karakter.</p>
+              <p className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"><span className="text-muted-foreground">Preview POS:</span> <span className="font-semibold text-foreground">{posNamePreview.trim() || product?.name || 'Nama produk utama'}</span></p>
+            </div>
+            <div>
+              <Label htmlFor="barcode" className="text-foreground">Barcode produk</Label>
+              <Input id="barcode" name="barcode" maxLength={100} defaultValue={barcodes.find(barcode => barcode.variantId === null)?.code ?? ''} className="mt-1 font-mono" placeholder="899000000001" />
+              <p className="mt-1 text-xs text-muted-foreground">Untuk produk tanpa varian. Harus unik.</p>
+            </div>
           </div>
 
           <div>
@@ -312,8 +343,69 @@ export function ProductForm({ product, categories, variants = [], images = [], u
         </div>
       </div>
 
+      {/* ── Promo Terjadwal ────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Promo Harga Online</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Berlaku otomatis di katalog, detail produk, keranjang, dan checkout. Harga POS tidak berubah.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={promoEnabled}
+              onChange={(event) => setPromoEnabled(event.target.checked)}
+              className="w-4 h-4 accent-primary rounded"
+            />
+            Aktifkan promo
+          </label>
+        </div>
+
+        {promoEnabled && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-border">
+            <div>
+              <Label htmlFor="salePrice">Harga Promo (Rp)</Label>
+              <CurrencyInput
+                id="salePrice"
+                name="salePrice"
+                defaultValue={product?.salePrice ? Number(product.salePrice) : ''}
+                required
+                className="mt-1"
+              />
+              {state?.errors?.salePrice && <p className="text-destructive text-sm mt-1">{state.errors.salePrice[0]}</p>}
+            </div>
+            <div>
+              <Label htmlFor="saleStartsAt">Mulai (opsional)</Label>
+              <Input
+                id="saleStartsAt"
+                name="saleStartsAt"
+                type="datetime-local"
+                defaultValue={toDatetimeLocal(product?.saleStartsAt)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="saleEndsAt">Selesai (opsional)</Label>
+              <Input
+                id="saleEndsAt"
+                name="saleEndsAt"
+                type="datetime-local"
+                defaultValue={toDatetimeLocal(product?.saleEndsAt)}
+                className="mt-1"
+              />
+              {state?.errors?.saleEndsAt && <p className="text-destructive text-sm mt-1">{state.errors.saleEndsAt[0]}</p>}
+            </div>
+            <p className="md:col-span-3 text-xs text-muted-foreground">
+              Tanpa jadwal, promo langsung aktif sampai dinonaktifkan. Voucher tetap dihitung setelah harga promo.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* ── Varian Produk ─────────────────────────────────── */}
-      <VariantManager key={variantManagerKey} initial={variants} onChange={setVariantRows} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
+      <VariantManager key={variantManagerKey} initial={variants} barcodes={barcodes} onChange={setVariantRows} usedInOrderIds={usedInOrderIds} usedInCartIds={usedInCartIds} />
 
       {/* ── Pengaturan ──────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl p-6">

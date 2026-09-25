@@ -35,7 +35,7 @@ export default async function VouchersPage() {
           <Tag className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm font-medium text-foreground">Tidak ada voucher aktif</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Voucher akan muncul setelah upgrade tier membership.
+            Voucher pengguna baru, membership, dan promo aktif akan muncul di sini.
           </p>
         </div>
       ) : (
@@ -61,6 +61,11 @@ export default async function VouchersPage() {
                           MEMBER
                         </span>
                       )}
+                      {v.audience === 'new_user' && (
+                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-semibold rounded-full">
+                          PENGGUNA BARU
+                        </span>
+                      )}
                     </div>
                     <p className="text-base font-bold text-foreground">
                       {formatValue(v.type, v.value ?? 0)}
@@ -70,9 +75,9 @@ export default async function VouchersPage() {
                         Min. belanja Rp {(v.minSpend ?? 0).toLocaleString('id-ID')}
                       </p>
                     )}
-                    {v.endsAt && (
+                    {v.effectiveEndsAt && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Berlaku s/d {formatDate(v.endsAt)}
+                        Berlaku s/d {formatDate(v.effectiveEndsAt)}
                       </p>
                     )}
                   </div>

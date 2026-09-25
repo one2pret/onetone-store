@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Package, ShoppingCart,
-  FolderOpen, Image as ImageIcon, Settings,
-  ExternalLink, X, Menu, Store, Calculator, Receipt, Users, Handshake,
+  FolderOpen, Image as ImageIcon, Settings, Warehouse,
+  ExternalLink, X, Menu, Store, Calculator, Receipt, Users, Handshake, TicketPercent, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
@@ -15,11 +15,14 @@ const navigation = [
   { name: 'Dashboard',   href: '/dashboard',            icon: LayoutDashboard },
   { name: 'Kasir (POS)', href: '/pos',                  icon: Calculator },
   { name: 'Sesi POS',    href: '/dashboard/pos/sessions', icon: Receipt },
+  { name: 'Retur POS',   href: '/dashboard/pos/returns',  icon: RotateCcw },
   { name: 'Banner',      href: '/dashboard/banners',    icon: ImageIcon },
   { name: 'Produk',      href: '/dashboard/products',   icon: Package },
+  { name: 'Inventori',   href: '/dashboard/inventory',  icon: Warehouse },
   { name: 'Kategori',    href: '/dashboard/categories', icon: FolderOpen },
   { name: 'Pesanan',     href: '/dashboard/orders',     icon: ShoppingCart },
   { name: 'Member',      href: '/dashboard/members',    icon: Users },
+  { name: 'Voucher',     href: '/dashboard/vouchers',   icon: TicketPercent },
   { name: 'Affiliate',   href: '/dashboard/affiliate',  icon: Handshake },
   { name: 'Pengaturan',  href: '/dashboard/settings',   icon: Settings },
 ];

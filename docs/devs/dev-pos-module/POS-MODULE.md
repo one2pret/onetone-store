@@ -235,11 +235,11 @@ Tutup Sesi → kembali ke halaman buka kasir
 |------|--------|-----------------|
 | Role `cashier` | Simplicity MVP, admin cukup | P2 kalau multi-kasir |
 | Barcode scan | Hardware belum ada di klien | P2 |
-| Thermal printer Bluetooth | Print browser sudah jalan | P2 (RawBT/Web Bluetooth) |
-| Diskon per item | Belum ada permintaan klien | P2 |
-| Retur/refund | Kompleks (audit trail) | P2 |
+| Thermal printer Bluetooth | Template BP-EC058 58mm + `/pos/test-print` tersedia; koneksi fisik ditunda | DEFERRED (Android Print Service/bridge) |
+| Diskon per item | Selesai: item/order, limit role, server validation | DONE |
+| Retur/refund | Selesai: partial return, audit, restock lokasi, Z-report | DONE |
 | QRIS dinamis Xendit | Butuh aktivasi merchant | P2 |
-| Reprint struk | Butuh riwayat di layar kasir | P2 |
+| Reprint struk | Selesai dari histori transaksi sesi | DONE |
 | Offline mode | Butuh Service Worker complex | P3 |
 | Multi-outlet | Butuh refactor stok per lokasi | P3 |
 | Unit test createPosOrder | Manual test sudah cukup MVP | Kapanpun |
@@ -285,11 +285,11 @@ Tutup Sesi → kembali ke halaman buka kasir
 
 - [ ] Barcode scanning via kamera HP (`html5-qrcode`)
 - [ ] PWA — installable, ikon home screen (butuh `manifest.json` + service worker basic)
-- [ ] Thermal printer Bluetooth (rekomendasi: RawBT Android intent — zero coding)
-- [ ] Diskon per item / per order (schema: `order_items.discountAmount`)
-- [ ] Refund / retur → `restoreStock()` reuse, status `refunded`
+- [ ] **DEFERRED** — thermal printer Bluetooth. Template BP-EC058 58mm dan `/pos/test-print` sudah tersedia; validasi Android Print Service/direct bridge dilanjutkan setelah prioritas deploy selesai.
+- [x] Diskon per item / per order dengan limit kasir/admin dan validasi server
+- [x] Refund / retur parsial dengan ledger terpisah, audit admin, dan restock lokasi asal
 - [ ] QRIS dinamis via Xendit (webhook auto-confirm)
-- [ ] Riwayat transaksi + reprint struk di layar kasir
+- [x] Riwayat transaksi + reprint/share struk di layar kasir
 - [ ] PIN login cepat untuk ganti kasir tanpa logout email/password
 
 ### Phase 3 (skala & white-label)

@@ -6,20 +6,67 @@ import { products, categories, productImages } from '@/lib/db/schema';
 import { eq, desc, and, like, asc, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { setOnlineInventoryStock } from '@/lib/inventory-stock';
 import { slugify } from '@/lib/utils';
 import { getAllCategories } from '@/app/actions/categories';
+import { auth } from '@/lib/auth';
+import { assertBarcodeAvailable, getProductBarcodeRows, setPrimaryBarcode } from '@/lib/product-barcodes';
+
+async function isAdmin(): Promise<boolean> {
+  const session = await auth();
+  return session?.user?.role === 'admin';
+}
+
+const optionalNumber = z.preprocess(
+  (value) => value === '' || value === null || value === undefined ? null : value,
+  z.coerce.number().positive('Harga promo harus lebih dari 0').nullable(),
+);
+
+const optionalDate = z.preprocess(
+  (value) => value === '' || value === null || value === undefined ? null : value,
+  z.coerce.date().nullable(),
+);
 
 const productSchema = z.object({
   name: z.string().min(1, 'Nama produk wajib diisi'),
+  posName: z.string().trim().max(60, 'Nama POS maksimal 60 karakter').optional(),
   categoryId: z.coerce.number().optional().nullable(),
   description: z.string().optional(),
   price: z.coerce.number().min(0, 'Harga tidak boleh negatif'),
+  salePrice: optionalNumber,
+  saleStartsAt: optionalDate,
+  saleEndsAt: optionalDate,
   stock: z.coerce.number().min(0, 'Stock tidak boleh negatif'),
   weight: z.coerce.number().min(0, 'Berat tidak boleh negatif').default(0),
   isActive: z.coerce.boolean().optional(),
   isFeatured: z.coerce.boolean().optional(),
   channel: z.enum(['all', 'store_only', 'marketplace_only']).default('all'),
+}).superRefine((data, ctx) => {
+  if (data.salePrice !== null && data.salePrice >= data.price) {
+    ctx.addIssue({ code: 'custom', path: ['salePrice'], message: 'Harga promo harus lebih rendah dari harga normal' });
+  }
+  if (data.saleStartsAt && data.saleEndsAt && data.saleEndsAt <= data.saleStartsAt) {
+    ctx.addIssue({ code: 'custom', path: ['saleEndsAt'], message: 'Waktu selesai harus setelah waktu mulai' });
+  }
 });
+
+function productFormValues(formData: FormData) {
+  return {
+    name: formData.get('name'),
+    posName: formData.get('posName') || '',
+    categoryId: formData.get('categoryId') || null,
+    description: formData.get('description'),
+    price: formData.get('price'),
+    salePrice: formData.get('salePrice'),
+    saleStartsAt: formData.get('saleStartsAt'),
+    saleEndsAt: formData.get('saleEndsAt'),
+    stock: formData.get('stock'),
+    weight: formData.get('weight') || 0,
+    isActive: formData.get('isActive') === 'on',
+    isFeatured: formData.get('isFeatured') === 'on',
+    channel: formData.get('channel') || 'all',
+  };
+}
 
 async function queryProductsWithCategory(whereConditions: any[], options?: { limit?: number }) {
   let query = db.select()
@@ -120,17 +167,15 @@ export async function getCategoryBySlug(slug: string) {
  * The caller (ProductForm) handles redirect after upsertProductVariants.
  */
 export async function createProduct(prevState: any, formData: FormData) {
-  const validated = productSchema.safeParse({
-    name: formData.get('name'),
-    categoryId: formData.get('categoryId') || null,
-    description: formData.get('description'),
-    price: formData.get('price'),
-    stock: formData.get('stock'),
-    weight: formData.get('weight') || 0,
-    isActive: formData.get('isActive') === 'on',
-    isFeatured: formData.get('isFeatured') === 'on',
-    channel: formData.get('channel') || 'all',
-  });
+  if (!(await isAdmin())) {
+    return {
+      success: false,
+      errors: { _form: ['Unauthorized'] },
+      productId: undefined,
+    };
+  }
+
+  const validated = productSchema.safeParse(productFormValues(formData));
 
   if (!validated.success) {
     return { success: false, errors: validated.error.flatten().fieldErrors, productId: undefined };
@@ -141,26 +186,31 @@ export async function createProduct(prevState: any, formData: FormData) {
   const slug = slugify(validated.data.name);
 
   try {
+    await assertBarcodeAvailable(String(formData.get('barcode') ?? ''));
     const inserted = await db
       .insert(products)
       .values({
         ...validated.data,
+        posName: validated.data.posName || null,
         slug,
         image,
         images,
         price: String(validated.data.price),
+        salePrice: validated.data.salePrice === null ? null : String(validated.data.salePrice),
       })
       .$returningId(); // Use $returningId without specific selection for simplicity
 
     const productId = inserted[0]?.id; // Access id from the first element of the returned array
+    if (productId) await setOnlineInventoryStock(productId, null, validated.data.stock);
+    if (productId) await setPrimaryBarcode(productId, null, String(formData.get('barcode') ?? ''));
     revalidatePath('/dashboard/products');
     revalidatePath('/products');
     // FIX: return productId so caller can save variants, then redirect
     return { success: true, productId };
-  } catch {
+  } catch (error) {
     return {
       success: false,
-      errors: { _form: ['Gagal membuat produk. Pastikan nama produk belum digunakan.'] },
+      errors: { _form: [error instanceof Error ? error.message : 'Gagal membuat produk. Pastikan nama produk belum digunakan.'] },
       productId: undefined,
     };
   }
@@ -171,17 +221,15 @@ export async function createProduct(prevState: any, formData: FormData) {
  * The caller (ProductForm) handles redirect after upsertProductVariants.
  */
 export async function updateProduct(id: number, prevState: any, formData: FormData) {
-  const validated = productSchema.safeParse({
-    name: formData.get('name'),
-    categoryId: formData.get('categoryId') || null,
-    description: formData.get('description'),
-    price: formData.get('price'),
-    stock: formData.get('stock'),
-    weight: formData.get('weight') || 0,
-    isActive: formData.get('isActive') === 'on',
-    isFeatured: formData.get('isFeatured') === 'on',
-    channel: formData.get('channel') || 'all',
-  });
+  if (!(await isAdmin())) {
+    return {
+      success: false,
+      errors: { _form: ['Unauthorized'] },
+      productId: id,
+    };
+  }
+
+  const validated = productSchema.safeParse(productFormValues(formData));
 
   if (!validated.success) {
     return { success: false, errors: validated.error.flatten().fieldErrors, productId: id };
@@ -192,6 +240,7 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
   const slug = slugify(validated.data.name);
 
   try {
+    await assertBarcodeAvailable(String(formData.get('barcode') ?? ''), { productId: id, variantId: null });
     // Cek apakah produk sudah punya gambar di R2 (product_images table)
     // Kalau ada, jangan overwrite products.image — biarkan product-images.ts yang manage
     const r2Images = await db.select({ id: productImages.id })
@@ -203,15 +252,19 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
 
     const updateData: Record<string, any> = {
       ...validated.data,
+      posName: validated.data.posName || null,
       slug,
       images,
       price: String(validated.data.price),
+      salePrice: validated.data.salePrice === null ? null : String(validated.data.salePrice),
     };
     if (image !== undefined) updateData.image = image;
 
     await db.update(products).set(updateData).where(eq(products.id, id));
-  } catch {
-    return { success: false, errors: { _form: ['Gagal update produk.'] }, productId: id };
+    await setOnlineInventoryStock(id, null, validated.data.stock);
+    await setPrimaryBarcode(id, null, String(formData.get('barcode') ?? ''));
+  } catch (error) {
+    return { success: false, errors: { _form: [error instanceof Error ? error.message : 'Gagal update produk.'] }, productId: id };
   }
 
   revalidatePath('/dashboard/products');
@@ -226,7 +279,9 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
  * import bisa langsung dipakai tanpa nunggu submit pertama.
  * Slug pakai timestamp biar unik walau nama masih kosong/default.
  */
-export async function createDraftProduct() {
+export async function createDraftProduct(): Promise<number | null> {
+  if (!(await isAdmin())) return null;
+
   const slug = `draft-${Date.now()}`;
   const inserted = await db
     .insert(products)
@@ -244,10 +299,21 @@ export async function createDraftProduct() {
     })
     .$returningId();
 
+  if (inserted[0]?.id) await setOnlineInventoryStock(inserted[0].id, null, 0);
+
   return inserted[0]?.id as number;
 }
 
+export async function getProductBarcodes(productId: number) {
+  if (!(await isAdmin())) return [];
+  return getProductBarcodeRows(productId);
+}
+
 export async function deleteProduct(id: number) {
+  if (!(await isAdmin())) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
   try {
     await db.delete(products).where(eq(products.id, id));
     revalidatePath('/dashboard/products');
@@ -322,6 +388,10 @@ export type ImportResult = {
  * Semua produk masuk sebagai draft (isActive: false) — admin lengkapi gambar & aktifkan manual.
  */
 export async function importProductsFromCsv(prevState: any, formData: FormData): Promise<ImportResult> {
+  if (!(await isAdmin())) {
+    return { success: false, imported: 0, errors: [], formError: 'Unauthorized' };
+  }
+
   const file = formData.get('file') as File | null;
   if (!file || file.size === 0) {
     return { success: false, imported: 0, errors: [], formError: 'Pilih file CSV terlebih dahulu.' };
@@ -403,7 +473,7 @@ export async function importProductsFromCsv(prevState: any, formData: FormData):
     const slug = slugify(name);
 
     try {
-      await db.insert(products).values({
+      const inserted = await db.insert(products).values({
         name,
         slug,
         categoryId,
@@ -416,7 +486,8 @@ export async function importProductsFromCsv(prevState: any, formData: FormData):
         isActive: false,
         isFeatured: false,
         channel: 'all',
-      });
+      }).$returningId();
+      if (inserted[0]?.id) await setOnlineInventoryStock(inserted[0].id, null, stock || 0);
       imported++;
     } catch {
       errors.push({ row: rowNum, name, reason: 'Gagal simpan — kemungkinan nama produk sudah dipakai' });

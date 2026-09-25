@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
+const { mockCreateCustomerAccount } = vi.hoisted(() => ({
+  mockCreateCustomerAccount: vi.fn(),
+}));
+
+vi.mock('@/lib/customer-registration', () => ({
+  createCustomerAccount: mockCreateCustomerAccount,
+}));
 
 vi.mock('@/lib/db', () => ({
   db: {
@@ -37,6 +44,11 @@ describe('POST /api/auth/register', () => {
     vi.clearAllMocks();
     mockSelectReturn.mockReturnValue([]);
     mockInsertReturn.mockReturnValue([{ insertId: 3 }]);
+    mockCreateCustomerAccount.mockResolvedValue({
+      success: true,
+      user: { id: 3, name: 'New User', email: 'new@example.com' },
+      welcomeVoucherGranted: true,
+    });
   });
 
   it('registers a new user', async () => {
@@ -59,7 +71,11 @@ describe('POST /api/auth/register', () => {
   });
 
   it('rejects duplicate email', async () => {
-    mockSelectReturn.mockReturnValue([{ id: 1, email: 'existing@example.com' }]);
+    mockCreateCustomerAccount.mockResolvedValueOnce({
+      success: false,
+      field: 'email',
+      error: 'Email sudah terdaftar',
+    });
 
     const response = await POST(
       new Request('http://localhost/api/auth/register', {

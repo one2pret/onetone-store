@@ -15,6 +15,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/products':    'Produk',
   '/dashboard/categories':  'Kategori',
   '/dashboard/orders':      'Pesanan',
+  '/dashboard/vouchers':    'Voucher',
   '/dashboard/settings':    'Pengaturan',
 };
 

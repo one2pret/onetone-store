@@ -4,8 +4,15 @@
 import { db } from '@/lib/db';
 import { users, memberships, memberTiers, orders } from '@/lib/db/schema';
 import { eq, desc, count, and, sql } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+
+async function isAdmin() {
+  const session = await auth();
+  return session?.user?.role === 'admin';
+}
 
 export async function getMembers(tierFilter?: number) {
+  if (!(await isAdmin())) return [];
   const rows = await db
     .select({
       id: users.id,
@@ -35,6 +42,7 @@ export async function getMembers(tierFilter?: number) {
 }
 
 export async function getMember(userId: number) {
+  if (!(await isAdmin())) return null;
   const rows = await db
     .select({
       id: users.id,
@@ -71,10 +79,12 @@ export async function getMember(userId: number) {
 }
 
 export async function getMemberTiers() {
+  if (!(await isAdmin())) return [];
   return db.select().from(memberTiers).orderBy(memberTiers.sortOrder);
 }
 
 export async function getMemberOrders(userId: number) {
+  if (!(await isAdmin())) return [];
   return db
     .select({
       id: orders.id,

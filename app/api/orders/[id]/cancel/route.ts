@@ -5,6 +5,7 @@ import { orders, invoices, orderStatusLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 import { restoreStock } from '@/lib/stock';
+import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { expireInvoice } from '@/lib/xendit';
 
 // POST /api/orders/[id]/cancel — cancel order by customer
@@ -64,12 +65,13 @@ export async function POST(
       .where(eq(orders.id, orderId));
 
     // Audit log
-    await db.insert(orderStatusLogs).values({
+      await db.insert(orderStatusLogs).values({
       orderId,
       fromStatus: 'waiting_payment',
       toStatus: 'cancelled',
       changedBy: `user:${user.id}`,
-    });
+      });
+      await releaseVoucherReservation(orderId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Package, Tag, LayoutDashboard, Image as ImageIcon, ShoppingCart, Settings, FolderOpen, Loader2 } from 'lucide-react';
+import { Search, Package, Tag, LayoutDashboard, Image as ImageIcon, ShoppingCart, Settings, FolderOpen, Loader2, TicketPercent } from 'lucide-react';
 import { searchAdmin, type SearchResultItem } from '@/app/actions/search';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Produk',     href: '/dashboard/products',   icon: Package },
   { label: 'Kategori',   href: '/dashboard/categories', icon: FolderOpen },
   { label: 'Pesanan',    href: '/dashboard/orders',     icon: ShoppingCart },
+  { label: 'Voucher',    href: '/dashboard/vouchers',   icon: TicketPercent },
   { label: 'Pengaturan', href: '/dashboard/settings',   icon: Settings },
 ];
 

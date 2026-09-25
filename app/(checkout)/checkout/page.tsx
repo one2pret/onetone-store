@@ -9,6 +9,7 @@ import { db } from '@/lib/db';
 import { memberships, memberTiers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { isFreeShippingEligible } from '@/lib/membership-utils';
+import { calculateCartSubtotal } from '@/lib/cart-pricing';
 
 export default async function CheckoutPage() {
   const session = await auth();
@@ -34,9 +35,7 @@ export default async function CheckoutPage() {
     redirect('/cart');
   }
 
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + (Number(item.product.price) * (item.quantity || 0));
-  }, 0);
+  const subtotal = calculateCartSubtotal(cart);
 
   const tierFreeShippingThreshold = memberRow?.member_tiers.freeShippingThreshold ?? null;
   const tierFreeShipping = isFreeShippingEligible(subtotal, tierFreeShippingThreshold, null);

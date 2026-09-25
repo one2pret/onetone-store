@@ -9,6 +9,8 @@ vi.mock('@/lib/api-auth', () => ({
   ),
 }));
 
+vi.mock('@/lib/db', () => ({ db: {} }));
+
 import { POST as login } from '@/app/api/auth/login/route';
 import { GET as me } from '@/app/api/auth/me/route';
 

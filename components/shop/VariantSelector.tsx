@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { resolveProductPrice, type ProductPricing } from '@/lib/product-pricing';
 
 interface Variant {
   id: number;
@@ -9,16 +10,21 @@ interface Variant {
   colorHex: string | null;
   stock: number;
   priceModifier: string | null;
+  salePriceOverride: string | null;
 }
 
 interface Props {
   variants: Variant[];
   basePrice: number;
-  onVariantChange: (variantId: number | null, price: number, stock: number) => void;
+  salePrice?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+  pricingNow: string;
+  onVariantChange: (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => void;
   onColorChange?: (color: string | null) => void;
 }
 
-export function VariantSelector({ variants, basePrice, onVariantChange, onColorChange }: Props) {
+export function VariantSelector({ variants, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow, onVariantChange, onColorChange }: Props) {
   const activeVariants = useMemo(() => variants.filter((v) => v.stock >= 0), [variants]);
 
   const sizes = useMemo(() => {
@@ -60,12 +66,20 @@ export function VariantSelector({ variants, basePrice, onVariantChange, onColorC
 
   useEffect(() => {
     if (!matchedVariant) {
-      onVariantChange(null, basePrice, 0);
+      const pricing = resolveProductPrice({ price: basePrice, salePrice, saleStartsAt, saleEndsAt }, new Date(pricingNow));
+      onVariantChange(null, pricing.finalPrice, 0, pricing);
       return;
     }
-    const modifier = parseFloat(String(matchedVariant.priceModifier ?? '0'));
-    onVariantChange(matchedVariant.id, basePrice + modifier, matchedVariant.stock);
-  }, [matchedVariant, basePrice]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pricing = resolveProductPrice({
+      price: basePrice,
+      priceModifier: matchedVariant.priceModifier,
+      salePrice,
+      saleStartsAt,
+      saleEndsAt,
+      variantSalePriceOverride: matchedVariant.salePriceOverride,
+    }, new Date(pricingNow));
+    onVariantChange(matchedVariant.id, pricing.finalPrice, matchedVariant.stock, pricing);
+  }, [matchedVariant, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isColorOutOfStock = (color: string) => {
     if (!selectedSize) return false;

@@ -7,6 +7,7 @@ import { ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
 import { updateCartItem, removeFromCart } from '@/app/actions/cart';
 import { formatRupiah } from '@/lib/utils';
 import type { CartItemWithProduct } from '@/lib/db/schema';
+import { calculateCartSubtotal, getEffectiveUnitPrice } from '@/lib/cart-pricing';
 
 interface Props {
   cart: CartItemWithProduct[];
@@ -15,7 +16,12 @@ interface Props {
 
 /** Harga efektif per item = harga dasar + priceModifier varian */
 function itemUnitPrice(item: CartItemWithProduct): number {
-  return Number(item.product.price) + Number(item.variant?.priceModifier ?? 0);
+  return getEffectiveUnitPrice(item.product.price, item.variant?.priceModifier, {
+    salePrice: item.product.salePrice,
+    saleStartsAt: item.product.saleStartsAt,
+    saleEndsAt: item.product.saleEndsAt,
+    variantSalePriceOverride: item.variant?.salePriceOverride,
+  });
 }
 
 export function OrderSummary({ cart: initialCart, subtotal: initialSubtotal }: Props) {
@@ -26,7 +32,7 @@ export function OrderSummary({ cart: initialCart, subtotal: initialSubtotal }: P
   const [isPending, startTransition] = useTransition();
 
   function recalcSubtotal(items: CartItemWithProduct[]) {
-    return items.reduce((sum, item) => sum + itemUnitPrice(item) * (item.quantity || 0), 0);
+    return calculateCartSubtotal(items);
   }
 
   function handleQuantityChange(cartItemId: number, newQty: number) {

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { CartItemWithProduct } from '@/lib/db/schema';
 import { useRouter } from 'next/navigation';
+import { getEffectiveUnitPrice } from '@/lib/cart-pricing';
 
 interface Props {
   item: CartItemWithProduct;
@@ -20,7 +21,12 @@ export function CartItemRow({ item }: Props) {
   const router = useRouter();
 
   const variant = item.variant ?? null;
-  const unitPrice = Number(item.product.price) + Number(variant?.priceModifier ?? 0);
+  const unitPrice = getEffectiveUnitPrice(item.product.price, variant?.priceModifier, {
+    salePrice: item.product.salePrice,
+    saleStartsAt: item.product.saleStartsAt,
+    saleEndsAt: item.product.saleEndsAt,
+    variantSalePriceOverride: variant?.salePriceOverride,
+  });
   const subtotal = unitPrice * (item.quantity || 0);
 
   const handleUpdateQuantity = async (delta: number) => {

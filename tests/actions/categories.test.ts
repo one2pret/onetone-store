@@ -7,6 +7,9 @@ const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
 const mockUpdateReturn = vi.fn();
 const mockDeleteReturn = vi.fn();
+const { mockAuth } = vi.hoisted(() => ({ mockAuth: vi.fn() }));
+
+vi.mock('@/lib/auth', () => ({ auth: mockAuth }));
 
 const mockChain = () => {
   const chain: any = {};
@@ -70,9 +73,23 @@ describe('Category Server Actions', () => {
     mockInsertReturn.mockReturnValue([{ insertId: 1 }]);
     mockUpdateReturn.mockReturnValue(undefined);
     mockDeleteReturn.mockReturnValue(undefined);
+    mockAuth.mockResolvedValue({ user: { id: '1', role: 'admin' } });
   });
 
   describe('createCategory', () => {
+    it('rejects non-admin users before writing', async () => {
+      const { db } = await import('@/lib/db');
+      mockAuth.mockResolvedValueOnce({ user: { id: '2', role: 'customer' } });
+      const formData = new FormData();
+      formData.set('name', 'Tidak boleh');
+
+      const result = await createCategory({}, formData);
+
+      expect(result.success).toBe(false);
+      expect(result.errors?._form).toEqual(['Unauthorized']);
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+
     it('validates required fields', async () => {
       const formData = new FormData();
       formData.set('name', '');

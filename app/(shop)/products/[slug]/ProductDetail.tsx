@@ -6,6 +6,7 @@ import { ProductGallery } from "@/components/shop/ProductGallery";
 import { AddToCartButton } from "./AddToCartButton";
 import { formatRupiah } from "@/lib/utils";
 import { Truck, Shield, Tag } from "lucide-react";
+import type { ProductPricing } from '@/lib/product-pricing';
 
 interface GalleryImage {
   id: number;
@@ -22,6 +23,7 @@ interface Variant {
   colorHex: string | null;
   stock: number;
   priceModifier: string | null;
+  salePriceOverride: string | null;
 }
 
 interface Props {
@@ -31,6 +33,11 @@ interface Props {
   categorySlug?: string | null;
   description?: string | null;
   basePrice: number;
+  salePrice?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+  pricingNow: string;
+  initialPricing: ProductPricing;
   variants: Variant[];
   initialStock: number;
   images: GalleryImage[];
@@ -164,6 +171,13 @@ function ProductDescription({ raw }: { raw: string }) {
   );
 }
 
+function formatPromoEnd(value: Date | null) {
+  if (!value) return null;
+  const jakarta = new Date(value.getTime() + 7 * 60 * 60 * 1000);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${pad(jakarta.getUTCDate())}/${pad(jakarta.getUTCMonth() + 1)}/${jakarta.getUTCFullYear()} ${pad(jakarta.getUTCHours())}.${pad(jakarta.getUTCMinutes())} WIB`;
+}
+
 export function ProductDetail({
   productId,
   productName,
@@ -171,15 +185,20 @@ export function ProductDetail({
   categorySlug,
   description,
   basePrice,
+  salePrice,
+  saleStartsAt,
+  saleEndsAt,
+  pricingNow,
+  initialPricing,
   variants,
   initialStock,
   images,
 }: Props) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [currentPrice, setCurrentPrice] = useState(basePrice);
+  const [currentPricing, setCurrentPricing] = useState(initialPricing);
 
-  function handleVariantChange(variantId: number | null, price: number, stock: number) {
-    setCurrentPrice(price);
+  function handleVariantChange(variantId: number | null, price: number, stock: number, pricing: ProductPricing) {
+    setCurrentPricing(pricing);
     // forward ke AddToCartButton — handled internally
     void variantId; void stock;
   }
@@ -212,10 +231,22 @@ export function ProductDetail({
         </h1>
 
         {/* Price — updates when variant selected */}
-        <div className="flex items-baseline gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-3xl font-bold text-primary">
-            {formatRupiah(currentPrice)}
+            {formatRupiah(currentPricing.finalPrice)}
           </span>
+          {currentPricing.isOnSale && (
+            <>
+              <span className="text-sm text-muted-foreground line-through">{formatRupiah(currentPricing.regularPrice)}</span>
+              <span className="rounded-md bg-foreground px-2 py-1 text-xs font-semibold text-background">-{currentPricing.discountPercent}%</span>
+              <span className="basis-full text-xs text-muted-foreground">Hemat {formatRupiah(currentPricing.discountAmount)}</span>
+              {currentPricing.saleEndsAt && (
+                <span className="basis-full text-xs font-medium text-foreground/70">
+                  Promo berakhir {formatPromoEnd(currentPricing.saleEndsAt)}
+                </span>
+              )}
+            </>
+          )}
         </div>
 
         <hr className="border-border" />
@@ -224,6 +255,10 @@ export function ProductDetail({
         <AddToCartButton
           productId={productId}
           basePrice={basePrice}
+          salePrice={salePrice}
+          saleStartsAt={saleStartsAt}
+          saleEndsAt={saleEndsAt}
+          pricingNow={pricingNow}
           variants={variants}
           initialStock={initialStock}
           onColorChange={setSelectedColor}

@@ -33,7 +33,10 @@ export interface VariantRow {
   colorHex: string;
   stock: number;
   priceModifier: number;
+  salePriceOverride: number | null;
   sku: string;
+  posLabel: string;
+  barcode: string;
   isActive: boolean;
 }
 
@@ -41,7 +44,7 @@ function makeKey() {
   return Math.random().toString(36).slice(2);
 }
 
-function rowFromVariant(v: ProductVariant): VariantRow {
+function rowFromVariant(v: ProductVariant, barcode = ''): VariantRow {
   return {
     _key: makeKey(),
     id: v.id,
@@ -50,7 +53,10 @@ function rowFromVariant(v: ProductVariant): VariantRow {
     colorHex: v.colorHex ?? '',
     stock: v.stock,
     priceModifier: Number(v.priceModifier ?? 0),
+    salePriceOverride: v.salePriceOverride === null ? null : Number(v.salePriceOverride),
     sku: v.sku ?? '',
+    posLabel: v.posLabel ?? '',
+    barcode,
     isActive: v.isActive ?? true,
   };
 }
@@ -63,7 +69,10 @@ function emptyRow(): VariantRow {
     colorHex: '',
     stock: 0,
     priceModifier: 0,
+    salePriceOverride: null,
     sku: '',
+    posLabel: '',
+    barcode: '',
     isActive: true,
   };
 }
@@ -71,6 +80,7 @@ function emptyRow(): VariantRow {
 // ---- Component ----
 interface Props {
   initial?: ProductVariant[];
+  barcodes?: { code: string; variantId: number | null }[];
   onChange: (rows: VariantRow[]) => void;
   /** ID varian yang sudah dipakai di order — tidak bisa dihapus, hanya bisa dinonaktifkan */
   usedInOrderIds?: number[];
@@ -78,11 +88,11 @@ interface Props {
   usedInCartIds?: number[];
 }
 
-export function VariantManager({ initial = [], onChange, usedInOrderIds = [], usedInCartIds = [] }: Props) {
+export function VariantManager({ initial = [], barcodes = [], onChange, usedInOrderIds = [], usedInCartIds = [] }: Props) {
   const orderIdSet = new Set(usedInOrderIds);
   const cartIdSet = new Set(usedInCartIds);
   const [rows, setRows] = useState<VariantRow[]>(() =>
-    initial.length > 0 ? initial.map(rowFromVariant) : []
+    initial.length > 0 ? initial.map(variant => rowFromVariant(variant, barcodes.find(barcode => barcode.variantId === variant.id)?.code ?? '')) : []
   );
   const [collapsed, setCollapsed] = useState(false);
 
@@ -171,12 +181,13 @@ export function VariantManager({ initial = [], onChange, usedInOrderIds = [], us
           ) : (
             <div className="space-y-3 mt-4">
               {/* Column headers */}
-              <div className="hidden md:grid grid-cols-[100px_1fr_80px_80px_80px_80px_40px_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
+              <div className="hidden md:grid grid-cols-[90px_1fr_80px_70px_80px_100px_80px_40px_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
                 <span>Ukuran *</span>
                 <span>Warna *</span>
                 <span>Warna Hex</span>
                 <span>Stok *</span>
                 <span>+/- Harga</span>
+                <span>Harga Promo</span>
                 <span>SKU</span>
                 <span className="text-center">Aktif</span>
                 <span></span>
@@ -199,7 +210,7 @@ export function VariantManager({ initial = [], onChange, usedInOrderIds = [], us
           {rows.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground mb-2">
-                Preset Warna ONETONE — klik untuk mengisi baris kosong (atau baris terakhir):
+                Preset Warna ONETONE. Klik untuk mengisi baris kosong atau baris terakhir:
               </p>
               <div className="flex flex-wrap gap-2">
                 {PRESET_COLORS.map((pc) => (
@@ -255,7 +266,7 @@ function VariantRowItem({
       }`}
     >
       {/* Input baris */}
-      <div className="grid grid-cols-2 md:grid-cols-[100px_1fr_80px_80px_80px_80px_40px_32px] gap-2 items-center">
+      <div className="grid grid-cols-2 md:grid-cols-[90px_1fr_80px_70px_80px_100px_80px_40px_32px] gap-2 items-center">
         {/* Ukuran */}
         <div className="md:col-span-1">
           <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Ukuran</Label>
@@ -326,6 +337,20 @@ function VariantRowItem({
 
         {/* SKU */}
         <div>
+          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Harga Promo</Label>
+          <Input
+            type="number"
+            min={0}
+            value={row.salePriceOverride ?? ''}
+            onChange={(e) => onUpdate('salePriceOverride', e.target.value === '' ? null : Number(e.target.value))}
+            placeholder="Ikuti produk"
+            className="h-8 text-xs"
+            title="Harga final promo varian; kosongkan untuk mengikuti promo produk"
+          />
+        </div>
+
+        {/* SKU */}
+        <div>
           <Label className="text-xs text-muted-foreground md:hidden mb-1 block">SKU</Label>
           <Input
             value={row.sku}
@@ -353,11 +378,22 @@ function VariantRowItem({
             size="icon"
             onClick={onRemove}
             disabled={isUsedInOrder}
-            title={isUsedInOrder ? 'Tidak bisa dihapus — ada di pesanan. Nonaktifkan saja.' : 'Hapus varian'}
+            title={isUsedInOrder ? 'Tidak bisa dihapus karena sudah ada di pesanan. Nonaktifkan saja.' : 'Hapus varian'}
             className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-4 h-4" />
           </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div>
+          <Label className="mb-1 block text-xs text-muted-foreground">Label pendek POS</Label>
+          <Input value={row.posLabel} maxLength={60} onChange={(e) => onUpdate('posLabel', e.target.value)} placeholder={`${row.size} / ${row.color || 'Warna'}`} className="h-8 text-sm" />
+        </div>
+        <div>
+          <Label className="mb-1 block text-xs text-muted-foreground">Barcode varian</Label>
+          <Input value={row.barcode} maxLength={100} onChange={(e) => onUpdate('barcode', e.target.value)} placeholder="899000000001" className="h-8 font-mono text-sm" />
         </div>
       </div>
 
@@ -366,12 +402,12 @@ function VariantRowItem({
         <div className="flex flex-wrap gap-1.5 pt-0.5">
           {isUsedInOrder && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-              <ShoppingBag className="w-2.5 h-2.5" /> Ada di pesanan — nonaktifkan saja, jangan hapus
+              <ShoppingBag className="w-2.5 h-2.5" /> Ada di pesanan. Nonaktifkan saja, jangan hapus
             </span>
           )}
           {isUsedInCart && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-              <ShoppingCart className="w-2.5 h-2.5" /> Ada di keranjang pembeli — nonaktifkan saja kalau ingin tidak tampil, jangan hapus
+              <ShoppingCart className="w-2.5 h-2.5" /> Ada di keranjang pembeli. Nonaktifkan saja jika ingin menyembunyikannya
             </span>
           )}
         </div>
