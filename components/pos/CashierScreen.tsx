@@ -5,12 +5,17 @@
 // Mode: 'catalog' (default) → 'payment' → 'receipt'.
 // Mobile-first: cart sebagai bottom sheet, tap "Bayar" buka payment overlay.
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, ShoppingBag, X, Plus, Minus, Trash2, LogOut, ChevronUp } from "lucide-react";
+import { Search, ScanBarcode, ShoppingBag, X, Plus, Minus, Trash2, LogOut, ChevronUp, Printer, History } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+import {
+  appendBarcodeCharacter,
+  consumeBarcodeBuffer,
+  EMPTY_BARCODE_BUFFER,
+} from "@/lib/pos-barcode-scanner";
 import { PaymentSheet } from "./PaymentSheet";
 import { ReceiptView } from "./ReceiptView";
 import type { PosSession } from "@/lib/db/schema";
@@ -25,17 +30,22 @@ type PosVariant = {
   stock: number;
   priceModifier: string | null;
   isActive: boolean | null;
+  sku: string | null;
+  posLabel: string | null;
+  barcodes: { code: string }[];
 };
 
 export type PosProduct = {
   id: number;
   name: string;
+  posName: string | null;
   slug: string;
   price: string;
   stock: number | null;
   image: string | null;
   category: { id: number; name: string; slug: string } | null;
   variants: PosVariant[];
+  barcodes: { code: string; variantId: number | null }[];
 };
 
 export type CartLine = {
@@ -65,6 +75,8 @@ interface Props {
   qrisUrl: string | null;
   receiptFooter: string | null;
   cashierName?: string;
+  locationName?: string;
+  maxDiscountPercent: number;
   storeName?: string | null;
   storePhone?: string | null;
   storeAddress?: string | null;
@@ -72,7 +84,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, storeName, storePhone, storeAddress }: Props) {
+export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, locationName, maxDiscountPercent, storeName, storePhone, storeAddress }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -96,7 +108,13 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
-      const matchSearch = !q || p.name.toLowerCase().includes(q);
+      const searchable = [
+        p.name,
+        p.posName,
+        ...p.barcodes.map(barcode => barcode.code),
+        ...p.variants.flatMap(variant => [variant.sku, variant.posLabel, variant.size, variant.color, ...variant.barcodes.map(barcode => barcode.code)]),
+      ].filter(Boolean).join(" ").toLowerCase();
+      const matchSearch = !q || searchable.includes(q);
       const matchCat = !categoryFilter || p.category?.slug === categoryFilter;
       return matchSearch && matchCat;
     });
@@ -110,7 +128,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
 
   // ── Cart operations ─────────────────────────────────────────────────────────
 
-  function addToCart(product: PosProduct, variant?: PosVariant) {
+  const addToCart = useCallback((product: PosProduct, variant?: PosVariant) => {
     // Kalau produk ada varian tapi belum dipilih → buka picker
     if (product.variants.length > 0 && !variant) {
       setVariantPickerFor(product);
@@ -144,8 +162,8 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
           key,
           productId: product.id,
           variantId: variant?.id,
-          productName: product.name,
-          variantLabel: variant ? `${variant.size} / ${variant.color}` : null,
+          productName: product.posName?.trim() || product.name,
+          variantLabel: variant ? (variant.posLabel?.trim() || `${variant.size} / ${variant.color}`) : null,
           image: product.image,
           unitPrice,
           quantity: 1,
@@ -154,7 +172,72 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
       ];
     });
     setVariantPickerFor(null);
-  }
+  }, []);
+
+  const barcodeTargets = useMemo(() => {
+    const targets = new Map<string, { product: PosProduct; variant?: PosVariant }>();
+
+    for (const product of products) {
+      for (const barcode of product.barcodes) {
+        const variant = barcode.variantId === null
+          ? undefined
+          : product.variants.find(item => item.id === barcode.variantId);
+        if (barcode.variantId === null || variant) targets.set(barcode.code, { product, variant });
+      }
+      for (const variant of product.variants) {
+        for (const barcode of variant.barcodes) {
+          targets.set(barcode.code, { product, variant });
+        }
+      }
+    }
+
+    return targets;
+  }, [products]);
+
+  const barcodeBuffer = useRef(EMPTY_BARCODE_BUFFER);
+
+  useEffect(() => {
+    if (paymentOpen || receiptOrderId !== null) {
+      barcodeBuffer.current = EMPTY_BARCODE_BUFFER;
+    }
+
+    function handleScannerKey(event: KeyboardEvent) {
+      if (
+        paymentOpen ||
+        receiptOrderId !== null ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.isComposing
+      ) return;
+
+      const timestamp = performance.now();
+      if (event.key === "Enter") {
+        const code = consumeBarcodeBuffer(barcodeBuffer.current, timestamp);
+        barcodeBuffer.current = EMPTY_BARCODE_BUFFER;
+        if (!code) return;
+
+        event.preventDefault();
+        const target = barcodeTargets.get(code);
+        setSearch("");
+        if (!target) {
+          toast.error(`Barcode ${code} tidak ditemukan atau tidak aktif`);
+          return;
+        }
+
+        addToCart(target.product, target.variant);
+        return;
+      }
+
+      if (event.key.length === 1) {
+        barcodeBuffer.current = appendBarcodeCharacter(barcodeBuffer.current, event.key, timestamp);
+      }
+    }
+
+    window.addEventListener("keydown", handleScannerKey, true);
+    return () => window.removeEventListener("keydown", handleScannerKey, true);
+  }, [addToCart, barcodeTargets, paymentOpen, receiptOrderId]);
 
   function updateQty(key: string, delta: number) {
     setCart((prev) => {
@@ -238,8 +321,27 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
                 {cashierName && (
                   <span className="ml-2 font-medium text-slate-700">· {cashierName}</span>
                 )}
+                {locationName && <span className="ml-2 font-medium text-primary">· {locationName}</span>}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 lg:hidden"
+              title="Riwayat transaksi sesi"
+              aria-label="Buka riwayat transaksi sesi"
+            >
+              <History className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open("/pos/test-print", "_blank", "noopener,noreferrer")}
+              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              title="Test print 58 mm"
+              aria-label="Buka test print 58 mm"
+            >
+              <Printer className="h-5 w-5" />
+            </button>
             <button
               onClick={handleCloseSessionClick}
               className="p-2 text-slate-600 hover:text-rose-700 hover:bg-rose-100 rounded-lg transition"
@@ -256,10 +358,14 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari produk..."
+              placeholder="Cari nama, SKU, atau barcode"
               className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-lg outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
+          <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+            <ScanBarcode className="h-3.5 w-3.5" aria-hidden="true" />
+            Scanner siap · gunakan suffix Enter
+          </p>
 
           {/* Category chips */}
           {categories.length > 0 && (
@@ -316,6 +422,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
           onClear={clearCart}
           onCheckout={handleCheckout}
           recentOrders={recentOrders}
+          onReprint={setReceiptOrderId}
         />
       </aside>
 
@@ -374,6 +481,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
               onClear={clearCart}
               onCheckout={handleCheckout}
               recentOrders={recentOrders}
+              onReprint={setReceiptOrderId}
               compact
             />
           </div>
@@ -395,6 +503,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
           sessionId={session.id}
           cart={cart}
           total={cartTotal}
+          maxDiscountPercent={maxDiscountPercent}
           qrisUrl={qrisUrl}
           onClose={() => setPaymentOpen(false)}
           onSuccess={handlePaymentSuccess}
@@ -439,24 +548,32 @@ function ProductCard({
   onClick: () => void;
   priority?: boolean;
 }) {
-  const price = Number(product.price);
+  const basePrice = Number(product.price);
   const hasVariants = product.variants.length > 0;
   const totalStock = hasVariants
     ? product.variants.reduce((s, v) => s + v.stock, 0)
     : product.stock ?? 0;
   const outOfStock = totalStock <= 0;
+  const pricedVariants = product.variants.some(variant => variant.stock > 0)
+    ? product.variants.filter(variant => variant.stock > 0)
+    : product.variants;
+  const variantPrices = pricedVariants.map(variant => basePrice + Number(variant.priceModifier ?? 0));
+  const minPrice = variantPrices.length ? Math.min(...variantPrices) : basePrice;
+  const maxPrice = variantPrices.length ? Math.max(...variantPrices) : basePrice;
+  const priceLabel = minPrice === maxPrice ? formatRupiah(minPrice) : `Mulai ${formatRupiah(minPrice)}`;
 
   return (
     <button
       onClick={onClick}
       disabled={outOfStock}
-      className="group text-left bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      aria-label={`${product.posName?.trim() || product.name}, ${priceLabel}, stok ${totalStock}`}
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-primary/30 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
     >
       <div className="aspect-square relative bg-slate-100">
         {product.image ? (
           <Image
             src={product.image}
-            alt={product.name}
+            alt={product.posName?.trim() || product.name}
             fill
             unoptimized
             priority={priority}
@@ -477,14 +594,21 @@ function ProductCard({
           </div>
         )}
       </div>
-      <div className="p-2.5">
+      <div className="flex flex-1 flex-col p-2.5">
         <p className="text-xs font-medium text-slate-800 line-clamp-2 min-h-[2.4em]">
-          {product.name}
+          {product.posName?.trim() || product.name}
         </p>
-        <p className="mt-1 text-sm font-bold text-primary">{formatRupiah(price)}</p>
-        <p className="text-[10px] text-slate-500 mt-0.5">
-          {hasVariants ? `${product.variants.length} varian` : `Stok: ${totalStock}`}
-        </p>
+        <div className="mt-auto pt-2">
+          <p className="whitespace-nowrap text-sm font-extrabold tabular-nums text-slate-950 sm:text-base">
+            {priceLabel}
+          </p>
+          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+            <span>{hasVariants ? `${product.variants.length} varian` : "Tanpa varian"}</span>
+            <span className={outOfStock ? "font-semibold text-rose-600" : "font-medium text-slate-600"}>
+              Stok {totalStock}
+            </span>
+          </div>
+        </div>
       </div>
     </button>
   );
@@ -507,7 +631,7 @@ function VariantPickerSheet({
       <div className="bg-white rounded-t-2xl max-h-[80svh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <div>
-            <h2 className="font-semibold text-slate-900">{product.name}</h2>
+            <h2 className="font-semibold text-slate-900">{product.posName?.trim() || product.name}</h2>
             <p className="text-xs text-slate-500">Pilih ukuran & warna</p>
           </div>
           <button
@@ -537,13 +661,13 @@ function VariantPickerSheet({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900">
-                    {v.size} / {v.color}
+                    {v.posLabel?.trim() || `${v.size} / ${v.color}`}
                   </p>
                   <p className="text-[11px] text-slate-500">
                     Stok: {v.stock} {disabled && "(habis)"}
                   </p>
                 </div>
-                <p className="text-sm font-bold text-primary shrink-0">
+                <p className="shrink-0 text-sm font-extrabold tabular-nums text-slate-950">
                   {formatRupiah(finalPrice)}
                 </p>
               </button>
@@ -564,6 +688,7 @@ function CartPanel({
   onClear,
   onCheckout,
   recentOrders,
+  onReprint,
   compact = false,
 }: {
   cart: CartLine[];
@@ -574,6 +699,7 @@ function CartPanel({
   onClear: () => void;
   onCheckout: () => void;
   recentOrders: RecentOrder[];
+  onReprint: (orderId: number) => void;
   compact?: boolean;
 }) {
   return (
@@ -665,22 +791,26 @@ function CartPanel({
         )}
 
         {/* Recent orders (desktop only, minimal) */}
-        {!compact && cart.length === 0 && recentOrders.length > 0 && (
+        {cart.length === 0 && recentOrders.length > 0 && (
           <div className="mt-6 pt-4 border-t border-slate-100">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 px-1">
               Transaksi Terbaru
             </p>
             <div className="space-y-1.5">
               {recentOrders.slice(0, 5).map((o) => (
-                <div
+                <button
+                  type="button"
                   key={o.id}
-                  className="flex items-center justify-between px-2 py-1.5 text-[11px] text-slate-500"
+                  onClick={() => onReprint(o.id)}
+                  className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-[11px] text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  title="Buka dan cetak ulang struk"
                 >
                   <span className="font-mono">{o.orderNumber}</span>
-                  <span className="font-semibold text-slate-700">
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-700">
                     {formatRupiah(Number(o.total))}
+                    <Printer className="h-3 w-3" aria-hidden="true" />
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

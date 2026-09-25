@@ -4,12 +4,14 @@ import Image from 'next/image';
 import { formatRupiah } from '@/lib/utils';
 import { ShoppingBag } from 'lucide-react';
 import type { ProductWithCategory } from '@/lib/db/schema';
+import { resolveProductPrice } from '@/lib/product-pricing';
 
 interface ProductCardProps {
   product: ProductWithCategory;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const pricing = resolveProductPrice(product);
   return (
     <Link
       href={`/products/${product.slug}`}
@@ -36,6 +38,11 @@ export function ProductCard({ product }: ProductCardProps) {
             Unggulan
           </span>
         )}
+        {pricing.isOnSale && (
+          <span className="absolute bottom-2 left-2 px-2 py-1 bg-foreground text-background text-[10px] md:text-xs font-semibold rounded-md shadow-sm">
+            -{pricing.discountPercent}%
+          </span>
+        )}
         {product.stock !== null && product.stock <= 5 && product.stock > 0 && (
           <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 px-1.5 md:px-2 py-0.5 md:py-1 bg-primary/10 text-primary text-[10px] md:text-xs font-medium rounded">
             Sisa {product.stock}
@@ -49,9 +56,16 @@ export function ProductCard({ product }: ProductCardProps) {
         <h3 className="font-medium text-xs md:text-sm text-foreground mb-1 md:mb-2 line-clamp-2 leading-snug group-hover:text-primary transition">
           {product.name}
         </h3>
-        <p className="text-sm md:text-lg font-bold text-primary">
-          {formatRupiah(product.price)}
-        </p>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <p className="text-sm md:text-lg font-bold text-primary">
+            {formatRupiah(pricing.finalPrice)}
+          </p>
+          {pricing.isOnSale && (
+            <p className="text-[10px] md:text-xs text-muted-foreground line-through">
+              {formatRupiah(pricing.regularPrice)}
+            </p>
+          )}
+        </div>
       </div>
     </Link>
   );

@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Baloo_2 } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "./fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const baloo2 = Baloo_2({
+const baloo2 = localFont({
+  src: "./fonts/baloo-2-latin.woff2",
   variable: "--font-baloo",
-  weight: ["700", "800"],
-  subsets: ["latin"],
+  weight: "700 800",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

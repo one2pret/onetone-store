@@ -5,6 +5,7 @@ import { getProductVariants } from '@/app/actions/product-variants';
 import { getProductImages } from '@/app/actions/product-images';
 import { ProductDetail } from './ProductDetail';
 import { ProductCard } from '@/components/shop/ProductCard';
+import { resolveProductPrice } from '@/lib/product-pricing';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -37,6 +38,8 @@ export default async function ProductDetailPage({ params }: Props) {
     : product.image
       ? [{ id: 0, url: product.image, thumbUrl: null, isPrimary: true, variantColor: null }]
       : [];
+  const pricingNow = new Date();
+  const initialPricing = resolveProductPrice(product, pricingNow);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -57,6 +60,11 @@ export default async function ProductDetailPage({ params }: Props) {
         categorySlug={product.category?.slug}
         description={product.description}
         basePrice={parseFloat(String(product.price))}
+        salePrice={product.salePrice === null ? null : Number(product.salePrice)}
+        saleStartsAt={product.saleStartsAt?.toISOString() ?? null}
+        saleEndsAt={product.saleEndsAt?.toISOString() ?? null}
+        pricingNow={pricingNow.toISOString()}
+        initialPricing={initialPricing}
         variants={variants}
         initialStock={initialStock}
         images={galleryImages}

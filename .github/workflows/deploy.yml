@@ -142,7 +142,11 @@ jobs:
             ENVEOF
 
             docker compose pull
-            docker compose up -d --remove-orphans
+
+            # Pastikan database tersedia, tetapi pertahankan container aplikasi lama
+            # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
+            # menghentikan deploy sebelum image aplikasi baru diaktifkan.
+            docker compose up -d onetone-db
 
             # Migrate schema — jalan sekali, container langsung berhenti sendiri.
             # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
@@ -150,6 +154,8 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
             docker run --rm --network onetone-store_onetone-net --env-file .env.app \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
+
+            docker compose up -d --remove-orphans
 
             docker image prune -f
 
@@ -198,7 +204,11 @@ jobs:
             ENVEOF
 
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Pastikan database tersedia, tetapi pertahankan container aplikasi lama
+            # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
+            # menghentikan deploy sebelum image aplikasi baru diaktifkan.
+            docker compose -f docker-compose.prod.yml up -d onetone-db
 
             # Migrate schema — jalan sekali, container langsung berhenti sendiri.
             # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
@@ -206,5 +216,7 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
             docker run --rm --network onetone-store_onetone-net --env-file .env.app \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
+
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             docker image prune -f

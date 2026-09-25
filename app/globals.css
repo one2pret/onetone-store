@@ -259,30 +259,70 @@ body {
   .animate-ken-burns { transform: none !important; }
 }
 /* ── POS Print Receipt ─────────────────────────────────────────────────────── */
+@page {
+  margin: 0;
+}
+
 @media print {
-  /* Sembunyikan semua — biarkan layout tetap, cukup invisible */
-  body * { visibility: hidden; }
+  html,
+  body {
+    width: 58mm !important;
+    min-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
 
-  /* Hanya #print-receipt dan isinya yang terlihat */
+  /* Sembunyikan UI; hanya struk yang dikirim ke driver printer. */
+  body * { visibility: hidden !important; }
+
   #print-receipt,
-  #print-receipt * { visibility: visible; }
+  #print-receipt * {
+    visibility: visible !important;
+    color: #000 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 
-  /* Posisikan di pojok kiri atas, lebar 58mm thermal */
+  /*
+   * BP-EC058: kertas 57.5mm, head 48mm/384 dot.
+   * Kontainer 58mm dengan gutter 5mm menghasilkan area isi tepat 48mm.
+   */
   #print-receipt {
     position: absolute;
     left: 0;
     top: 0;
     width: 58mm;
-    padding: 4mm;
-    font-size: 10pt;
-    font-family: monospace;
+    max-width: none !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    padding: 2.5mm 5mm 4mm !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 8pt;
+    line-height: 1.25;
     color: #000 !important;
     background: #fff !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
   }
 
   #print-receipt h1,
-  #print-receipt h2 { font-size: 12pt; }
+  #print-receipt h2 {
+    font-size: 11pt;
+    line-height: 1.15;
+  }
 
-  /* Sembunyikan elemen UI non-struk */
+  #print-receipt [data-receipt-item],
+  #print-receipt .border-t {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #print-receipt .border-zinc-300 {
+    border-color: #000 !important;
+  }
+
   .print-hidden { display: none !important; }
 }

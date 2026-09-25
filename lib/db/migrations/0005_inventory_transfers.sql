@@ -1,0 +1,20 @@
+CREATE TABLE `inventory_transfers` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `from_location_id` int NOT NULL,
+  `to_location_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `variant_id` int,
+  `quantity` int NOT NULL,
+  `actor_user_id` int NOT NULL,
+  `notes` varchar(500),
+  `created_at` timestamp DEFAULT (now()),
+  CONSTRAINT `inventory_transfers_id` PRIMARY KEY(`id`),
+  CONSTRAINT `inventory_transfers_from_location_id_fk` FOREIGN KEY (`from_location_id`) REFERENCES `inventory_locations`(`id`),
+  CONSTRAINT `inventory_transfers_to_location_id_fk` FOREIGN KEY (`to_location_id`) REFERENCES `inventory_locations`(`id`),
+  CONSTRAINT `inventory_transfers_product_id_fk` FOREIGN KEY (`product_id`) REFERENCES `products`(`id`),
+  CONSTRAINT `inventory_transfers_variant_id_fk` FOREIGN KEY (`variant_id`) REFERENCES `product_variants`(`id`),
+  CONSTRAINT `inventory_transfers_actor_user_id_fk` FOREIGN KEY (`actor_user_id`) REFERENCES `users`(`id`),
+  INDEX `inventory_transfer_created_idx` (`created_at`),
+  INDEX `inventory_transfer_from_location_idx` (`from_location_id`),
+  INDEX `inventory_transfer_to_location_idx` (`to_location_id`)
+);

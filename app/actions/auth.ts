@@ -3,12 +3,12 @@
 
 import { signIn, signOut } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users, memberTiers, memberships } from '@/lib/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { createCustomerAccount } from '@/lib/customer-registration';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter'),
@@ -44,40 +44,16 @@ export async function register(prevState: RegisterState, formData: FormData): Pr
   }
 
   const { name, email, password, phone } = validated.data;
-
-  // Check if email already exists
-  const existingRows = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const existing = existingRows[0];
-
-  if (existing) {
-    return { 
-      success: false, 
-      errors: { email: ['Email sudah terdaftar'] } 
-    };
-  }
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Create user
-  await db.insert(users).values({
-    name,
-    email,
-    password: hashedPassword,
-    phone,
-    role: 'customer',
-  });
-
-  // Auto-create Silver membership (tier dengan min_spend terendah)
-  const [newUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-  const [silverTier] = await db.select({ id: memberTiers.id }).from(memberTiers).orderBy(asc(memberTiers.minSpend)).limit(1);
-  if (newUser?.id && silverTier?.id) {
-    await db.insert(memberships).values({ userId: newUser.id, tierId: silverTier.id });
+  const result = await createCustomerAccount({ name, email, password, phone });
+  if (!result.success) {
+    return result.field
+      ? { success: false, errors: { [result.field]: [result.error] } }
+      : { success: false, error: result.error };
   }
 
   // Auto login after register
   await signIn('credentials', {
-    email,
+    email: result.user.email,
     password,
     redirect: false,
   });

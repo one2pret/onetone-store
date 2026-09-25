@@ -21,9 +21,9 @@ interface CreateInvoiceResult {
 
 let _client: Xendit | null = null;
 function getClient() {
-  if (_client) return _client;
   const secretKey = process.env.XENDIT_SECRET_KEY;
   if (!secretKey) throw new Error('XENDIT_SECRET_KEY is not configured');
+  if (_client) return _client;
   _client = new Xendit({ secretKey });
   return _client;
 }

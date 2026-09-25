@@ -8,6 +8,12 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
+import { auth } from '@/lib/auth';
+
+async function isAdmin() {
+  const session = await auth();
+  return session?.user?.role === 'admin';
+}
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Nama kategori wajib diisi'),
@@ -18,17 +24,20 @@ const categorySchema = z.object({
 
 // Get all categories (admin — semua, visible + hidden)
 export async function getAllCategories() {
+  if (!(await isAdmin())) return [];
   return await db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
 }
 
 // Get single category by ID
 export async function getCategory(id: number) {
+  if (!(await isAdmin())) return null;
   const rows = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 // Create category
 export async function createCategory(prevState: any, formData: FormData) {
+  if (!(await isAdmin())) return { success: false, errors: { _form: ['Unauthorized'] } };
   const validated = categorySchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description'),
@@ -66,6 +75,7 @@ export async function createCategory(prevState: any, formData: FormData) {
 
 // Update category
 export async function updateCategory(id: number, prevState: any, formData: FormData) {
+  if (!(await isAdmin())) return { success: false, errors: { _form: ['Unauthorized'] } };
   const validated = categorySchema.safeParse({
     name: formData.get('name'),
     description: formData.get('description'),
@@ -105,6 +115,7 @@ export async function updateCategory(id: number, prevState: any, formData: FormD
 
 // Delete category
 export async function deleteCategory(id: number) {
+  if (!(await isAdmin())) return { success: false, error: 'Unauthorized' };
   try {
     // Check if category has products
     const categoryProducts = await db.select()

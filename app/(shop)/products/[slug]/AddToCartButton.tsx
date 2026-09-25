@@ -3,9 +3,10 @@
 
 import { useState } from 'react';
 import { ShoppingCart, Minus, Plus, Check, CreditCard } from 'lucide-react';
-import { addToCart } from '@/app/actions/cart';
+import { addToCart, ensureCartItem } from '@/app/actions/cart';
 import { useRouter } from 'next/navigation';
 import { VariantSelector } from '@/components/shop/VariantSelector';
+import type { ProductPricing } from '@/lib/product-pricing';
 
 interface Variant {
   id: number;
@@ -14,18 +15,23 @@ interface Variant {
   colorHex: string | null;
   stock: number;
   priceModifier: string | null;
+  salePriceOverride: string | null;
 }
 
 interface Props {
   productId: number;
   basePrice: number;
+  salePrice?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+  pricingNow: string;
   variants: Variant[];
   initialStock: number;
   onColorChange?: (color: string | null) => void;
-  onVariantPriceChange?: (variantId: number | null, price: number, stock: number) => void;
+  onVariantPriceChange?: (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => void;
 }
 
-export function AddToCartButton({ productId, basePrice, variants, initialStock, onColorChange, onVariantPriceChange }: Props) {
+export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow, variants, initialStock, onColorChange, onVariantPriceChange }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
@@ -40,12 +46,12 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
   const [finalPrice, setFinalPrice] = useState(basePrice);
   const [currentStock, setCurrentStock] = useState(initialStock);
 
-  const handleVariantChange = (variantId: number | null, price: number, stock: number) => {
+  const handleVariantChange = (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => {
     setSelectedVariantId(variantId);
     setFinalPrice(price);
     setCurrentStock(stock);
     setQuantity(1);
-    onVariantPriceChange?.(variantId, price, stock);
+    onVariantPriceChange?.(variantId, price, stock, pricing);
   };
 
   // Disabled logic
@@ -78,7 +84,7 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
     }
     setBuyNowLoading(true);
     setError(null);
-    const result = await addToCart(productId, quantity, selectedVariantId ?? undefined);
+    const result = await ensureCartItem(productId, quantity, selectedVariantId ?? undefined);
     if (result.success) {
       router.push('/checkout');
     } else {
@@ -94,6 +100,10 @@ export function AddToCartButton({ productId, basePrice, variants, initialStock, 
         <VariantSelector
           variants={variants}
           basePrice={basePrice}
+          salePrice={salePrice}
+          saleStartsAt={saleStartsAt}
+          saleEndsAt={saleEndsAt}
+          pricingNow={pricingNow}
           onVariantChange={handleVariantChange}
           onColorChange={onColorChange}
         />

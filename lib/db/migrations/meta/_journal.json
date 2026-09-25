@@ -8,6 +8,62 @@
       "when": 1784002757594,
       "tag": "0000_thin_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1790154000000,
+      "tag": "0001_product_scheduled_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1790157600000,
+      "tag": "0002_new_user_vouchers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1790161200000,
+      "tag": "0003_voucher_admin_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1790172000000,
+      "tag": "0004_inventory_locations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1790258400000,
+      "tag": "0005_inventory_transfers",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1790262000000,
+      "tag": "0006_pos_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1790319600000,
+      "tag": "0007_pos_returns",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1790323200000,
+      "tag": "0008_pos_assigned_cashier",
+      "breakpoints": true
     }
   ]
 }

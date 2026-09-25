@@ -6,6 +6,7 @@ import { formatRupiah } from '@/lib/utils';
 import { CartItemRow } from './CartItemRow';
 import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { redirect } from 'next/navigation';
+import { calculateCartSubtotal } from '@/lib/cart-pricing';
 
 export default async function CartPage() {
   const session = await auth();
@@ -16,9 +17,7 @@ export default async function CartPage() {
 
   const cart = await getCart();
 
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + (Number(item.product.price) * (item.quantity || 0));
-  }, 0);
+  const subtotal = calculateCartSubtotal(cart);
 
   const shipping = subtotal > 0 ? 15000 : 0;
   const total = subtotal + shipping;

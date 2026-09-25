@@ -25,20 +25,25 @@ describe('cn()', () => {
 
 describe('formatRupiah()', () => {
   it('formats number to Rupiah', () => {
-    const result = formatRupiah(299000);
-    expect(result).toContain('299');
-    expect(result).toMatch(/Rp/);
+    expect(formatRupiah(299000)).toBe('Rp299.000');
   });
 
   it('formats string number', () => {
-    const result = formatRupiah('850000');
-    expect(result).toContain('850');
+    expect(formatRupiah('850000')).toBe('Rp850.000');
   });
 
   it('formats zero', () => {
-    const result = formatRupiah(0);
-    expect(result).toMatch(/Rp/);
-    expect(result).toContain('0');
+    expect(formatRupiah(0)).toBe('Rp0');
+  });
+
+  it('uses deterministic output without locale whitespace', () => {
+    const result = formatRupiah(18500000);
+    expect(result).toBe('Rp18.500.000');
+    expect(result).not.toMatch(/\s/);
+  });
+
+  it('formats negative values consistently', () => {
+    expect(formatRupiah(-1500)).toBe('-Rp1.500');
   });
 });
 

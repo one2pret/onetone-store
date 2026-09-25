@@ -21,13 +21,22 @@ const mockChainFn = (returnFn = mockSelectReturn) => {
   return chain;
 };
 
+const mockDbSelect = vi.fn(() => mockChainFn());
+const mockDbInsert = vi.fn(() => mockChainFn(mockInsertReturn));
+const mockDbUpdate = vi.fn(() => mockChainFn(mockUpdateReturn));
+const mockDbDelete = vi.fn(() => mockChainFn(mockDeleteReturn));
+
 vi.mock('@/lib/db', () => ({
-  db: {
-    select: vi.fn(() => mockChainFn()),
-    insert: vi.fn(() => mockChainFn(mockInsertReturn)),
-    update: vi.fn(() => mockChainFn(mockUpdateReturn)),
-    delete: vi.fn(() => mockChainFn(mockDeleteReturn)),
-  },
+  db: (() => {
+    const mockedDb: any = {
+      select: vi.fn((...args: unknown[]) => mockDbSelect(...args)),
+      insert: vi.fn((...args: unknown[]) => mockDbInsert(...args)),
+      update: vi.fn((...args: unknown[]) => mockDbUpdate(...args)),
+      delete: vi.fn((...args: unknown[]) => mockDbDelete(...args)),
+    };
+    mockedDb.transaction = vi.fn(async (callback: (tx: unknown) => unknown) => callback(mockedDb));
+    return mockedDb;
+  })(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -67,6 +76,10 @@ vi.mock('@/lib/utils', () => ({
   generateOrderNumber: vi.fn(() => 'ORD250101TEST'),
 }));
 
+vi.mock('@/lib/affiliate/attribution', () => ({
+  resolveAffiliateAttribution: vi.fn().mockResolvedValue(null),
+}));
+
 import {
   getUserOrders,
   getOrder,
@@ -85,10 +98,12 @@ import { db } from '@/lib/db';
 describe('Order Server Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSelectReturn.mockReturnValue([]);
-    mockInsertReturn.mockReturnValue([{ insertId: 1 }]);
-    mockUpdateReturn.mockReturnValue(undefined);
-    mockDeleteReturn.mockReturnValue(undefined);
+    // Reset implementations as well as call history so queued
+    // mockReturnValueOnce values cannot leak into the next test.
+    mockSelectReturn.mockReset().mockReturnValue([]);
+    mockInsertReturn.mockReset().mockReturnValue([{ insertId: 1 }]);
+    mockUpdateReturn.mockReset().mockReturnValue(undefined);
+    mockDeleteReturn.mockReset().mockReturnValue(undefined);
   });
 
   describe('getUserOrders', () => {

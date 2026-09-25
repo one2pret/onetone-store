@@ -1,4 +1,4 @@
-import { getProduct, getCategories } from '@/app/actions/products';
+import { getProduct, getCategories, getProductBarcodes } from '@/app/actions/products';
 import { getProductVariants, getVariantIdsUsedInOrders, getVariantIdsUsedInCarts } from '@/app/actions/product-variants';
 import { getProductImages } from '@/app/actions/product-images';
 import { ProductForm } from '../../_components/ProductForm';
@@ -14,13 +14,14 @@ export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
   const productId = Number(id);
 
-  const [product, categories, variants, images, usedInOrderIds, usedInCartIds] = await Promise.all([
+  const [product, categories, variants, images, usedInOrderIds, usedInCartIds, barcodes] = await Promise.all([
     getProduct(productId),
     getCategories(),
     getProductVariants(productId),
     getProductImages(productId),
     getVariantIdsUsedInOrders(productId),
     getVariantIdsUsedInCarts(productId),
+    getProductBarcodes(productId),
   ]);
 
   if (!product) notFound();
@@ -48,6 +49,7 @@ export default async function EditProductPage({ params }: Props) {
           usedInOrderIds={usedInOrderIds}
           usedInCartIds={usedInCartIds}
           primaryImageUrl={images.find(img => img.isPrimary)?.url ?? images[0]?.url}
+          barcodes={barcodes}
         />
       </div>
     </div>

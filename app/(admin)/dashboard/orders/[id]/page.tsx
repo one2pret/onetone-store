@@ -132,6 +132,12 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                   <span>Subtotal</span>
                   <span>{formatRupiah(order.subtotal)}</span>
                 </div>
+                {Number(order.discountAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Diskon</span>
+                    <span>-{formatRupiah(order.discountAmount ?? 0)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-muted-foreground">
                   <span>Ongkir</span>
                   <span>{formatRupiah(order.shippingCost || '0')}</span>

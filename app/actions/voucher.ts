@@ -2,8 +2,8 @@
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { memberships, vouchers } from '@/lib/db/schema';
-import { and, eq, isNull, or, lte, gte, sql } from 'drizzle-orm';
+import { memberships, orders, userVouchers, vouchers } from '@/lib/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import { calculateDiscount } from '@/lib/membership-utils';
 
 export type AvailableVoucher = {
@@ -15,6 +15,8 @@ export type AvailableVoucher = {
   freeShipping: boolean;
   endsAt: Date | null;
   minSpend: number;
+  userVoucherId?: number;
+  audience: 'public' | 'membership' | 'new_user';
 };
 
 export async function getAvailableVouchers(subtotal: number): Promise<AvailableVoucher[]> {
@@ -23,6 +25,9 @@ export async function getAvailableVouchers(subtotal: number): Promise<AvailableV
 
   // Get user tier
   let userTierId: number | null = null;
+  const grants = userId
+    ? await db.select().from(userVouchers).where(eq(userVouchers.userId, userId))
+    : [];
   if (userId) {
     const membership = await db
       .select({ tierId: memberships.tierId })
@@ -52,6 +57,11 @@ export async function getAvailableVouchers(subtotal: number): Promise<AvailableV
       if (v.tierId !== null) {
         if (!userTierId || userTierId < v.tierId) return false;
       }
+      if (v.audience === 'new_user') {
+        const grant = grants.find((item) => item.voucherId === v.id);
+        if (!grant || grant.status !== 'available') return false;
+        if (grant.expiresAt && now > new Date(grant.expiresAt)) return false;
+      }
       return true;
     })
     .map((v) => {
@@ -65,6 +75,8 @@ export async function getAvailableVouchers(subtotal: number): Promise<AvailableV
         freeShipping: type === 'free_shipping',
         endsAt: v.endsAt ? new Date(v.endsAt) : null,
         minSpend: v.minSpend ?? 0,
+        userVoucherId: grants.find((item) => item.voucherId === v.id)?.id,
+        audience: v.audience,
       };
     });
 }
@@ -79,6 +91,8 @@ export type VoucherValidationResult =
       discountAmount: number;
       freeShipping: boolean;
       message: string;
+      userVoucherId: number | null;
+      allowPoints: boolean;
     };
 
 export async function validateVoucher(
@@ -96,6 +110,9 @@ export async function validateVoucher(
 
   if (!voucher) return { valid: false, error: 'Kode voucher tidak ditemukan' };
 
+  const session = await auth();
+  const userId = session?.user?.id ? Number(session.user.id) : null;
+
   const now = new Date();
   if (voucher.startsAt && now < new Date(voucher.startsAt))
     return { valid: false, error: 'Voucher belum aktif' };
@@ -112,19 +129,44 @@ export async function validateVoucher(
     };
 
   if (voucher.tierId) {
-    const session = await auth();
     if (!session?.user) return { valid: false, error: 'Login untuk memakai voucher tier' };
 
-    const userId = Number(session.user.id);
     const membership = await db
       .select({ tierId: memberships.tierId })
       .from(memberships)
-      .where(eq(memberships.userId, userId))
+      .where(eq(memberships.userId, userId!))
       .limit(1)
       .then((r) => r[0] ?? null);
 
     if (!membership || membership.tierId < voucher.tierId)
       return { valid: false, error: 'Tier membership kamu belum memenuhi syarat voucher ini' };
+  }
+
+  let userVoucherId: number | null = null;
+  if (voucher.audience === 'new_user') {
+    if (!userId) return { valid: false, error: 'Login untuk memakai voucher pengguna baru' };
+    const grant = await db.select().from(userVouchers).where(and(
+      eq(userVouchers.userId, userId),
+      eq(userVouchers.voucherId, voucher.id),
+    )).limit(1).then((rows) => rows[0] ?? null);
+
+    if (!grant) return { valid: false, error: 'Voucher ini tidak diberikan ke akun Anda' };
+    if (grant.status === 'reserved') return { valid: false, error: 'Voucher sedang digunakan pada pesanan lain' };
+    if (grant.status === 'redeemed') return { valid: false, error: 'Voucher sudah pernah digunakan' };
+    if (grant.status === 'expired' || (grant.expiresAt && now > new Date(grant.expiresAt))) {
+      return { valid: false, error: 'Voucher sudah expired' };
+    }
+
+    if (voucher.firstOrderOnly) {
+      const completedOrders = await db.select({ id: orders.id }).from(orders).where(and(
+        eq(orders.userId, userId),
+        inArray(orders.status, ['packing', 'shipping', 'delivered']),
+      )).limit(1);
+      if (completedOrders.length > 0) {
+        return { valid: false, error: 'Voucher hanya berlaku untuk pesanan pertama' };
+      }
+    }
+    userVoucherId = grant.id;
   }
 
   const type = voucher.type as 'fixed' | 'percent' | 'free_shipping';
@@ -143,5 +185,7 @@ export async function validateVoucher(
     discountAmount,
     freeShipping,
     message,
+    userVoucherId,
+    allowPoints: voucher.allowPoints,
   };
 }

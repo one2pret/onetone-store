@@ -1,11 +1,12 @@
 // app/api/shipping/rates/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { addresses, storeSettings, couriers, cartItems, products } from '@/lib/db/schema';
+import { addresses, storeSettings, couriers, cartItems, products, productVariants } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 import { getShippingRates } from '@/lib/bitship';
 import type { BitshipRate } from '@/lib/bitship';
+import { getEffectiveUnitPrice } from '@/lib/cart-pricing';
 
 interface GroupedRates {
   express: BitshipRate[];
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     // 4. Cart items
     const cart = await db.select().from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
+      .leftJoin(productVariants, eq(cartItems.variantId, productVariants.id))
       .where(eq(cartItems.userId, user.id));
 
     if (cart.length === 0) {
@@ -82,7 +84,16 @@ export async function POST(request: Request) {
       name: row.products!.name,
       weight: (row.products!.weight ?? 0) * (row.cart_items.quantity ?? 1),
       quantity: row.cart_items.quantity ?? 1,
-      value: Number(row.products!.price) * (row.cart_items.quantity ?? 1),
+      value: getEffectiveUnitPrice(
+        row.products!.price,
+        row.product_variants?.priceModifier,
+        {
+          salePrice: row.products!.salePrice,
+          saleStartsAt: row.products!.saleStartsAt,
+          saleEndsAt: row.products!.saleEndsAt,
+          variantSalePriceOverride: row.product_variants?.salePriceOverride,
+        },
+      ) * (row.cart_items.quantity ?? 1),
     }));
 
     // 6. Fetch rates

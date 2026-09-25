@@ -8,11 +8,12 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRupiah(amount: number | string): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(num);
+  if (!Number.isFinite(num)) return 'Rp0';
+
+  const rounded = Math.round(num);
+  const sign = rounded < 0 ? '-' : '';
+  const digits = String(Math.abs(rounded)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}Rp${digits}`;
 }
 
 export function formatDate(date: Date | string, timeZone?: string): string {

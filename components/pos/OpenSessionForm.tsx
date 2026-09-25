@@ -6,32 +6,25 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { openSession } from "@/app/actions/pos-sessions";
 import { formatRupiah } from "@/lib/utils";
-import { Calculator, Wallet, User } from "lucide-react";
+import { Calculator, Printer, Wallet, User } from "lucide-react";
 
 const QUICK_AMOUNTS = [0, 50000, 100000, 200000, 500000, 1000000];
 
-interface CashierOption {
-  id: number;
-  name: string;
-  email: string;
-}
-
 interface Props {
   cashierName?: string;
-  currentUserId?: number;
-  cashiers?: CashierOption[];
+  locations: { id: number; name: string; code: string }[];
 }
 
-export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: Props) {
+export function OpenSessionForm({ cashierName, locations }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openingCash, setOpeningCash] = useState<string>("0");
   const [notes, setNotes] = useState("");
-  // Nama kasir bertugas — default nama user yang login
-  const [selectedCashierName, setSelectedCashierName] = useState<string>(cashierName ?? '');
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? 0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,9 +36,9 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
 
     startTransition(async () => {
       const result = await openSession({
+        locationId,
         openingCash: amount,
         notes: notes || undefined,
-        assignedCashierName: selectedCashierName || undefined,
       });
       if (result.success) {
         toast.success("Sesi kasir dibuka");
@@ -65,32 +58,26 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Buka Kasir</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Pilih kasir yang bertugas dan masukkan modal awal
+            Masuk sebagai {cashierName || "kasir"} dan masukkan modal awal
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Pilih kasir */}
-          {cashiers.length > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <User className="h-4 w-4 text-slate-500" />
             <div>
-              <label htmlFor="cashierId" className="block text-sm font-medium text-slate-700 mb-2">
-                <User className="w-4 h-4 inline mr-1 -mt-0.5" />
-                Kasir Bertugas
-              </label>
-              <select
-                id="cashierId"
-                value={selectedCashierName}
-                onChange={(e) => setSelectedCashierName(e.target.value)}
-                className="w-full px-4 py-3 text-base font-medium bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition appearance-none"
-              >
-                {cashiers.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}{c.id === currentUserId ? ' (Anda)' : ''}
-                  </option>
-                ))}
-              </select>
+              <p className="text-xs text-slate-500">Kasir bertugas</p>
+              <p className="text-sm font-semibold text-slate-800">{cashierName || "Akun kasir"}</p>
             </div>
-          )}
+          </div>
+
+          <div>
+            <label htmlFor="locationId" className="mb-2 block text-sm font-medium text-slate-700">Lokasi stok POS</label>
+            <select id="locationId" value={locationId} onChange={e => setLocationId(Number(e.target.value))} required className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-primary">
+              {locations.length === 0 && <option value={0}>Belum ada lokasi POS aktif</option>}
+              {locations.map(location => <option key={location.id} value={location.id}>{location.name} · {location.code}</option>)}
+            </select>
+          </div>
 
           {/* Modal awal */}
           <div>
@@ -146,11 +133,18 @@ export function OpenSessionForm({ cashierName, currentUserId, cashiers = [] }: P
 
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || !locationId}
             className="w-full py-3.5 bg-primary text-primary-foreground font-semibold rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {isPending ? "Membuka..." : "Mulai Sesi Kasir"}
           </button>
+          <Link
+            href="/pos/test-print"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Printer className="h-4 w-4" />
+            Test Print 58 mm
+          </Link>
         </form>
       </div>
     </div>

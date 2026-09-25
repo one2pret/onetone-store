@@ -5,10 +5,10 @@ import { db } from '@/lib/db';
 import {
   orders, orderItems, cartItems, products, productVariants, users,
   orderStatusLogs, addresses, shippings, shippingHistories, invoices,
-  vouchers, memberships, memberTiers, pointsLedger, affiliateClicks,
+  memberships, memberTiers, pointsLedger, affiliateClicks, userVouchers,
 } from '@/lib/db/schema';
 import { eq, desc, sql, and } from 'drizzle-orm';
-import { calculateDiscount, isFreeShippingEligible, calculateRedeemAmount } from '@/lib/membership-utils';
+import { isFreeShippingEligible, calculateRedeemAmount } from '@/lib/membership-utils';
 import { auth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { generateOrderNumber } from '@/lib/utils';
@@ -17,6 +17,9 @@ import { deductStock, restoreStock, validateStock } from '@/lib/stock';
 import { createInvoice, expireInvoice, getInvoice } from '@/lib/xendit';
 import { resolveAffiliateAttribution } from '@/lib/affiliate/attribution';
 import { rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle';
+import { resolveProductPrice } from '@/lib/product-pricing';
+import { releaseVoucherReservation } from '@/lib/user-vouchers';
+import { validateVoucher } from '@/app/actions/voucher';
 
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
@@ -83,42 +86,31 @@ export async function createOrder(prevState: any, formData: FormData) {
     }
 
     // 4. Calculate subtotal — harga dasar + priceModifier varian
+    const pricingNow = new Date();
     const subtotal = cartRows.reduce((sum, row) => {
-      const base = Number(row.products!.price);
-      const modifier = Number(row.product_variants?.priceModifier ?? 0);
-      return sum + (base + modifier) * (row.cart_items.quantity ?? 1);
+      const unitPrice = resolveProductPrice({
+        ...row.products!,
+        priceModifier: row.product_variants?.priceModifier,
+        variantSalePriceOverride: row.product_variants?.salePriceOverride,
+      }, pricingNow).finalPrice;
+      return sum + unitPrice * (row.cart_items.quantity ?? 1);
     }, 0);
 
     // 4b. Validate voucher (if provided)
     let voucherId: number | null = null;
+    let userVoucherId: number | null = null;
     let discountAmount = 0;
     let voucherFreeShipping = false;
+    let voucherAllowsPoints = true;
 
     if (voucherCode) {
-      const voucher = await db
-        .select()
-        .from(vouchers)
-        .where(and(eq(vouchers.code, voucherCode), eq(vouchers.isActive, true)))
-        .limit(1)
-        .then((r) => r[0] ?? null);
-
-      if (voucher) {
-        const now = new Date();
-        const dateOk = (!voucher.startsAt || now >= new Date(voucher.startsAt)) &&
-                       (!voucher.endsAt || now <= new Date(voucher.endsAt));
-        const quotaOk = voucher.quota === null || (voucher.usedCount ?? 0) < voucher.quota;
-        const spendOk = !voucher.minSpend || subtotal >= voucher.minSpend;
-
-        if (dateOk && quotaOk && spendOk) {
-          voucherId = voucher.id;
-          discountAmount = calculateDiscount(
-            voucher.type as 'fixed' | 'percent' | 'free_shipping',
-            voucher.value ?? 0,
-            subtotal
-          );
-          voucherFreeShipping = voucher.type === 'free_shipping';
-        }
-      }
+      const voucherResult = await validateVoucher(voucherCode, subtotal);
+      if (!voucherResult.valid) return { success: false, error: voucherResult.error };
+      voucherId = voucherResult.voucherId;
+      userVoucherId = voucherResult.userVoucherId;
+      discountAmount = voucherResult.discountAmount;
+      voucherFreeShipping = voucherResult.freeShipping;
+      voucherAllowsPoints = voucherResult.allowPoints;
     }
 
     // 4c. Check free shipping from membership tier
@@ -143,6 +135,9 @@ export async function createOrder(prevState: any, formData: FormData) {
     let redeemAmount = 0;
     let validatedPointsToRedeem = 0;
     if (pointsToRedeem > 0 && membership) {
+      if (!voucherAllowsPoints) {
+        return { success: false, error: 'Voucher ini tidak dapat digabung dengan penggunaan poin' };
+      }
       const memberPoints = membership.memberships.points ?? 0;
       if (pointsToRedeem > memberPoints) {
         return { success: false, error: 'Poin tidak cukup' };
@@ -186,6 +181,21 @@ export async function createOrder(prevState: any, formData: FormData) {
       });
       orderId = Number(result.insertId);
 
+      if (userVoucherId) {
+        const [reservation] = await tx.update(userVouchers).set({
+          status: 'reserved',
+          reservedOrderId: orderId,
+          reservedAt: pricingNow,
+        }).where(and(
+          eq(userVouchers.id, userVoucherId),
+          eq(userVouchers.userId, userId),
+          eq(userVouchers.status, 'available'),
+        ));
+        if ((reservation as { affectedRows?: number }).affectedRows !== 1) {
+          throw new Error('VOUCHER_RESERVATION_CONFLICT');
+        }
+      }
+
       // Deduct points immediately — restore on EXPIRED webhook
       if (validatedPointsToRedeem > 0 && membership) {
         const membershipId = membership.memberships.id;
@@ -215,9 +225,12 @@ export async function createOrder(prevState: any, formData: FormData) {
     // 6. Create order items — simpan variantId + variantLabel (snapshot)
     await db.insert(orderItems).values(
       cartRows.map((row) => {
-        const base = Number(row.products!.price);
-        const modifier = Number(row.product_variants?.priceModifier ?? 0);
-        const unitPrice = base + modifier;
+        const pricing = resolveProductPrice({
+          ...row.products!,
+          priceModifier: row.product_variants?.priceModifier,
+          variantSalePriceOverride: row.product_variants?.salePriceOverride,
+        }, pricingNow);
+        const unitPrice = pricing.finalPrice;
         const qty = row.cart_items.quantity ?? 1;
         const variant = row.product_variants;
         const variantLabel = variant ? `${variant.size} / ${variant.color}` : null;
@@ -230,6 +243,8 @@ export async function createOrder(prevState: any, formData: FormData) {
           productImage: row.products!.image,
           variantLabel,
           price: String(unitPrice),
+          regularPrice: String(pricing.regularPrice),
+          productDiscountAmount: String(pricing.discountAmount),
           quantity: qty,
           subtotal: String(unitPrice * qty),
         };
@@ -298,6 +313,9 @@ export async function createOrder(prevState: any, formData: FormData) {
     return { success: true, orderId, paymentUrl };
   } catch (error) {
     console.error('Create order error:', error);
+    if (error instanceof Error && error.message === 'VOUCHER_RESERVATION_CONFLICT') {
+      return { success: false, error: 'Voucher sedang digunakan pada pesanan lain. Muat ulang checkout.' };
+    }
     return { success: false, error: 'Gagal membuat order' };
   }
 }
@@ -350,6 +368,7 @@ export async function cancelOrderByCustomer(orderId: number) {
 
     // Affiliate: no-op (order masih waiting_payment, belum ada commission) — aman dipanggil
     await rejectCommissionsForOrder(orderId, 'order_cancelled_by_customer');
+    await releaseVoucherReservation(orderId);
 
     revalidatePath('/orders');
     revalidatePath('/dashboard/orders');

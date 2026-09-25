@@ -4,9 +4,9 @@
 // POS Session lifecycle: buka kasir (openingCash) → transaksi → tutup kasir (Z-report)
 // Filosofi Odoo POS: satu session = satu shift kasir, semua transaksi di-track ke session.
 
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { posSessions, orders, users, orderItems } from "@/lib/db/schema";
+import { inventoryLocations, posSessions, orders, users, orderItems, posReturns } from "@/lib/db/schema";
+import { canAccessPosSession, requirePosAdmin, requirePosOperator } from "@/lib/pos-auth";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -14,9 +14,9 @@ import { z } from "zod";
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const openSessionSchema = z.object({
+  locationId: z.number().int().positive("Pilih lokasi POS"),
   openingCash: z.number().min(0, "Modal awal tidak boleh negatif"),
   notes: z.string().max(500).optional(),
-  assignedCashierName: z.string().max(255).optional(),
 });
 
 const closeSessionSchema = z.object({
@@ -27,25 +27,16 @@ const closeSessionSchema = z.object({
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
-async function requireCashier() {
-  const session = await auth();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user?.id || (role !== "admin" && role !== "cashier")) {
-    return { ok: false as const, error: "Akses ditolak" };
-  }
-  return { ok: true as const, userId: Number(session.user.id), role: role as "admin" | "cashier" };
-}
-
 // ─── Get active session ───────────────────────────────────────────────────────
 
 export async function getActiveSession() {
-  const auth = await requireCashier();
+  const auth = await requirePosOperator();
   if (!auth.ok) return null;
 
   const rows = await db
     .select()
     .from(posSessions)
-    .where(and(eq(posSessions.cashierId, auth.userId), eq(posSessions.status, "open")))
+    .where(and(eq(posSessions.cashierId, auth.actor.id), eq(posSessions.status, "open")))
     .limit(1);
 
   return rows[0] ?? null;
@@ -54,8 +45,8 @@ export async function getActiveSession() {
 // ─── Open session ─────────────────────────────────────────────────────────────
 
 export async function getCashierUsers() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const auth = await requirePosAdmin();
+  if (!auth.ok) return [];
   return db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
@@ -66,8 +57,8 @@ export async function getCashierUsers() {
     .orderBy(users.name);
 }
 
-export async function openSession(input: { openingCash: number; notes?: string; assignedCashierName?: string }) {
-  const authResult = await requireCashier();
+export async function openSession(input: { locationId: number; openingCash: number; notes?: string }) {
+  const authResult = await requirePosOperator();
   if (!authResult.ok) return { success: false, error: authResult.error };
 
   const parsed = openSessionSchema.safeParse(input);
@@ -75,11 +66,15 @@ export async function openSession(input: { openingCash: number; notes?: string; 
     return { success: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   }
 
+  const locations = await db.select({ id: inventoryLocations.id }).from(inventoryLocations)
+    .where(and(eq(inventoryLocations.id, parsed.data.locationId), eq(inventoryLocations.type, "pos"), eq(inventoryLocations.isActive, true))).limit(1);
+  if (!locations[0]) return { success: false, error: "Lokasi POS tidak aktif atau tidak ditemukan" };
+
   // cashierId selalu = user yang login. Nama kasir bertugas disimpan terpisah.
   const existing = await db
     .select({ id: posSessions.id })
     .from(posSessions)
-    .where(and(eq(posSessions.cashierId, authResult.userId), eq(posSessions.status, "open")))
+    .where(and(eq(posSessions.cashierId, authResult.actor.id), eq(posSessions.status, "open")))
     .limit(1);
 
   if (existing.length > 0) {
@@ -90,10 +85,11 @@ export async function openSession(input: { openingCash: number; notes?: string; 
   }
 
   const [result] = await db.insert(posSessions).values({
-    cashierId: authResult.userId,
+    cashierId: authResult.actor.id,
+    locationId: parsed.data.locationId,
     openingCash: String(parsed.data.openingCash),
     status: "open",
-    assignedCashierName: parsed.data.assignedCashierName || null,
+    assignedCashierName: authResult.actor.name,
     notes: parsed.data.notes || null,
   });
 
@@ -104,7 +100,7 @@ export async function openSession(input: { openingCash: number; notes?: string; 
 // ─── Session summary (Z-report data) ──────────────────────────────────────────
 
 export async function getSessionSummary(sessionId: number) {
-  const auth = await requireCashier();
+  const auth = await requirePosOperator();
   if (!auth.ok) return null;
 
   const sessionRows = await db
@@ -114,17 +110,26 @@ export async function getSessionSummary(sessionId: number) {
     .limit(1);
   if (sessionRows.length === 0) return null;
   const session = sessionRows[0];
+  if (!canAccessPosSession(auth.actor, session.cashierId)) return null;
 
   // Agregasi per payment method
   const rows = await db
     .select({
       paymentMethod: orders.posPaymentMethod,
       total: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+      discount: sql<string>`COALESCE(SUM(${orders.discountAmount}), 0)`,
       count: sql<number>`COUNT(*)`,
     })
     .from(orders)
     .where(and(eq(orders.posSessionId, sessionId), eq(orders.channel, "pos")))
     .groupBy(orders.posPaymentMethod);
+
+  const refundRows = await db.select({
+    paymentMethod: posReturns.refundMethod,
+    total: sql<string>`COALESCE(SUM(${posReturns.refundAmount}), 0)`,
+  }).from(posReturns)
+    .where(eq(posReturns.posSessionId, sessionId))
+    .groupBy(posReturns.refundMethod);
 
   const breakdown = {
     cash: { total: 0, count: 0 },
@@ -133,6 +138,8 @@ export async function getSessionSummary(sessionId: number) {
   };
 
   let totalSales = 0;
+  let totalDiscounts = 0;
+  let totalRefunds = 0;
   let totalTransactions = 0;
 
   for (const row of rows) {
@@ -143,7 +150,16 @@ export async function getSessionSummary(sessionId: number) {
       breakdown[method] = { total: amount, count };
     }
     totalSales += amount;
+    totalDiscounts += Number(row.discount);
     totalTransactions += count;
+  }
+
+  for (const row of refundRows) {
+    const method = row.paymentMethod as keyof typeof breakdown;
+    const amount = Number(row.total);
+    if (method in breakdown) breakdown[method].total -= amount;
+    totalRefunds += amount;
+    totalSales -= amount;
   }
 
   const openingCash = Number(session.openingCash);
@@ -153,6 +169,8 @@ export async function getSessionSummary(sessionId: number) {
     session,
     breakdown,
     totalSales,
+    totalDiscounts,
+    totalRefunds,
     totalTransactions,
     openingCash,
     expectedCash,
@@ -166,7 +184,7 @@ export async function closeSession(input: {
   closingCash: number;
   notes?: string;
 }) {
-  const auth = await requireCashier();
+  const auth = await requirePosOperator();
   if (!auth.ok) return { success: false, error: auth.error };
 
   const parsed = closeSessionSchema.safeParse(input);
@@ -187,6 +205,9 @@ export async function closeSession(input: {
 
   if (session.status === "closed") {
     return { success: false, error: "Sesi kasir sudah ditutup" };
+  }
+  if (!canAccessPosSession(auth.actor, session.cashierId)) {
+    return { success: false, error: "Sesi kasir bukan milikmu" };
   }
 
   const summary = await getSessionSummary(parsed.data.sessionId);
@@ -221,7 +242,7 @@ export async function closeSession(input: {
 // ─── Admin: list all sessions (dengan agregasi cepat) ─────────────────────────
 
 export async function getAllPosSessions() {
-  const auth = await requireCashier();
+  const auth = await requirePosAdmin();
   if (!auth.ok) return [];
 
   const sessions = await db
@@ -276,7 +297,7 @@ export async function getAllPosSessions() {
 // ─── Admin: detail session (Z-report + transaksi) ─────────────────────────────
 
 export async function getPosSessionDetail(sessionId: number) {
-  const auth = await requireCashier();
+  const auth = await requirePosAdmin();
   if (!auth.ok) return null;
 
   const summary = await getSessionSummary(sessionId);
@@ -294,6 +315,7 @@ export async function getPosSessionDetail(sessionId: number) {
     .select({
       id: orders.id,
       orderNumber: orders.orderNumber,
+      discountAmount: orders.discountAmount,
       total: orders.total,
       posPaymentMethod: orders.posPaymentMethod,
       shippingName: orders.shippingName, // customer name (opsional)
@@ -333,7 +355,7 @@ export async function getPosSessionDetail(sessionId: number) {
 // ─── Admin: penjualan POS hari ini ────────────────────────────────────────────
 
 export async function getTodayPosSales() {
-  const auth = await requireCashier();
+  const auth = await requirePosAdmin();
   if (!auth.ok) return { totalSales: 0, transactions: 0 };
 
   const startOfDay = new Date();

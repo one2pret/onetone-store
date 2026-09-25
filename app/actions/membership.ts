@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { memberships, memberTiers, pointsLedger, vouchers } from '@/lib/db/schema';
+import { memberships, memberTiers, pointsLedger, userVouchers, vouchers } from '@/lib/db/schema';
 import { eq, and, isNull, or, lte, gte, desc } from 'drizzle-orm';
 
 export async function getMyMembership() {
@@ -92,10 +92,29 @@ export async function getMyVouchers() {
       )
     );
 
+  const grants = await db.select().from(userVouchers)
+    .where(eq(userVouchers.userId, userId));
+
   return rows.filter((v) => {
     if (v.quota !== null && (v.usedCount ?? 0) >= v.quota) return false;
+    if (v.audience === 'new_user') {
+      const grant = grants.find((item) => item.voucherId === v.id);
+      return Boolean(
+        grant
+        && grant.status === 'available'
+        && (!grant.expiresAt || new Date(grant.expiresAt) >= now)
+      );
+    }
     if (!v.tierId) return true;
     if (!membership) return false;
     return v.tierId <= membership.tierId;
+  }).map((voucher) => {
+    const grant = grants.find((item) => item.voucherId === voucher.id);
+    return {
+      ...voucher,
+      userVoucherId: grant?.id ?? null,
+      ownershipStatus: grant?.status ?? null,
+      effectiveEndsAt: grant?.expiresAt ?? voucher.endsAt,
+    };
   });
 }
