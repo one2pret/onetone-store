@@ -56,11 +56,15 @@ export async function getLocationBalanceMap(locationId: number) {
   return new Map(rows.map(row => [`${row.productId}:${row.variantId ?? 0}`, Math.max(0, row.quantity - row.reserved)]));
 }
 
-export async function setOnlineInventoryStock(productId: number, variantId: number | null, quantity: number) {
+export async function requireOnlineInventoryLocation() {
   const locations = await db.select({ id: inventoryLocations.id }).from(inventoryLocations)
     .where(and(eq(inventoryLocations.isOnlineDefault, true), eq(inventoryLocations.isActive, true))).limit(1);
-  const locationId = locations[0]?.id;
-  if (!locationId) throw new Error("Gudang Online belum dikonfigurasi");
+  if (!locations[0]) throw new Error("Gudang Online belum dikonfigurasi. Tetapkan lokasi Online utama di Dashboard > Inventori sebelum menyimpan produk.");
+  return locations[0].id;
+}
+
+export async function setOnlineInventoryStock(productId: number, variantId: number | null, quantity: number) {
+  const locationId = await requireOnlineInventoryLocation();
   const condition = variantId
     ? and(eq(inventoryBalances.locationId, locationId), eq(inventoryBalances.productId, productId), eq(inventoryBalances.variantId, variantId))
     : and(eq(inventoryBalances.locationId, locationId), eq(inventoryBalances.productId, productId), isNull(inventoryBalances.variantId));

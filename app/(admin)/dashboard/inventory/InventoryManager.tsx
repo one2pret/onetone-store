@@ -1,6 +1,6 @@
 "use client";
 
-import { createInventoryLocation, transferInventory, updateInventoryBalance } from "@/app/actions/inventory";
+import { configureOnlineInventoryLocation, createInventoryLocation, transferInventory, updateInventoryBalance } from "@/app/actions/inventory";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -21,6 +21,8 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
   const [movementType, setMovementType] = useState("");
   const [movementSearch, setMovementSearch] = useState("");
   const [movementDate, setMovementDate] = useState("");
+  const [onlineLocationId, setOnlineLocationId] = useState(data.locations.find(l => l.isOnlineDefault)?.id ?? data.locations.find(l => l.type === "online" && l.isActive)?.id ?? 0);
+  const hasOnlineDefault = data.locations.some(l => l.isOnlineDefault && l.isActive);
   const balances = new Map(data.balances.filter(b => b.locationId === locationId).map(b => [`${b.productId}:${b.variantId ?? 0}`, b.quantity]));
   const variantsByProduct = useMemo(() => {
     const grouped = new Map<number, typeof data.variants>();
@@ -59,6 +61,14 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
     });
   }
 
+  function configureOnline() {
+    startTransition(async () => {
+      const result = await configureOnlineInventoryLocation(onlineLocationId);
+      if (result.success) { toast.success("Gudang Online utama ditetapkan"); router.refresh(); }
+      else toast.error(result.error);
+    });
+  }
+
   function saveStock(productId: number, variantId: number | null, quantity: number) {
     startTransition(async () => {
       const result = await updateInventoryBalance({ locationId, productId, variantId, quantity });
@@ -84,6 +94,18 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
   }
 
   return <div className="space-y-5">
+    {!hasOnlineDefault && <div className="space-y-3 rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="font-semibold">Gudang Online utama belum dikonfigurasi. Simpan produk akan ditolak sampai lokasi ditetapkan.</p>
+      <p>Pilih lokasi Online aktif. Stok lama akan dipakai untuk saldo yang belum tercatat; saldo yang sudah ada tetap dipertahankan.</p>
+      <div className="flex flex-wrap gap-2">
+        <select aria-label="Lokasi Online utama" value={onlineLocationId} onChange={e => setOnlineLocationId(Number(e.target.value))} className="rounded-lg border border-amber-400 bg-white px-3 py-2">
+          <option value={0}>Pilih lokasi Online</option>
+          {data.locations.filter(l => l.type === "online" && (l.isActive || l.isOnlineDefault)).map(l => <option key={l.id} value={l.id}>{l.name}{!l.isActive ? " (nonaktif — aktifkan kembali)" : ""}</option>)}
+        </select>
+        <button type="button" disabled={pending || !onlineLocationId} onClick={configureOnline} className="rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-50">Tetapkan Gudang Online</button>
+      </div>
+      {!data.locations.some(l => l.type === "online" && (l.isActive || l.isOnlineDefault)) && <p>Buat lokasi bertipe Online di bawah ini terlebih dahulu.</p>}
+    </div>}
     <form action={addLocation} className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[1fr_180px_160px_auto]">
       <input name="name" required placeholder="Contoh: POS Cimahi" className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
       <input name="code" required placeholder="POS-CIMAHI" className="rounded-lg border border-border bg-background px-3 py-2 text-sm uppercase" />
