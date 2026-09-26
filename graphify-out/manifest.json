@@ -880,8 +880,8 @@
     "semantic_hash": "9eb8a74969f5d1e0ecb2d5c0ffb91d70"
   },
   "app/(pos)/pos/page.tsx": {
-    "mtime": 1790417281.899595,
-    "ast_hash": "43c6cc00aee33b32eef4546f1240af13",
+    "mtime": 1790431788.5773015,
+    "ast_hash": "e4eb2909b4229f3db6964fe50f50d51d",
     "semantic_hash": ""
   },
   "app/(shop)/about/page.tsx": {
@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "components/pos/CashierScreen.tsx": {
-    "mtime": 1790417281.931477,
-    "ast_hash": "53252522cf35c2d207a71c19f84388c3",
+    "mtime": 1790432257.066572,
+    "ast_hash": "0f5c2a4181870b77685b826558788b11",
     "semantic_hash": ""
   },
   "components/pos/CloseSessionForm.tsx": {
@@ -1295,7 +1295,7 @@
     "semantic_hash": ""
   },
   "components/pos/PaymentSheet.tsx": {
-    "mtime": 1790345841.4554727,
+    "mtime": 1790426169.6194808,
     "ast_hash": "da2c07664c17174a0a33d241e204026e",
     "semantic_hash": ""
   },

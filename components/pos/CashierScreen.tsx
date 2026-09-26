@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, ScanBarcode, ShoppingBag, X, Plus, Minus, Trash2, LogOut, ChevronUp, Printer, History } from "lucide-react";
+import { Search, ScanBarcode, ShoppingBag, X, Plus, Minus, Trash2, LogOut, ChevronUp, Printer, History, MapPin } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import {
   appendBarcodeCharacter,
@@ -314,43 +314,62 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
       {/* ═══════ Kolom kiri: Katalog ═══════ */}
       <div className="flex flex-col lg:flex-1 lg:min-h-0 lg:h-svh lg:overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex-1">
-              <h1 className="text-base font-bold text-slate-900">Kasir Onetone</h1>
-              <p className="text-[11px] text-slate-500">
-                Sesi #{session.id} • Modal: {formatRupiah(Number(session.openingCash))}
-                {cashierName && (
-                  <span className="ml-2 font-medium text-slate-700">· {cashierName}</span>
-                )}
-                {locationName && <span className="ml-2 font-medium text-primary">· {locationName}</span>}
-              </p>
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+          <div className="mb-3 flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Kasir aktif
+                </p>
+                <h1
+                  className="truncate text-base font-bold leading-5 text-slate-950 sm:text-lg"
+                  title={cashierName || "Nama kasir tidak tersedia"}
+                >
+                  Kasir {cashierName || "tidak diketahui"}
+                </h1>
+                <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-600">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="shrink-0">Lokasi stok:</span>
+                  <span className="truncate font-semibold text-slate-900" title={locationName || "Lokasi belum dipilih"}>
+                    {locationName || "Belum dipilih"}
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] tabular-nums text-slate-500">
+                  Sesi #{session.id}
+                  <span className="mx-1.5 text-slate-300" aria-hidden="true">•</span>
+                  Modal {formatRupiah(Number(session.openingCash))}
+                </p>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 lg:hidden"
-              title="Riwayat transaksi sesi"
-              aria-label="Buka riwayat transaksi sesi"
-            >
-              <History className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("/pos/test-print", "_blank", "noopener,noreferrer")}
-              className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-              title="Test print 58 mm"
-              aria-label="Buka test print 58 mm"
-            >
-              <Printer className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handleCloseSessionClick}
-              className="p-2 text-slate-600 hover:text-rose-700 hover:bg-rose-100 rounded-lg transition"
-              title="Tutup sesi kasir"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:hidden"
+                title="Riwayat transaksi sesi"
+                aria-label="Buka riwayat transaksi sesi"
+              >
+                <History className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => window.open("/pos/test-print", "_blank", "noopener,noreferrer")}
+                className="rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                title="Test print 58 mm"
+                aria-label="Buka test print 58 mm"
+              >
+                <Printer className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseSessionClick}
+                className="rounded-lg p-2 text-slate-600 transition hover:bg-rose-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                title="Tutup sesi kasir"
+                aria-label="Tutup sesi kasir"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Search */}
@@ -371,7 +390,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
 
           {/* Category chips */}
           {categories.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto mt-3 pb-1 -mx-4 px-4 scrollbar-hide">
+            <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide md:-mx-6 md:px-6">
               <CategoryChip active={!categoryFilter} onClick={() => setCategoryFilter("")}>
                 Semua
               </CategoryChip>
@@ -389,7 +408,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
         </header>
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-32 lg:pb-4">
+        <div className="flex-1 overflow-y-auto px-4 py-3 pb-32 md:px-6 md:py-4 lg:pb-4">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <ShoppingBag className="w-12 h-12 text-slate-300 mb-3" />
