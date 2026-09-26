@@ -34,8 +34,9 @@ export default async function PosPage() {
     getPosSettings(),
   ]);
 
-  // Nama kasir: assigned (dipilih dropdown) atau user yang login
-  const cashierName = session.assignedCashierName ?? authSession?.user?.name ?? '';
+  // Identitas header mengikuti akun yang sedang login. Nama pada sesi lama
+  // hanya menjadi fallback bila data autentikasi tidak menyediakan nama.
+  const cashierName = authSession?.user?.name ?? session.assignedCashierName ?? '';
   const locationName = locations.find(location => location.id === session.locationId)?.name ?? "Lokasi POS";
 
   return (
