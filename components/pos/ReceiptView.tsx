@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Check, Printer, MessageCircle, Plus } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { getPosOrder } from "@/app/actions/pos-orders";
+import Image from "next/image";
 
 type ReceiptData = {
   orderNumber: string;
@@ -38,6 +39,7 @@ interface Props {
   storeName?: string | null;
   storePhone?: string | null;
   storeAddress?: string | null;
+  receiptLogoUrl?: string | null;
   autoPrint?: boolean;
   onDone: () => void;
 }
@@ -49,10 +51,11 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 export function ReceiptView({
-  orderId, footer, cashierName, storeName, storePhone, storeAddress, autoPrint = false, onDone,
+  orderId, footer, cashierName, storeName, storePhone, storeAddress, receiptLogoUrl, autoPrint = false, onDone,
 }: Props) {
   const [data, setData] = useState<ReceiptData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoReady, setLogoReady] = useState(!receiptLogoUrl);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,13 +88,16 @@ export function ReceiptView({
       };
       setData(receipt);
       setLoading(false);
-      if (autoPrint && !cancelled) {
-        setTimeout(() => window.print(), 300);
-      }
     }
     void load();
     return () => { cancelled = true; };
   }, [orderId, autoPrint]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!autoPrint || !data || !logoReady) return;
+    const timer = window.setTimeout(() => window.print(), 300);
+    return () => window.clearTimeout(timer);
+  }, [autoPrint, data, logoReady]);
 
   function handlePrint() {
     window.print();
@@ -99,8 +105,9 @@ export function ReceiptView({
 
   function handleShareWA() {
     if (!data) return;
+    const receiptName = storeName?.trim() || "ONETONE";
     const lines = [
-      `*${storeName ?? 'ONETONE'}*`,
+      `*${receiptName}*`,
       storeAddress ? storeAddress : '',
       storePhone ? `Tel: ${storePhone}` : '',
       `No: ${data.orderNumber}`,
@@ -134,7 +141,7 @@ export function ReceiptView({
     );
   }
 
-  const displayName = storeName ?? "ONETONE";
+  const displayName = storeName?.trim() || "ONETONE";
 
   return (
     <div className="flex-1 flex flex-col bg-muted/40" id="pos-print-root">
@@ -155,8 +162,20 @@ export function ReceiptView({
         >
           {/* Header toko */}
           <div className="text-center border-b border-dashed border-zinc-300 pb-3 mb-3">
+            {receiptLogoUrl && (
+              <Image
+                src={receiptLogoUrl}
+                alt={`Logo ${displayName}`}
+                width={160}
+                height={72}
+                unoptimized
+                className="mx-auto mb-2 max-h-14 w-auto object-contain grayscale"
+                onLoad={() => setLogoReady(true)}
+                onError={() => setLogoReady(true)}
+              />
+            )}
             <h2 className="text-base font-bold tracking-wide">{displayName}</h2>
-            {storeAddress && <p className="text-[10px] text-zinc-500 mt-0.5">{storeAddress}</p>}
+            {storeAddress && <p className="text-[10px] text-zinc-500 mt-0.5 whitespace-pre-line">{storeAddress}</p>}
             {storePhone && <p className="text-[10px] text-zinc-500">{storePhone}</p>}
           </div>
 

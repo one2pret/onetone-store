@@ -80,11 +80,12 @@ interface Props {
   storeName?: string | null;
   storePhone?: string | null;
   storeAddress?: string | null;
+  receiptLogoUrl?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, locationName, maxDiscountPercent, storeName, storePhone, storeAddress }: Props) {
+export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, locationName, maxDiscountPercent, storeName, storePhone, storeAddress, receiptLogoUrl }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -300,6 +301,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
         storeName={storeName}
         storePhone={storePhone}
         storeAddress={storeAddress}
+        receiptLogoUrl={receiptLogoUrl}
         onDone={() => setReceiptOrderId(null)}
       />
     );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Bluetooth, CheckCircle2, LockKeyhole, Printer, Smartphone } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+import Image from "next/image";
 
 type BrowserCapabilities = {
   android: boolean;
@@ -16,9 +17,10 @@ interface Props {
   storePhone: string | null;
   storeAddress: string | null;
   receiptFooter: string | null;
+  receiptLogoUrl: string | null;
 }
 
-export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFooter }: Props) {
+export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFooter, receiptLogoUrl }: Props) {
   const [capabilities, setCapabilities] = useState<BrowserCapabilities | null>(null);
   const [printedAt, setPrintedAt] = useState("-");
 
@@ -107,8 +109,18 @@ export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFoote
           </p>
           <div id="print-receipt" className="mx-auto w-full max-w-[58mm] bg-white p-5 font-mono text-xs text-zinc-800 shadow-sm">
             <div className="border-b border-dashed border-zinc-300 pb-3 text-center">
+              {receiptLogoUrl && (
+                <Image
+                  src={receiptLogoUrl}
+                  alt={`Logo ${displayName}`}
+                  width={160}
+                  height={72}
+                  unoptimized
+                  className="mx-auto mb-2 max-h-14 w-auto object-contain grayscale"
+                />
+              )}
               <h2 className="text-base font-bold tracking-wide">{displayName}</h2>
-              {storeAddress && <p className="mt-0.5 text-[10px] text-zinc-500">{storeAddress}</p>}
+              {storeAddress && <p className="mt-0.5 whitespace-pre-line text-[10px] text-zinc-500">{storeAddress}</p>}
               {storePhone && <p className="text-[10px] text-zinc-500">{storePhone}</p>}
               <p className="mt-1 text-[10px] font-semibold">TEST PRINT · BUKAN TRANSAKSI</p>
             </div>

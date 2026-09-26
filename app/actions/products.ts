@@ -2,8 +2,18 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { products, categories, productImages } from '@/lib/db/schema';
-import { eq, desc, and, like, asc, or } from 'drizzle-orm';
+import {
+  products,
+  categories,
+  productImages,
+  inventoryMovements,
+  inventoryTransfers,
+  cartItems,
+  orderItems,
+  posReturnItems,
+  commissionRules,
+} from '@/lib/db/schema';
+import { eq, desc, and, like, asc, or, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireOnlineInventoryLocation, setOnlineInventoryStock } from '@/lib/inventory-stock';
@@ -11,6 +21,7 @@ import { slugify } from '@/lib/utils';
 import { getAllCategories } from '@/app/actions/categories';
 import { auth } from '@/lib/auth';
 import { assertBarcodeAvailable, getProductBarcodeRows, setPrimaryBarcode } from '@/lib/product-barcodes';
+import { storage } from '@/lib/storage';
 
 async function isAdmin(): Promise<boolean> {
   const session = await auth();
@@ -315,12 +326,89 @@ export async function deleteProduct(id: number) {
   }
 
   try {
-    await db.delete(products).where(eq(products.id, id));
+    const result = await db.transaction(async tx => {
+      // Kunci row produk agar dependency baru tidak masuk di sela pemeriksaan dan penghapusan.
+      const rows = await tx
+        .select({
+          id: products.id,
+          slug: products.slug,
+          inventoryMovements: sql<number>`(select count(*) from ${inventoryMovements} where ${inventoryMovements.productId} = ${products.id})`.mapWith(Number),
+          inventoryTransfers: sql<number>`(select count(*) from ${inventoryTransfers} where ${inventoryTransfers.productId} = ${products.id})`.mapWith(Number),
+          cartItems: sql<number>`(select count(*) from ${cartItems} where ${cartItems.productId} = ${products.id})`.mapWith(Number),
+          orderItems: sql<number>`(select count(*) from ${orderItems} where ${orderItems.productId} = ${products.id})`.mapWith(Number),
+          posReturnItems: sql<number>`(select count(*) from ${posReturnItems} where ${posReturnItems.productId} = ${products.id})`.mapWith(Number),
+          commissionRules: sql<number>`(select count(*) from ${commissionRules} where ${commissionRules.productId} = ${products.id})`.mapWith(Number),
+        })
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1)
+        .for('update');
+
+      const product = rows[0];
+      if (!product) return { mode: 'not_found' as const };
+
+      const dependencies = [
+        ['riwayat mutasi stok', product.inventoryMovements],
+        ['riwayat transfer stok', product.inventoryTransfers],
+        ['keranjang pelanggan', product.cartItems],
+        ['riwayat pesanan', product.orderItems],
+        ['riwayat retur POS', product.posReturnItems],
+        ['aturan komisi', product.commissionRules],
+      ] as const;
+      const blockers = dependencies.filter(([, count]) => count > 0);
+
+      if (blockers.length > 0) {
+        await tx.update(products)
+          .set({ isActive: false, isFeatured: false, isBestSeller: false })
+          .where(eq(products.id, id));
+        return {
+          mode: 'archived' as const,
+          slug: product.slug,
+          blockers: blockers.map(([label, count]) => `${label} (${count})`),
+        };
+      }
+
+      const images = await tx.select({
+        objectKey: productImages.objectKey,
+        objectKeyOriginal: productImages.objectKeyOriginal,
+        objectKeyThumb: productImages.objectKeyThumb,
+      }).from(productImages).where(eq(productImages.productId, id));
+
+      await tx.delete(products).where(eq(products.id, id));
+      return { mode: 'deleted' as const, slug: product.slug, images };
+    });
+
+    if (result.mode === 'not_found') {
+      return { success: false, error: 'Produk tidak ditemukan' };
+    }
+
+    if (result.mode === 'deleted') {
+      const keys = result.images.flatMap(image => [
+        image.objectKey,
+        image.objectKeyOriginal,
+        image.objectKeyThumb,
+      ]).filter((key): key is string => Boolean(key));
+      await Promise.allSettled([...new Set(keys)].map(key => storage.delete(key)));
+    }
+
     revalidatePath('/dashboard/products');
     revalidatePath('/products');
-    return { success: true };
-  } catch {
-    return { success: false, error: 'Gagal hapus produk' };
+    revalidatePath(`/products/${result.slug}`);
+
+    if (result.mode === 'archived') {
+      return {
+        success: true,
+        mode: 'archived' as const,
+        message: `Produk tidak dihapus permanen karena memiliki ${result.blockers.join(', ')}. Produk telah dinonaktifkan dengan aman.`,
+      };
+    }
+    return { success: true, mode: 'deleted' as const, message: 'Produk berhasil dihapus permanen' };
+  } catch (error) {
+    console.error('[deleteProduct]', error);
+    return {
+      success: false,
+      error: 'Produk belum dapat dihapus karena masih memiliki data terkait. Coba nonaktifkan produk atau periksa riwayat inventori.',
+    };
   }
 }
 
