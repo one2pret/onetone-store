@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 
 const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
 const mockUpdateReturn = vi.fn();
 const mockDeleteReturn = vi.fn();
-const { mockAuth } = vi.hoisted(() => ({
+const { mockAuth, mockStorageDelete } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
+  mockStorageDelete: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -21,14 +21,15 @@ const mockChain = () => {
   chain.leftJoin = vi.fn().mockReturnValue(chain);
   chain.orderBy = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
+  chain.for = vi.fn().mockReturnValue(chain);
   chain.$dynamic = vi.fn().mockReturnValue(chain);
   chain.then = (resolve: any) => resolve(mockSelectReturn());
   chain.catch = () => chain;
   return chain;
 };
 
-vi.mock('@/lib/db', () => ({
-  db: {
+vi.mock('@/lib/db', () => {
+  const mockedDb: Record<string, unknown> = {
     select: vi.fn(() => mockChain()),
     insert: vi.fn(() => {
       const chain: any = {};
@@ -52,7 +53,13 @@ vi.mock('@/lib/db', () => ({
       chain.catch = () => chain;
       return chain;
     }),
-  },
+  };
+  mockedDb.transaction = vi.fn(async (callback: (tx: Record<string, unknown>) => unknown) => callback(mockedDb));
+  return { db: mockedDb };
+});
+
+vi.mock('@/lib/storage', () => ({
+  storage: { delete: mockStorageDelete },
 }));
 
 import {
@@ -195,9 +202,68 @@ describe('Product Server Actions', () => {
   });
 
   describe('deleteProduct', () => {
-    it('deletes and returns success', async () => {
+    it('hard deletes a product without dependencies', async () => {
+      mockSelectReturn
+        .mockReturnValueOnce([{
+          id: 1,
+          slug: 'test-product',
+          inventoryMovements: 0,
+          inventoryTransfers: 0,
+          cartItems: 0,
+          orderItems: 0,
+          posReturnItems: 0,
+          commissionRules: 0,
+        }])
+        .mockReturnValueOnce([]);
+
       const result = await deleteProduct(1);
-      expect(result.success).toBe(true);
+
+      expect(result).toMatchObject({ success: true, mode: 'deleted' });
+      expect(db.delete).toHaveBeenCalled();
+    });
+
+    it('archives a product with inventory history instead of deleting audit data', async () => {
+      mockSelectReturn.mockReturnValueOnce([{
+        id: 1,
+        slug: 'test-product',
+        inventoryMovements: 2,
+        inventoryTransfers: 0,
+        cartItems: 0,
+        orderItems: 0,
+        posReturnItems: 0,
+        commissionRules: 0,
+      }]);
+
+      const result = await deleteProduct(1);
+
+      expect(result).toMatchObject({ success: true, mode: 'archived' });
+      expect(result.message).toContain('riwayat mutasi stok (2)');
+      expect(db.update).toHaveBeenCalled();
+      expect(db.delete).not.toHaveBeenCalled();
+    });
+
+    it('cleans owned image objects after a successful hard delete', async () => {
+      mockSelectReturn
+        .mockReturnValueOnce([{
+          id: 1,
+          slug: 'test-product',
+          inventoryMovements: 0,
+          inventoryTransfers: 0,
+          cartItems: 0,
+          orderItems: 0,
+          posReturnItems: 0,
+          commissionRules: 0,
+        }])
+        .mockReturnValueOnce([{
+          objectKey: 'products/test/main.webp',
+          objectKeyOriginal: 'products/test/original.jpg',
+          objectKeyThumb: 'products/test/thumb.webp',
+        }]);
+
+      const result = await deleteProduct(1);
+
+      expect(result).toMatchObject({ success: true, mode: 'deleted' });
+      expect(mockStorageDelete).toHaveBeenCalledTimes(3);
     });
   });
 

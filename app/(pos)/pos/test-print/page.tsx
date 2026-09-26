@@ -12,6 +12,7 @@ export default async function PosPrintTestPage() {
       storePhone={settings.storePhone}
       storeAddress={settings.storeAddress}
       receiptFooter={settings.receiptFooter}
+      receiptLogoUrl={settings.receiptLogoUrl}
     />
   );
 }

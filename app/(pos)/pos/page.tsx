@@ -51,6 +51,7 @@ export default async function PosPage() {
       storeName={posSettings.storeName}
       storePhone={posSettings.storePhone}
       storeAddress={posSettings.storeAddress}
+      receiptLogoUrl={posSettings.receiptLogoUrl}
     />
   );
 }

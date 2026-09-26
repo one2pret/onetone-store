@@ -54,7 +54,14 @@ export default async function SettingsPage() {
         <StoreSettingsForm settings={settings} />
         <HeroSettingsCard config={heroConfig} featuredProducts={featuredProducts} />
         <EditorialSettingsCard breaks={editorialBreaks} products={activeProducts} />
-        <PosSettingsCard qrisUrl={posSettings.qrisUrl} receiptFooter={posSettings.receiptFooter} />
+        <PosSettingsCard
+          qrisUrl={posSettings.qrisUrl}
+          receiptFooter={posSettings.receiptFooter}
+          receiptLogoUrl={posSettings.receiptLogoUrl}
+          storeName={posSettings.storeName}
+          storePhone={posSettings.storePhone}
+          storeAddress={posSettings.storeAddress}
+        />
         <DataToolsCard />
       </div>
     </div>

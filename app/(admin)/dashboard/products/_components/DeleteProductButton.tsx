@@ -22,7 +22,12 @@ export function DeleteProductButton({ id, name }: Props) {
     setLoading(true);
     const result = await deleteProduct(id);
     if (result.success) {
-      toast.success('Produk berhasil dihapus');
+      if (result.mode === 'archived') {
+        toast.info(result.message);
+        setLoading(false);
+      } else {
+        toast.success(result.message);
+      }
       router.refresh();
     } else {
       toast.error(result.error || 'Gagal hapus produk');
@@ -38,8 +43,8 @@ export function DeleteProductButton({ id, name }: Props) {
         </Button>
       }
       title="Hapus Produk"
-      description={`Yakin ingin menghapus produk "${name}"? Tindakan ini tidak dapat dibatalkan.`}
-      confirmLabel="Ya, Hapus"
+      description={`Yakin ingin menghapus produk "${name}"? Produk dengan riwayat stok atau transaksi akan dinonaktifkan agar data audit tetap aman.`}
+      confirmLabel="Hapus / Nonaktifkan"
       variant="destructive"
       onConfirm={handleDelete}
     />
