@@ -40,7 +40,7 @@ export default async function EditProductPage({ params }: Props) {
         <p className="text-sm text-muted-foreground mt-0.5">{product.name}</p>
       </div>
 
-      <div className="max-w-2xl space-y-8">
+      <div className="w-full max-w-6xl space-y-8">
         <ProductForm
           product={product}
           categories={categories}
