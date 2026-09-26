@@ -21,7 +21,7 @@ export default async function CreateProductPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Tambah produk baru ke toko</p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="w-full max-w-6xl">
         <ProductForm categories={categories} isDraft />
       </div>
     </div>

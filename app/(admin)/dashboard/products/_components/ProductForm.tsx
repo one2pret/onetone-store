@@ -221,7 +221,7 @@ export function ProductForm({ product, categories, variants = [], images = [], u
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="min-w-0 space-y-6">
       <input type="hidden" name="image" value={mainImage} />
       <input type="hidden" name="images" value={imagesJson} />
 

@@ -36,7 +36,7 @@ vi.mock("@/lib/pos-auth", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { transferInventory } from "@/app/actions/inventory";
+import { configureOnlineInventoryLocation, transferInventory } from "@/app/actions/inventory";
 import { db } from "@/lib/db";
 
 const input = { fromLocationId: 1, toLocationId: 2, productId: 10, variantId: null, quantity: 3, notes: "Restock cabang" };
@@ -82,5 +82,36 @@ describe("inventory transfer", () => {
     expect(result).toEqual({ success: true, transferId: 77 });
     expect(tx.insert).toHaveBeenCalledTimes(2);
     expect(tx.update).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("online inventory configuration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectQueue.length = 0;
+    updateQueue.length = 0;
+    insertQueue.length = 0;
+    mockRequireAdmin.mockResolvedValue({ ok: true, actor: { id: 1, name: "Admin", role: "admin" } });
+  });
+
+  it("rejects switching an existing default location without stock transfer", async () => {
+    selectQueue.push([{ id: 1 }]);
+    const result = await configureOnlineInventoryLocation(2);
+    expect(result.success).toBe(false);
+    expect(tx.update).not.toHaveBeenCalled();
+  });
+
+  it("sets an active online location and backfills missing balances", async () => {
+    selectQueue.push(
+      [],
+      [{ id: 2, isActive: true }],
+      [{ id: 10, stock: 4 }],
+      [{ id: 20, productId: 10, stock: 3 }],
+      [],
+    );
+    const result = await configureOnlineInventoryLocation(2);
+    expect(result).toEqual({ success: true });
+    expect(tx.insert).toHaveBeenCalledTimes(2);
+    expect(tx.update).toHaveBeenCalledTimes(1);
   });
 });

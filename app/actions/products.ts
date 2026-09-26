@@ -6,7 +6,7 @@ import { products, categories, productImages } from '@/lib/db/schema';
 import { eq, desc, and, like, asc, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { setOnlineInventoryStock } from '@/lib/inventory-stock';
+import { requireOnlineInventoryLocation, setOnlineInventoryStock } from '@/lib/inventory-stock';
 import { slugify } from '@/lib/utils';
 import { getAllCategories } from '@/app/actions/categories';
 import { auth } from '@/lib/auth';
@@ -186,6 +186,7 @@ export async function createProduct(prevState: any, formData: FormData) {
   const slug = slugify(validated.data.name);
 
   try {
+    await requireOnlineInventoryLocation();
     await assertBarcodeAvailable(String(formData.get('barcode') ?? ''));
     const inserted = await db
       .insert(products)
@@ -240,6 +241,7 @@ export async function updateProduct(id: number, prevState: any, formData: FormDa
   const slug = slugify(validated.data.name);
 
   try {
+    await requireOnlineInventoryLocation();
     await assertBarcodeAvailable(String(formData.get('barcode') ?? ''), { productId: id, variantId: null });
     // Cek apakah produk sudah punya gambar di R2 (product_images table)
     // Kalau ada, jangan overwrite products.image — biarkan product-images.ts yang manage
@@ -298,8 +300,6 @@ export async function createDraftProduct(): Promise<number | null> {
       channel: 'all',
     })
     .$returningId();
-
-  if (inserted[0]?.id) await setOnlineInventoryStock(inserted[0].id, null, 0);
 
   return inserted[0]?.id as number;
 }
