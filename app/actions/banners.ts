@@ -1,132 +1,273 @@
-// app/actions/banners.ts
 'use server';
 
+import { auth } from '@/lib/auth';
+import { withResolvedBannerImage, isAllowedExternalBannerUrl, toPublicBanner } from '@/lib/banner-images';
 import { db } from '@/lib/db';
 import { banners } from '@/lib/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { detectMimeFromBuffer, processBannerImage } from '@/lib/image-processor';
+import { generateObjectKey, storage } from '@/lib/storage';
+import { asc, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { auth } from '@/lib/auth';
 
-const bannerSchema = z.object({
-  title: z.string().min(1, 'Judul banner wajib diisi'),
-  subtitle: z.string().optional(),
-  image: z.string().min(1, 'URL gambar wajib diisi'),
-  link: z.string().optional(),
-  isActive: z.coerce.boolean().optional(),
-  sortOrder: z.coerce.number().default(0),
-});
+const optionalExternalUrl = z.string().trim().max(500).optional().refine(
+  value => !value || isAllowedExternalBannerUrl(value),
+  'Gunakan URL HTTPS langsung dari Unsplash, Cloudinary, atau placehold.co',
+);
 
-function isValidImageUrl(url: string): boolean {
-  if (!url || url.trim() === '') return false;
+const optionalLink = z.string().trim().max(500).optional().refine(value => {
+  if (!value) return true;
+  if (value.startsWith('/') && !value.startsWith('//')) return true;
   try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+    return new URL(value).protocol === 'https:';
   } catch {
     return false;
   }
+}, 'Link harus berupa path internal atau URL HTTPS');
+
+const bannerSchema = z.object({
+  title: z.string().trim().min(1, 'Judul banner wajib diisi').max(255),
+  subtitle: z.string().trim().max(500).optional(),
+  externalImageUrl: optionalExternalUrl,
+  link: optionalLink,
+  isActive: z.boolean(),
+  sortOrder: z.coerce.number().int().default(0),
+});
+
+type UploadedBannerImage = {
+  objectKey: string;
+  originalObjectKey: string;
+  thumbObjectKey: string;
+  mime: string;
+  width: number;
+  height: number;
+  filesize: number;
+  checksum: string;
+};
+
+function formValues(formData: FormData) {
+  return {
+    title: formData.get('title'),
+    subtitle: String(formData.get('subtitle') ?? '').trim() || undefined,
+    externalImageUrl: String(formData.get('externalImageUrl') ?? '').trim() || undefined,
+    link: String(formData.get('link') ?? '').trim() || undefined,
+    isActive: formData.get('isActive') === 'on',
+    sortOrder: formData.get('sortOrder') || 0,
+  };
 }
 
-// Get active banners (for shop) — only banners with valid image URLs
+function selectedImageFile(formData: FormData) {
+  const value = formData.get('imageFile');
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+async function deleteStoredBannerImage(image: {
+  imageObjectKey: string | null;
+  imageObjectKeyOriginal: string | null;
+  imageObjectKeyThumb: string | null;
+}) {
+  const keys = [image.imageObjectKey, image.imageObjectKeyOriginal, image.imageObjectKeyThumb]
+    .filter((key): key is string => Boolean(key));
+  await Promise.allSettled(keys.map(key => storage.delete(key)));
+}
+
+async function uploadBannerImage(file: File): Promise<UploadedBannerImage> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const mime = detectMimeFromBuffer(buffer);
+  const processed = await processBannerImage(buffer);
+  const originalExt = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : mime === 'image/heic' ? 'heic' : 'jpg';
+  const objectKey = generateObjectKey('banners', 'webp');
+  const thumbObjectKey = generateObjectKey('banners/thumb', 'webp');
+  const originalObjectKey = generateObjectKey('banners/original', originalExt);
+
+  try {
+    const [main] = await Promise.all([
+      storage.upload(objectKey, processed.main.buffer, 'image/webp'),
+      storage.upload(thumbObjectKey, processed.thumb.buffer, 'image/webp'),
+      storage.upload(originalObjectKey, processed.original.buffer, mime),
+    ]);
+    return {
+      objectKey,
+      originalObjectKey,
+      thumbObjectKey,
+      mime: 'image/webp',
+      width: processed.main.width,
+      height: processed.main.height,
+      filesize: processed.main.filesize,
+      checksum: main.checksum,
+    };
+  } catch (error) {
+    await Promise.allSettled([
+      storage.delete(objectKey),
+      storage.delete(thumbObjectKey),
+      storage.delete(originalObjectKey),
+    ]);
+    throw error;
+  }
+}
+
+function uploadValues(uploaded: UploadedBannerImage) {
+  return {
+    image: '',
+    imageObjectKey: uploaded.objectKey,
+    imageObjectKeyOriginal: uploaded.originalObjectKey,
+    imageObjectKeyThumb: uploaded.thumbObjectKey,
+    imageMime: uploaded.mime,
+    imageWidth: uploaded.width,
+    imageHeight: uploaded.height,
+    imageFilesize: uploaded.filesize,
+    imageChecksum: uploaded.checksum,
+  };
+}
+
+function externalImageValues(image: string) {
+  return {
+    image,
+    imageObjectKey: null,
+    imageObjectKeyOriginal: null,
+    imageObjectKeyThumb: null,
+    imageMime: null,
+    imageWidth: null,
+    imageHeight: null,
+    imageFilesize: null,
+    imageChecksum: null,
+  };
+}
+
+function revalidateBanners() {
+  revalidatePath('/dashboard/banners');
+  revalidatePath('/');
+}
+
 export async function getActiveBanners() {
   const rows = await db.select()
     .from(banners)
     .where(eq(banners.isActive, true))
     .orderBy(asc(banners.sortOrder));
-
-  // Filter server-side: jangan kirim banner dengan URL gambar tidak valid ke client
-  return rows.filter((b) => isValidImageUrl(b.image));
+  return rows
+    .filter(row => row.imageObjectKey || isAllowedExternalBannerUrl(row.image))
+    .map(toPublicBanner);
 }
 
-// Get all banners (for admin) — tampilkan semua termasuk yang URL-nya tidak valid
 export async function getAllBanners() {
-  return await db.select()
-    .from(banners)
-    .orderBy(asc(banners.sortOrder));
+  const rows = await db.select().from(banners).orderBy(asc(banners.sortOrder));
+  return rows.map(withResolvedBannerImage);
 }
 
-// Get single banner
 export async function getBanner(id: number) {
   const rows = await db.select().from(banners).where(eq(banners.id, id)).limit(1);
-  return rows[0] ?? null;
+  return rows[0] ? withResolvedBannerImage(rows[0]) : null;
 }
 
-// Create banner (admin) — prevState required for useActionState
-export async function createBanner(prevState: any, formData: FormData) {
+export async function createBanner(prevState: unknown, formData: FormData) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (session?.user?.role !== 'admin') {
     return { success: false, errors: { _form: ['Unauthorized'] } };
   }
 
-  const validated = bannerSchema.safeParse({
-    title: formData.get('title'),
-    subtitle: formData.get('subtitle') || undefined,
-    image: formData.get('image'),
-    link: formData.get('link') || undefined,
-    isActive: formData.get('isActive') === 'on',
-    sortOrder: formData.get('sortOrder') || 0,
-  });
+  const file = selectedImageFile(formData);
+  const values = formValues(formData);
+  if (file) values.externalImageUrl = undefined;
+  const validated = bannerSchema.safeParse(values);
+  if (!validated.success) return { success: false, errors: validated.error.flatten().fieldErrors };
 
-  if (!validated.success) {
-    return { success: false, errors: validated.error.flatten().fieldErrors };
+  if (!file && !validated.data.externalImageUrl) {
+    return { success: false, errors: { image: ['Upload gambar banner atau isi URL eksternal'] } };
+  }
+
+  let uploaded: UploadedBannerImage | null = null;
+  try {
+    if (file) uploaded = await uploadBannerImage(file);
+  } catch (error) {
+    return { success: false, errors: { image: [error instanceof Error ? error.message : 'Gagal memproses gambar banner'] } };
   }
 
   try {
-    await db.insert(banners).values(validated.data);
-  } catch (error) {
-    return { success: false, errors: { _form: ['Gagal membuat banner.'] } };
+    const { externalImageUrl, ...data } = validated.data;
+    await db.insert(banners).values({
+      ...data,
+      ...(uploaded ? uploadValues(uploaded) : externalImageValues(externalImageUrl!)),
+    });
+  } catch {
+    if (uploaded) await deleteStoredBannerImage({
+      imageObjectKey: uploaded.objectKey,
+      imageObjectKeyOriginal: uploaded.originalObjectKey,
+      imageObjectKeyThumb: uploaded.thumbObjectKey,
+    });
+    return { success: false, errors: { _form: ['Gagal membuat banner. Coba lagi.'] } };
   }
 
-  revalidatePath('/dashboard/banners');
-  revalidatePath('/');
+  revalidateBanners();
   redirect('/dashboard/banners');
 }
 
-// Update banner (admin) — prevState required for useActionState
-export async function updateBanner(id: number, prevState: any, formData: FormData) {
+export async function updateBanner(id: number, prevState: unknown, formData: FormData) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (session?.user?.role !== 'admin') {
     return { success: false, errors: { _form: ['Unauthorized'] } };
   }
 
-  const validated = bannerSchema.safeParse({
-    title: formData.get('title'),
-    subtitle: formData.get('subtitle') || undefined,
-    image: formData.get('image'),
-    link: formData.get('link') || undefined,
-    isActive: formData.get('isActive') === 'on',
-    sortOrder: formData.get('sortOrder') || 0,
-  });
+  const file = selectedImageFile(formData);
+  const values = formValues(formData);
+  if (file) values.externalImageUrl = undefined;
+  const validated = bannerSchema.safeParse(values);
+  if (!validated.success) return { success: false, errors: validated.error.flatten().fieldErrors };
 
-  if (!validated.success) {
-    return { success: false, errors: validated.error.flatten().fieldErrors };
+  const existingRows = await db.select().from(banners).where(eq(banners.id, id)).limit(1);
+  const existing = existingRows[0];
+  if (!existing) return { success: false, errors: { _form: ['Banner tidak ditemukan'] } };
+
+  const hasExistingImage = Boolean(existing.imageObjectKey || isAllowedExternalBannerUrl(existing.image));
+  if (!file && !validated.data.externalImageUrl && !hasExistingImage) {
+    return { success: false, errors: { image: ['Upload gambar banner atau isi URL eksternal'] } };
+  }
+
+  let uploaded: UploadedBannerImage | null = null;
+  const switchingToExternal = !file && Boolean(validated.data.externalImageUrl) && validated.data.externalImageUrl !== existing.image;
+  try {
+    if (file) uploaded = await uploadBannerImage(file);
+  } catch (error) {
+    return { success: false, errors: { image: [error instanceof Error ? error.message : 'Gagal memproses gambar banner'] } };
   }
 
   try {
-    await db.update(banners).set(validated.data).where(eq(banners.id, id));
-  } catch (error) {
-    return { success: false, errors: { _form: ['Gagal update banner.'] } };
+    const { externalImageUrl, ...data } = validated.data;
+    await db.update(banners).set({
+      ...data,
+      ...(uploaded
+        ? uploadValues(uploaded)
+        : switchingToExternal
+          ? externalImageValues(externalImageUrl!)
+          : {}),
+    }).where(eq(banners.id, id));
+  } catch {
+    if (uploaded) await deleteStoredBannerImage({
+      imageObjectKey: uploaded.objectKey,
+      imageObjectKeyOriginal: uploaded.originalObjectKey,
+      imageObjectKeyThumb: uploaded.thumbObjectKey,
+    });
+    return { success: false, errors: { _form: ['Gagal memperbarui banner. Coba lagi.'] } };
   }
 
-  revalidatePath('/dashboard/banners');
-  revalidatePath('/');
+  if (uploaded || switchingToExternal) await deleteStoredBannerImage(existing);
+  revalidateBanners();
   redirect('/dashboard/banners');
 }
 
-// Delete banner (admin)
 export async function deleteBanner(id: number) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
-    return { success: false, error: 'Unauthorized' };
-  }
+  if (session?.user?.role !== 'admin') return { success: false, error: 'Unauthorized' };
 
   try {
+    const rows = await db.select().from(banners).where(eq(banners.id, id)).limit(1);
+    const existing = rows[0];
+    if (!existing) return { success: false, error: 'Banner tidak ditemukan' };
     await db.delete(banners).where(eq(banners.id, id));
-    revalidatePath('/dashboard/banners');
-    revalidatePath('/');
+    await deleteStoredBannerImage(existing);
+    revalidateBanners();
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Gagal hapus banner' };
   }
 }

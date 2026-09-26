@@ -63,6 +63,7 @@ export function BannersTable({ banners }: BannersTableProps) {
                   src={banner.image}
                   alt={banner.title}
                   fill
+                  unoptimized
                   className="object-cover"
                   onError={(e) => {
                     // Sembunyikan image jika gagal load, tampilkan fallback

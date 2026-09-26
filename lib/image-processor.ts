@@ -25,6 +25,12 @@ export interface ProcessedImages {
   };
 }
 
+export interface ProcessedBannerImages {
+  original: ProcessedImages["original"];
+  main: ProcessedImages["main"];
+  thumb: ProcessedImages["thumb"];
+}
+
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_FILESIZE_MB = 10;
 
@@ -67,6 +73,52 @@ export async function processProductImage(inputBuffer: Buffer): Promise<Processe
     .webp({ quality: 75 })
     .toBuffer();
   const thumbMeta = await sharp(thumbBuffer).metadata();
+
+  return {
+    original: {
+      buffer: inputBuffer,
+      width: originalMeta.width ?? 0,
+      height: originalMeta.height ?? 0,
+      format: originalMeta.format ?? "unknown",
+      filesize: inputBuffer.byteLength,
+    },
+    main: {
+      buffer: mainBuffer,
+      width: mainMeta.width ?? 0,
+      height: mainMeta.height ?? 0,
+      filesize: mainBuffer.byteLength,
+    },
+    thumb: {
+      buffer: thumbBuffer,
+      width: thumbMeta.width ?? 0,
+      height: thumbMeta.height ?? 0,
+      filesize: thumbBuffer.byteLength,
+    },
+  };
+}
+
+export async function processBannerImage(inputBuffer: Buffer): Promise<ProcessedBannerImages> {
+  validateImageBuffer(inputBuffer);
+  const detectedMime = detectMimeFromBuffer(inputBuffer);
+  if (!ALLOWED_MIME.includes(detectedMime)) {
+    throw new Error("Format gambar tidak didukung");
+  }
+
+  const originalMeta = await sharp(inputBuffer).metadata();
+  const mainBuffer = await sharp(inputBuffer)
+    .rotate()
+    .resize(1920, 640, { fit: "cover", position: "centre" })
+    .webp({ quality: 84 })
+    .toBuffer();
+  const thumbBuffer = await sharp(inputBuffer)
+    .rotate()
+    .resize(480, 160, { fit: "cover", position: "centre" })
+    .webp({ quality: 76 })
+    .toBuffer();
+  const [mainMeta, thumbMeta] = await Promise.all([
+    sharp(mainBuffer).metadata(),
+    sharp(thumbBuffer).metadata(),
+  ]);
 
   return {
     original: {
