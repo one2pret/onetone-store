@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
         'onetone.kanuraga.web.id',
         'localhost:3000',
       ],
-      bodySizeLimit: '5mb',
+      bodySizeLimit: '12mb',
     },
   },
   images: {
@@ -49,6 +49,9 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "pub-5773464375cb4608b5f31ee707c465e8.r2.dev",
       },
+      ...(process.env.NEXT_PUBLIC_CDN_URL
+        ? [new URL(`${process.env.NEXT_PUBLIC_CDN_URL.replace(/\/$/, '')}/**`)]
+        : []),
       // opsional: kalau nanti pakai custom domain CDN sendiri
       // { protocol: "https", hostname: "cdn.onetone-store.com" },
     ],

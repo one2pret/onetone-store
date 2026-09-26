@@ -18,7 +18,7 @@ export default function CreateBannerPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Buat banner baru untuk slider homepage</p>
       </div>
 
-      <div className="max-w-2xl bg-card border border-border rounded-xl shadow-sm p-5 md:p-6">
+      <div className="w-full max-w-4xl rounded-xl border border-border bg-card p-5 shadow-sm md:p-6">
         <BannerForm />
       </div>
     </div>

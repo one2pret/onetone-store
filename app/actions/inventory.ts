@@ -78,6 +78,62 @@ export async function createInventoryLocation(input: { name: string; code: strin
   }
 }
 
+export async function configureOnlineInventoryLocation(locationId: number) {
+  const auth = await requirePosAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  if (!Number.isInteger(locationId) || locationId <= 0) return { success: false, error: "Lokasi tidak valid" };
+
+  try {
+    await db.transaction(async tx => {
+      const current = await tx.select({ id: inventoryLocations.id }).from(inventoryLocations)
+        .where(eq(inventoryLocations.isOnlineDefault, true)).limit(1);
+      if (current.length && current[0].id !== locationId) throw new Error("Gudang Online utama sudah ada tetapi tidak aktif. Aktifkan lokasi tersebut agar stok tidak berpindah tanpa transfer.");
+
+      const target = await tx.select({ id: inventoryLocations.id, isActive: inventoryLocations.isActive }).from(inventoryLocations)
+        .where(and(eq(inventoryLocations.id, locationId), eq(inventoryLocations.type, "online"))).limit(1);
+      if (!target.length || (!target[0].isActive && !current.length)) throw new Error("Pilih lokasi Online yang aktif");
+
+      // Pertahankan stok yang sudah tercatat; untuk item tanpa saldo, gunakan cache stok lama.
+      const [productRows, variantRows, balances] = await Promise.all([
+        tx.select({ id: products.id, stock: products.stock }).from(products),
+        tx.select({ id: productVariants.id, productId: productVariants.productId, stock: productVariants.stock }).from(productVariants),
+        tx.select({ productId: inventoryBalances.productId, variantId: inventoryBalances.variantId, quantity: inventoryBalances.quantity })
+          .from(inventoryBalances).where(eq(inventoryBalances.locationId, locationId)),
+      ]);
+      const existing = new Set(balances.map(b => `${b.productId}:${b.variantId ?? 0}`));
+      const missing = [
+        ...productRows.filter(p => !existing.has(`${p.id}:0`)).map(p => ({ locationId, productId: p.id, variantId: null as number | null, quantity: p.stock ?? 0 })),
+        ...variantRows.filter(v => !existing.has(`${v.productId}:${v.id}`)).map(v => ({ locationId, productId: v.productId, variantId: v.id, quantity: v.stock ?? 0 })),
+      ];
+      if (missing.length) {
+        await tx.insert(inventoryBalances).values(missing);
+        const opening = missing.filter(item => item.quantity !== 0).map(item => ({
+          locationId,
+          productId: item.productId,
+          variantId: item.variantId,
+          quantityDelta: item.quantity,
+          balanceAfter: item.quantity,
+          type: "opening_balance" as const,
+          actorUserId: auth.actor.id,
+          notes: "Saldo awal saat menetapkan Gudang Online utama",
+        }));
+        if (opening.length) await tx.insert(inventoryMovements).values(opening);
+      }
+      for (const balance of balances) {
+        if (balance.variantId) await tx.update(productVariants).set({ stock: balance.quantity }).where(eq(productVariants.id, balance.variantId));
+        else await tx.update(products).set({ stock: balance.quantity }).where(eq(products.id, balance.productId));
+      }
+      await tx.update(inventoryLocations).set({ isOnlineDefault: true, isActive: true }).where(eq(inventoryLocations.id, locationId));
+    });
+    revalidatePath("/dashboard/inventory");
+    revalidatePath("/dashboard/products");
+    revalidatePath("/products");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Gagal menetapkan Gudang Online" };
+  }
+}
+
 export async function updateInventoryBalance(input: { locationId: number; productId: number; variantId?: number | null; quantity: number; notes?: string }) {
   const auth = await requirePosAdmin();
   if (!auth.ok) return { success: false, error: auth.error };

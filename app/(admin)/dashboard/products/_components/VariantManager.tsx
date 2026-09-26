@@ -134,10 +134,10 @@ export function VariantManager({ initial = [], basePrice = 0, barcodes = [], onC
   const variantCount = rows.length;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div>
+      <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-base font-semibold text-foreground">Varian Produk</h2>
           {variantCount > 0 && (
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -145,13 +145,13 @@ export function VariantManager({ initial = [], basePrice = 0, barcodes = [], onC
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => setCollapsed((c) => !c)}
-            className="h-7 px-2 text-xs gap-1"
+            className="h-8 gap-1 px-2 text-xs"
           >
             {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
             {collapsed ? 'Tampilkan' : 'Sembunyikan'}
@@ -161,7 +161,7 @@ export function VariantManager({ initial = [], basePrice = 0, barcodes = [], onC
             variant="outline"
             size="sm"
             onClick={add}
-            className="h-7 text-xs gap-1"
+            className="h-8 gap-1 text-xs"
           >
             <Plus className="w-3.5 h-3.5" /> Tambah Varian
           </Button>
@@ -180,20 +180,7 @@ export function VariantManager({ initial = [], basePrice = 0, barcodes = [], onC
               </Button>
             </div>
           ) : (
-            <div className="space-y-3 mt-4">
-              {/* Column headers */}
-              <div className="hidden md:grid grid-cols-[90px_1fr_80px_70px_80px_100px_80px_40px_32px] gap-2 text-xs text-muted-foreground font-medium px-1">
-                <span>Ukuran *</span>
-                <span>Warna *</span>
-                <span>Warna Hex</span>
-                <span>Stok *</span>
-                <span>Selisih harga</span>
-                <span>Harga Promo</span>
-                <span>SKU</span>
-                <span className="text-center">Aktif</span>
-                <span></span>
-              </div>
-
+            <div className="mt-4 space-y-4">
               {rows.map((row) => (
                 <VariantRowItem
                   key={row._key}
@@ -259,7 +246,7 @@ function VariantRowItem({
 
   return (
     <div
-      className={`rounded-lg border px-3 py-2.5 space-y-2 transition-colors ${
+      className={`min-w-0 space-y-4 rounded-lg border p-4 transition-colors sm:p-5 ${
         !row.isActive
           ? 'border-destructive/20 bg-destructive/5 opacity-60'
           : isUsedInOrder
@@ -269,15 +256,15 @@ function VariantRowItem({
           : 'border-border'
       }`}
     >
-      {/* Input baris */}
-      <div className="grid grid-cols-2 md:grid-cols-[90px_1fr_80px_70px_80px_100px_80px_40px_32px] gap-2 items-center">
+      {/* Identitas dan stok */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-12">
         {/* Ukuran */}
-        <div className="md:col-span-1">
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Ukuran</Label>
+        <div className="min-w-0 xl:col-span-2">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Ukuran <span className="text-destructive">*</span></Label>
           <select
             value={row.size}
             onChange={(e) => onUpdate('size', e.target.value)}
-            className="h-8 w-full rounded-md border border-input bg-background text-foreground px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {SIZE_OPTIONS.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -286,120 +273,127 @@ function VariantRowItem({
         </div>
 
         {/* Warna */}
-        <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Warna</Label>
+        <div className="min-w-0 xl:col-span-4">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Warna <span className="text-destructive">*</span></Label>
           <Input
             value={row.color}
             onChange={(e) => onUpdate('color', e.target.value)}
             placeholder="Mauve Wine"
-            className="h-8 text-sm"
+            className="h-9 min-w-0 text-sm"
           />
         </div>
 
         {/* Color Hex */}
-        <div className="flex gap-1 items-center">
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Hex</Label>
-          <input
-            type="color"
-            value={row.colorHex || '#888888'}
-            onChange={(e) => onUpdate('colorHex', e.target.value)}
-            className="w-8 h-8 rounded border border-input cursor-pointer"
-            title="Pilih warna"
-          />
-          <Input
-            value={row.colorHex}
-            onChange={(e) => onUpdate('colorHex', e.target.value)}
-            placeholder="#7B3F5E"
-            className="h-8 text-xs flex-1 font-mono"
-            maxLength={7}
-          />
+        <div className="min-w-0 xl:col-span-3">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Warna Hex</Label>
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              type="color"
+              value={row.colorHex || '#888888'}
+              onChange={(e) => onUpdate('colorHex', e.target.value)}
+              className="h-9 w-10 shrink-0 cursor-pointer rounded border border-input bg-background p-1"
+              title="Pilih warna"
+            />
+            <Input
+              value={row.colorHex}
+              onChange={(e) => onUpdate('colorHex', e.target.value)}
+              placeholder="#7B3F5E"
+              className="h-9 min-w-0 flex-1 font-mono text-sm"
+              maxLength={7}
+            />
+          </div>
         </div>
 
         {/* Stok */}
-        <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Stok</Label>
+        <div className="min-w-0 xl:col-span-3">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Stok <span className="text-destructive">*</span></Label>
           <Input
             type="number"
             min={0}
             value={row.stock}
             onChange={(e) => onUpdate('stock', Number(e.target.value))}
-            className="h-8 text-sm"
+            className="h-9 min-w-0 text-sm tabular-nums"
           />
         </div>
+      </div>
 
+      {/* Harga, SKU, dan status */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-border/70 pt-4 sm:grid-cols-2 xl:grid-cols-12">
         {/* Price Modifier */}
-        <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Selisih harga</Label>
+        <div className="min-w-0 xl:col-span-3">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Selisih harga</Label>
           <Input
             type="number"
             value={row.priceModifier}
             onChange={(e) => onUpdate('priceModifier', Number(e.target.value))}
             placeholder="0"
-            className="h-8 text-sm"
+            className="h-9 min-w-0 text-sm tabular-nums"
             title={`Bukan harga final. Harga varian saat ini: Rp ${(basePrice + row.priceModifier).toLocaleString('id-ID')}`}
           />
-          <p className="mt-1 text-[10px] text-muted-foreground">Final: Rp {(basePrice + row.priceModifier).toLocaleString('id-ID')}</p>
+          <p className="mt-1.5 text-xs leading-4 text-muted-foreground">Harga akhir: Rp {(basePrice + row.priceModifier).toLocaleString('id-ID')}</p>
         </div>
 
-        {/* SKU */}
-        <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">Harga Promo</Label>
+        {/* Harga Promo */}
+        <div className="min-w-0 xl:col-span-3">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Harga Promo</Label>
           <Input
             type="number"
             min={0}
             value={row.salePriceOverride ?? ''}
             onChange={(e) => onUpdate('salePriceOverride', e.target.value === '' ? null : Number(e.target.value))}
             placeholder="Ikuti produk"
-            className="h-8 text-xs"
+            className="h-9 min-w-0 text-sm tabular-nums"
             title="Harga final promo varian; kosongkan untuk mengikuti promo produk"
           />
         </div>
 
         {/* SKU */}
-        <div>
-          <Label className="text-xs text-muted-foreground md:hidden mb-1 block">SKU</Label>
+        <div className="min-w-0 xl:col-span-3">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">SKU</Label>
           <Input
             value={row.sku}
             onChange={(e) => onUpdate('sku', e.target.value)}
             placeholder="OT-001-M-BK"
-            className="h-8 text-xs font-mono"
+            className="h-9 min-w-0 font-mono text-sm"
           />
         </div>
 
-        {/* Active Toggle */}
-        <div className="flex items-center justify-center h-8">
-          <input
-            type="checkbox"
-            checked={row.isActive}
-            onChange={(e) => onUpdate('isActive', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-          />
-        </div>
-
-        {/* Remove */}
-        <div className="flex items-center justify-center h-8">
+        {/* Status dan aksi */}
+        <div className="flex min-w-0 items-end justify-between gap-3 sm:col-span-2 xl:col-span-3 xl:justify-end">
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground xl:flex-1 xl:justify-center">
+            <input
+              type="checkbox"
+              checked={row.isActive}
+              onChange={(e) => onUpdate('isActive', e.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            Aktif
+          </label>
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={onRemove}
             disabled={isUsedInOrder}
             title={isUsedInOrder ? 'Tidak bisa dihapus karena sudah ada di pesanan. Nonaktifkan saja.' : 'Hapus varian'}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="h-9 shrink-0 gap-1.5 px-3 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Trash2 className="w-4 h-4" />
+            Hapus
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <div>
-          <Label className="mb-1 block text-xs text-muted-foreground">Label pendek POS</Label>
-          <Input value={row.posLabel} maxLength={60} onChange={(e) => onUpdate('posLabel', e.target.value)} placeholder={`${row.size} / ${row.color || 'Warna'}`} className="h-8 text-sm" />
+      <div className="grid min-w-0 grid-cols-1 gap-4 border-t border-border/70 pt-4 md:grid-cols-2">
+        <div className="min-w-0">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Label pendek POS</Label>
+          <Input value={row.posLabel} maxLength={60} onChange={(e) => onUpdate('posLabel', e.target.value)} placeholder={`${row.size} / ${row.color || 'Warna'}`} className="h-9 min-w-0 text-sm" />
+          <p className="mt-1.5 text-xs leading-4 text-muted-foreground">Nama ringkas untuk layar kasir dan struk.</p>
         </div>
-        <div>
-          <Label className="mb-1 block text-xs text-muted-foreground">Barcode varian</Label>
-          <Input value={row.barcode} maxLength={100} onChange={(e) => onUpdate('barcode', e.target.value)} placeholder="899000000001" className="h-8 font-mono text-sm" />
+        <div className="min-w-0">
+          <Label className="mb-1.5 block text-xs font-medium text-foreground">Barcode varian</Label>
+          <Input value={row.barcode} maxLength={100} onChange={(e) => onUpdate('barcode', e.target.value)} placeholder="899000000001" className="h-9 min-w-0 font-mono text-sm" />
+          <p className="mt-1.5 text-xs leading-4 text-muted-foreground">Opsional dan harus unik untuk setiap varian.</p>
         </div>
       </div>
 

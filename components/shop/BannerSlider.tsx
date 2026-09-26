@@ -62,9 +62,10 @@ export function BannerSlider({ banners }: BannerSliderProps) {
           src={banner.image}
           alt={banner.title}
           fill
+          unoptimized
           sizes="100vw"
           className="object-cover"
-          priority={current === 0}
+          loading={current === 0 ? 'eager' : 'lazy'}
           onError={() => setImgErrors((prev) => ({ ...prev, [banner.id]: true }))}
         />
       ) : (

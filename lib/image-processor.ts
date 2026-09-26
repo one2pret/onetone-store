@@ -25,6 +25,19 @@ export interface ProcessedImages {
   };
 }
 
+export interface ProcessedBannerImages {
+  original: ProcessedImages["original"];
+  main: ProcessedImages["main"];
+  thumb: ProcessedImages["thumb"];
+}
+
+export interface BannerCropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_FILESIZE_MB = 10;
 
@@ -67,6 +80,89 @@ export async function processProductImage(inputBuffer: Buffer): Promise<Processe
     .webp({ quality: 75 })
     .toBuffer();
   const thumbMeta = await sharp(thumbBuffer).metadata();
+
+  return {
+    original: {
+      buffer: inputBuffer,
+      width: originalMeta.width ?? 0,
+      height: originalMeta.height ?? 0,
+      format: originalMeta.format ?? "unknown",
+      filesize: inputBuffer.byteLength,
+    },
+    main: {
+      buffer: mainBuffer,
+      width: mainMeta.width ?? 0,
+      height: mainMeta.height ?? 0,
+      filesize: mainBuffer.byteLength,
+    },
+    thumb: {
+      buffer: thumbBuffer,
+      width: thumbMeta.width ?? 0,
+      height: thumbMeta.height ?? 0,
+      filesize: thumbBuffer.byteLength,
+    },
+  };
+}
+
+function clampBannerCrop(crop: BannerCropArea, sourceWidth: number, sourceHeight: number) {
+  const left = Math.floor(crop.x);
+  const top = Math.floor(crop.y);
+  const requestedWidth = Math.round(crop.width);
+  const requestedHeight = Math.round(crop.height);
+
+  if (
+    !Number.isFinite(left) || !Number.isFinite(top) ||
+    !Number.isFinite(requestedWidth) || !Number.isFinite(requestedHeight) ||
+    left < 0 || top < 0 || requestedWidth < 1 || requestedHeight < 1 ||
+    left >= sourceWidth || top >= sourceHeight
+  ) {
+    throw new Error("Area crop banner tidak valid");
+  }
+
+  return {
+    left,
+    top,
+    width: Math.min(requestedWidth, sourceWidth - left),
+    height: Math.min(requestedHeight, sourceHeight - top),
+  };
+}
+
+export async function processBannerImage(
+  inputBuffer: Buffer,
+  crop?: BannerCropArea,
+): Promise<ProcessedBannerImages> {
+  validateImageBuffer(inputBuffer);
+  const detectedMime = detectMimeFromBuffer(inputBuffer);
+  if (!ALLOWED_MIME.includes(detectedMime)) {
+    throw new Error("Format gambar tidak didukung");
+  }
+
+  const originalMeta = await sharp(inputBuffer).metadata();
+  const normalizedBuffer = await sharp(inputBuffer).rotate().toBuffer();
+  const normalizedMeta = await sharp(normalizedBuffer).metadata();
+  const sourceWidth = normalizedMeta.width ?? 0;
+  const sourceHeight = normalizedMeta.height ?? 0;
+  const extract = crop ? clampBannerCrop(crop, sourceWidth, sourceHeight) : null;
+
+  const mainPipeline = sharp(normalizedBuffer);
+  const thumbPipeline = sharp(normalizedBuffer);
+  if (extract) {
+    mainPipeline.extract(extract);
+    thumbPipeline.extract(extract);
+  }
+
+  const mainBuffer = await mainPipeline
+    .resize(1920, 640, { fit: "cover", position: "centre" })
+    .webp({ quality: 84 })
+    .toBuffer();
+  const thumbBuffer = await thumbPipeline
+    .resize(480, 160, { fit: "cover", position: "centre" })
+    .webp({ quality: 76 })
+    .toBuffer();
+  const [mainMeta, thumbMeta] = await Promise.all([
+    sharp(mainBuffer).metadata(),
+    sharp(thumbBuffer).metadata(),
+  ]);
 
   return {
     original: {

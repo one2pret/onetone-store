@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { productVariants, cartItems, orderItems, products } from '@/lib/db/schema';
-import { setOnlineInventoryStock } from '@/lib/inventory-stock';
+import { requireOnlineInventoryLocation, setOnlineInventoryStock } from '@/lib/inventory-stock';
 import { assertBarcodeAvailable, setPrimaryBarcode } from '@/lib/product-barcodes';
 import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -66,6 +66,12 @@ export async function upsertProductVariants(
     return { success: false, error: 'Data varian tidak valid' };
   }
   variants = parsedVariants.data;
+
+  try {
+    await requireOnlineInventoryLocation();
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gudang Online belum dikonfigurasi' };
+  }
 
   const productRows = await db
     .select({ price: products.price })
@@ -217,6 +223,12 @@ export async function updateVariantStock(variantId: number, stock: number) {
   }
   if (!Number.isInteger(variantId) || variantId <= 0 || !Number.isInteger(stock) || stock < 0) {
     return { success: false, error: 'Data stok tidak valid' };
+  }
+
+  try {
+    await requireOnlineInventoryLocation();
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Gudang Online belum dikonfigurasi' };
   }
 
   await db

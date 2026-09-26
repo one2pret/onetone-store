@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { revalidatePath } from 'next/cache';
+import { db } from '@/lib/db';
 
 const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
@@ -76,6 +77,18 @@ describe('Product Server Actions', () => {
   });
 
   describe('createProduct', () => {
+    it('does not create a product when the Online warehouse is unconfigured', async () => {
+      const fd = new FormData();
+      fd.set('name', 'Produk Baru');
+      fd.set('description', 'Deskripsi');
+      fd.set('price', '100000');
+      fd.set('stock', '10');
+
+      const result = await createProduct(null, fd);
+      expect(result).toMatchObject({ success: false });
+      expect(result.errors?._form?.[0]).toContain('Gudang Online belum dikonfigurasi');
+      expect(db.insert).not.toHaveBeenCalled();
+    });
     it('validates required name', async () => {
       const fd = new FormData();
       fd.set('name', '');
@@ -148,6 +161,18 @@ describe('Product Server Actions', () => {
   });
 
   describe('updateProduct', () => {
+    it('does not change a product when the Online warehouse is unconfigured', async () => {
+      const fd = new FormData();
+      fd.set('name', 'Produk Lama');
+      fd.set('description', 'Deskripsi');
+      fd.set('price', '100000');
+      fd.set('stock', '10');
+
+      const result = await updateProduct(1, null, fd);
+      expect(result).toMatchObject({ success: false });
+      expect(result.errors?._form?.[0]).toContain('Gudang Online belum dikonfigurasi');
+      expect(db.update).not.toHaveBeenCalled();
+    });
     it('validates required fields', async () => {
       const fd = new FormData();
       fd.set('name', '');
