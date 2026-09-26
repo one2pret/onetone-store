@@ -11,6 +11,7 @@ import type { Banner } from '@/lib/db/schema';
 import Image from 'next/image';
 import { AlertCircle, ImageIcon, UploadCloud, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BannerCropEditor } from './BannerCropEditor';
 
 interface BannerFormProps {
   banner?: Banner | null;
@@ -216,7 +217,11 @@ export function BannerForm({ banner }: BannerFormProps) {
           <p className="text-sm text-destructive">{fileError || state?.errors?.image?.[0]}</p>
         )}
 
-        {showPreview && (
+        {selectedPreview && (
+          <BannerCropEditor key={selectedPreview} image={selectedPreview} />
+        )}
+
+        {showPreview && !selectedPreview && (
           <div className="space-y-2">
             <div className="relative aspect-[3/1] overflow-hidden rounded-xl border border-border bg-muted">
               <Image

@@ -8,6 +8,14 @@ const mocks = vi.hoisted(() => ({
   upload: vi.fn(async (key: string) => ({ objectKey: key, url: `https://cdn.example.com/${key}`, filesize: 100, checksum: 'checksum' })),
   remove: vi.fn(async () => undefined),
   generateKey: vi.fn((folder: string, ext: string) => `${folder}/generated.${ext}`),
+  processBannerImage: vi.fn(async (buffer: Buffer, crop?: unknown) => {
+    void crop;
+    return {
+      original: { buffer, width: 1500, height: 500, format: 'png', filesize: buffer.length },
+      main: { buffer, width: 1500, height: 500, filesize: buffer.length },
+      thumb: { buffer, width: 480, height: 160, filesize: buffer.length },
+    };
+  }),
 }));
 
 function chain(value: unknown, reject = false) {
@@ -34,11 +42,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 vi.mock('@/lib/image-processor', () => ({
   detectMimeFromBuffer: vi.fn(() => 'image/png'),
-  processBannerImage: vi.fn(async (buffer: Buffer) => ({
-    original: { buffer, width: 1500, height: 500, format: 'png', filesize: buffer.length },
-    main: { buffer, width: 1500, height: 500, filesize: buffer.length },
-    thumb: { buffer, width: 480, height: 160, filesize: buffer.length },
-  })),
+  processBannerImage: mocks.processBannerImage,
 }));
 
 import { createBanner, deleteBanner, updateBanner } from '@/app/actions/banners';
@@ -79,6 +83,25 @@ describe('banner actions', () => {
     expect(result?.success).toBe(false);
     expect(mocks.upload).toHaveBeenCalledTimes(3);
     expect(mocks.remove).toHaveBeenCalledTimes(3);
+  });
+
+  it('passes the crop selected in the UI to image processing', async () => {
+    const data = new FormData();
+    data.set('title', 'Promo akhir pekan');
+    data.set('imageFile', new File([new Uint8Array([1, 2, 3])], 'banner.png', { type: 'image/png' }));
+    data.set('cropX', '120');
+    data.set('cropY', '40');
+    data.set('cropWidth', '900');
+    data.set('cropHeight', '300');
+
+    await expect(createBanner(null, data)).rejects.toThrow('NEXT_REDIRECT:/dashboard/banners');
+
+    expect(mocks.processBannerImage).toHaveBeenCalledWith(expect.any(Buffer), {
+      x: 120,
+      y: 40,
+      width: 900,
+      height: 300,
+    });
   });
 
   it('removes all owned R2 objects after deleting a banner record', async () => {

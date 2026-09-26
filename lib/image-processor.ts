@@ -31,6 +31,13 @@ export interface ProcessedBannerImages {
   thumb: ProcessedImages["thumb"];
 }
 
+export interface BannerCropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_FILESIZE_MB = 10;
 
@@ -97,7 +104,33 @@ export async function processProductImage(inputBuffer: Buffer): Promise<Processe
   };
 }
 
-export async function processBannerImage(inputBuffer: Buffer): Promise<ProcessedBannerImages> {
+function clampBannerCrop(crop: BannerCropArea, sourceWidth: number, sourceHeight: number) {
+  const left = Math.floor(crop.x);
+  const top = Math.floor(crop.y);
+  const requestedWidth = Math.round(crop.width);
+  const requestedHeight = Math.round(crop.height);
+
+  if (
+    !Number.isFinite(left) || !Number.isFinite(top) ||
+    !Number.isFinite(requestedWidth) || !Number.isFinite(requestedHeight) ||
+    left < 0 || top < 0 || requestedWidth < 1 || requestedHeight < 1 ||
+    left >= sourceWidth || top >= sourceHeight
+  ) {
+    throw new Error("Area crop banner tidak valid");
+  }
+
+  return {
+    left,
+    top,
+    width: Math.min(requestedWidth, sourceWidth - left),
+    height: Math.min(requestedHeight, sourceHeight - top),
+  };
+}
+
+export async function processBannerImage(
+  inputBuffer: Buffer,
+  crop?: BannerCropArea,
+): Promise<ProcessedBannerImages> {
   validateImageBuffer(inputBuffer);
   const detectedMime = detectMimeFromBuffer(inputBuffer);
   if (!ALLOWED_MIME.includes(detectedMime)) {
@@ -105,13 +138,24 @@ export async function processBannerImage(inputBuffer: Buffer): Promise<Processed
   }
 
   const originalMeta = await sharp(inputBuffer).metadata();
-  const mainBuffer = await sharp(inputBuffer)
-    .rotate()
+  const normalizedBuffer = await sharp(inputBuffer).rotate().toBuffer();
+  const normalizedMeta = await sharp(normalizedBuffer).metadata();
+  const sourceWidth = normalizedMeta.width ?? 0;
+  const sourceHeight = normalizedMeta.height ?? 0;
+  const extract = crop ? clampBannerCrop(crop, sourceWidth, sourceHeight) : null;
+
+  const mainPipeline = sharp(normalizedBuffer);
+  const thumbPipeline = sharp(normalizedBuffer);
+  if (extract) {
+    mainPipeline.extract(extract);
+    thumbPipeline.extract(extract);
+  }
+
+  const mainBuffer = await mainPipeline
     .resize(1920, 640, { fit: "cover", position: "centre" })
     .webp({ quality: 84 })
     .toBuffer();
-  const thumbBuffer = await sharp(inputBuffer)
-    .rotate()
+  const thumbBuffer = await thumbPipeline
     .resize(480, 160, { fit: "cover", position: "centre" })
     .webp({ quality: 76 })
     .toBuffer();

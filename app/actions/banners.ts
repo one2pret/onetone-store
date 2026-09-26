@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { withResolvedBannerImage, isAllowedExternalBannerUrl, toPublicBanner } from '@/lib/banner-images';
 import { db } from '@/lib/db';
 import { banners } from '@/lib/db/schema';
-import { detectMimeFromBuffer, processBannerImage } from '@/lib/image-processor';
+import { detectMimeFromBuffer, processBannerImage, type BannerCropArea } from '@/lib/image-processor';
 import { generateObjectKey, storage } from '@/lib/storage';
 import { asc, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -35,6 +35,13 @@ const bannerSchema = z.object({
   sortOrder: z.coerce.number().int().default(0),
 });
 
+const bannerCropSchema = z.object({
+  x: z.coerce.number().finite().min(0),
+  y: z.coerce.number().finite().min(0),
+  width: z.coerce.number().finite().positive(),
+  height: z.coerce.number().finite().positive(),
+});
+
 type UploadedBannerImage = {
   objectKey: string;
   originalObjectKey: string;
@@ -62,6 +69,20 @@ function selectedImageFile(formData: FormData) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
+function selectedCropArea(formData: FormData): BannerCropArea | undefined {
+  const raw = {
+    x: formData.get('cropX'),
+    y: formData.get('cropY'),
+    width: formData.get('cropWidth'),
+    height: formData.get('cropHeight'),
+  };
+  if (Object.values(raw).every(value => value === null || value === '')) return undefined;
+
+  const parsed = bannerCropSchema.safeParse(raw);
+  if (!parsed.success) throw new Error('Area crop banner tidak valid. Atur ulang posisi gambar lalu coba lagi.');
+  return parsed.data;
+}
+
 async function deleteStoredBannerImage(image: {
   imageObjectKey: string | null;
   imageObjectKeyOriginal: string | null;
@@ -72,10 +93,10 @@ async function deleteStoredBannerImage(image: {
   await Promise.allSettled(keys.map(key => storage.delete(key)));
 }
 
-async function uploadBannerImage(file: File): Promise<UploadedBannerImage> {
+async function uploadBannerImage(file: File, crop?: BannerCropArea): Promise<UploadedBannerImage> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const mime = detectMimeFromBuffer(buffer);
-  const processed = await processBannerImage(buffer);
+  const processed = await processBannerImage(buffer, crop);
   const originalExt = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : mime === 'image/heic' ? 'heic' : 'jpg';
   const objectKey = generateObjectKey('banners', 'webp');
   const thumbObjectKey = generateObjectKey('banners/thumb', 'webp');
@@ -178,7 +199,7 @@ export async function createBanner(prevState: unknown, formData: FormData) {
 
   let uploaded: UploadedBannerImage | null = null;
   try {
-    if (file) uploaded = await uploadBannerImage(file);
+    if (file) uploaded = await uploadBannerImage(file, selectedCropArea(formData));
   } catch (error) {
     return { success: false, errors: { image: [error instanceof Error ? error.message : 'Gagal memproses gambar banner'] } };
   }
@@ -226,7 +247,7 @@ export async function updateBanner(id: number, prevState: unknown, formData: For
   let uploaded: UploadedBannerImage | null = null;
   const switchingToExternal = !file && Boolean(validated.data.externalImageUrl) && validated.data.externalImageUrl !== existing.image;
   try {
-    if (file) uploaded = await uploadBannerImage(file);
+    if (file) uploaded = await uploadBannerImage(file, selectedCropArea(formData));
   } catch (error) {
     return { success: false, errors: { image: [error instanceof Error ? error.message : 'Gagal memproses gambar banner'] } };
   }
