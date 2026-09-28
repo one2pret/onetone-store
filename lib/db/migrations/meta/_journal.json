@@ -71,6 +71,20 @@
       "when": 1790352000000,
       "tag": "0009_banner_images",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1790520946000,
+      "tag": "0010_pos_customer_leads",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1790607600000,
+      "tag": "0011_pos_membership_points",
+      "breakpoints": true
     }
   ]
 }

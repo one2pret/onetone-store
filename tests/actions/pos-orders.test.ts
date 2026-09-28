@@ -4,11 +4,13 @@ const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
 const mockRequirePosOperator = vi.fn();
 const mockDeductStock = vi.fn();
+const mockAwardPosOrderPoints = vi.fn();
 const mockInsertedValues: unknown[] = [];
 
 function mockChain(returnFn: () => unknown) {
   const chain: Record<string, unknown> = {};
   chain.from = vi.fn().mockReturnValue(chain);
+  chain.innerJoin = vi.fn().mockReturnValue(chain);
   chain.where = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
   chain.values = vi.fn((value: unknown) => { mockInsertedValues.push(value); return chain; });
@@ -40,6 +42,10 @@ vi.mock("@/lib/storage", () => ({
   storage: { getUrl: vi.fn((key: string) => key) },
 }));
 
+vi.mock("@/lib/pos-membership-points", () => ({
+  awardPosOrderPoints: (...args: unknown[]) => mockAwardPosOrderPoints(...args),
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { createPosOrder } from "@/app/actions/pos-orders";
@@ -60,6 +66,7 @@ describe("POS order authorization", () => {
     });
     mockInsertReturn.mockReturnValue([{ insertId: 99 }]);
     mockDeductStock.mockResolvedValue(undefined);
+    mockAwardPosOrderPoints.mockResolvedValue({ awarded: true, pointsEarned: 2 });
     mockInsertedValues.length = 0;
   });
 
@@ -90,6 +97,72 @@ describe("POS order authorization", () => {
 
     expect(result.success).toBe(true);
     expect(mockDeductStock).toHaveBeenCalledOnce();
+  });
+
+  it("links a validated member to the POS order", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{ id: 41, name: "Rina Member" }])
+      .mockReturnValueOnce([{
+        id: 5,
+        name: "Produk Test",
+        price: "15000",
+        image: null,
+      }]);
+
+    const result = await createPosOrder({ ...input, customerUserId: 41 });
+
+    expect(result.success).toBe(true);
+    expect(mockInsertedValues[0]).toMatchObject({
+      userId: 41,
+      shippingName: "Rina Member",
+    });
+    expect(mockAwardPosOrderPoints).toHaveBeenCalledWith(99, 41);
+    expect(result).toMatchObject({ pointsEarned: 2 });
+  });
+
+  it("rejects an unknown or inactive member", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([]);
+
+    const result = await createPosOrder({ ...input, customerUserId: 999 });
+
+    expect(result).toEqual({ success: false, error: "Member tidak ditemukan atau tidak aktif" });
+    expect(mockInsertedValues).toHaveLength(0);
+    expect(mockDeductStock).not.toHaveBeenCalled();
+  });
+
+  it("links a pending POS customer lead to the order", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{ id: 71, name: "Calon Member" }])
+      .mockReturnValueOnce([{
+        id: 5,
+        name: "Produk Test",
+        price: "15000",
+        image: null,
+      }]);
+
+    const result = await createPosOrder({ ...input, customerLeadId: 71 });
+
+    expect(result.success).toBe(true);
+    expect(mockInsertedValues[0]).toMatchObject({
+      userId: null,
+      posCustomerLeadId: 71,
+      shippingName: "Calon Member",
+    });
+  });
+
+  it("rejects an unavailable POS customer lead", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([]);
+
+    const result = await createPosOrder({ ...input, customerLeadId: 999 });
+
+    expect(result).toEqual({ success: false, error: "Calon member tidak ditemukan atau sudah diaktivasi" });
+    expect(mockInsertedValues).toHaveLength(0);
   });
 
   it("recalculates and snapshots POS discounts on the server", async () => {

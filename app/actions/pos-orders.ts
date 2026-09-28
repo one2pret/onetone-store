@@ -11,12 +11,16 @@ import {
   products,
   productVariants,
   posSessions,
+  posCustomerLeads,
+  memberships,
+  users,
 } from "@/lib/db/schema";
 import { deductLocationStock, getLocationBalanceMap, validateLocationStock } from "@/lib/inventory-stock";
 import { canAccessPosSession, requirePosOperator } from "@/lib/pos-auth";
 import { calculatePosDiscountPricing, type PosDiscount } from "@/lib/pos-discounts";
+import { awardPosOrderPoints } from "@/lib/pos-membership-points";
 import { storage } from "@/lib/storage";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -39,9 +43,13 @@ const createPosOrderSchema = z.object({
   items: z.array(cartItemSchema).min(1, "Keranjang kosong"),
   paymentMethod: z.enum(["cash", "qris", "transfer"]),
   cashReceived: z.number().min(0).optional(),
+  customerUserId: z.number().int().positive().optional(),
+  customerLeadId: z.number().int().positive().optional(),
   customerName: z.string().max(255).optional(),
   notes: z.string().max(500).optional(),
   orderDiscount: discountSchema.optional(),
+}).refine(data => !(data.customerUserId && data.customerLeadId), {
+  message: "Pilih member atau calon member, bukan keduanya",
 });
 
 // ─── Helper: order number POS ─────────────────────────────────────────────────
@@ -64,6 +72,8 @@ export async function createPosOrder(input: {
   items: { productId: number; variantId?: number; quantity: number; discount?: PosDiscount }[];
   paymentMethod: "cash" | "qris" | "transfer";
   cashReceived?: number;
+  customerUserId?: number;
+  customerLeadId?: number;
   customerName?: string;
   notes?: string;
   orderDiscount?: PosDiscount;
@@ -93,6 +103,43 @@ export async function createPosOrder(input: {
   }
   if (session.cashierId !== authResult.actor.id) {
     return { success: false, error: "Sesi kasir bukan milikmu" };
+  }
+
+  // Member dari client selalu divalidasi ulang. Hanya customer aktif yang
+  // memiliki membership yang boleh ditautkan ke transaksi POS.
+  let memberCustomer: { id: number; name: string } | null = null;
+  if (data.customerUserId) {
+    const memberRows = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .innerJoin(memberships, eq(memberships.userId, users.id))
+      .where(and(
+        eq(users.id, data.customerUserId),
+        eq(users.role, "customer"),
+        isNull(users.deletedAt),
+      ))
+      .limit(1);
+    memberCustomer = memberRows[0] ?? null;
+    if (!memberCustomer) {
+      return { success: false, error: "Member tidak ditemukan atau tidak aktif" };
+    }
+  }
+
+  let leadCustomer: { id: number; name: string } | null = null;
+  if (data.customerLeadId) {
+    const leadRows = await db
+      .select({ id: posCustomerLeads.id, name: posCustomerLeads.name })
+      .from(posCustomerLeads)
+      .where(and(
+        eq(posCustomerLeads.id, data.customerLeadId),
+        eq(posCustomerLeads.status, "pending"),
+        isNull(posCustomerLeads.claimedUserId),
+      ))
+      .limit(1);
+    leadCustomer = leadRows[0] ?? null;
+    if (!leadCustomer) {
+      return { success: false, error: "Calon member tidak ditemukan atau sudah diaktivasi" };
+    }
   }
 
   // 2. Ambil detail produk + varian (untuk harga, nama, snapshot)
@@ -201,7 +248,8 @@ export async function createPosOrder(input: {
   //    minimal — POS single-kasir per sesi.
   try {
     const [orderResult] = await db.insert(orders).values({
-      userId: null, // walk-in customer — POS tidak butuh akun
+      userId: memberCustomer?.id ?? null,
+      posCustomerLeadId: leadCustomer?.id ?? null,
       orderNumber,
       channel: "pos",
       status: "delivered", // langsung selesai (transaksi tatap muka)
@@ -211,7 +259,7 @@ export async function createPosOrder(input: {
       total: String(total),
       shippingAddress: null,
       shippingPhone: null,
-      shippingName: data.customerName || null,
+      shippingName: memberCustomer?.name ?? leadCustomer?.name ?? data.customerName ?? null,
       notes: data.notes || null,
       posSessionId: data.sessionId,
       posPaymentMethod: data.paymentMethod,
@@ -252,9 +300,23 @@ export async function createPosOrder(input: {
       { type: "pos_sale", referenceId: orderId, actorUserId: authResult.actor.id }
     );
 
+    let pointsEarned = 0;
+    if (memberCustomer) {
+      try {
+        const reward = await awardPosOrderPoints(orderId, memberCustomer.id);
+        pointsEarned = reward.pointsEarned;
+      } catch (membershipError) {
+        // Penjualan tetap sah; kegagalan benefit tidak boleh membuat kasir
+        // mengulang pembayaran dan menciptakan order ganda.
+        console.error("[createPosOrder:membership]", membershipError);
+      }
+    }
+
     revalidatePath("/pos");
     revalidatePath("/dashboard/orders");
     revalidatePath("/dashboard/products");
+    revalidatePath("/account/membership");
+    revalidatePath("/account/points");
 
     return {
       success: true,
@@ -264,6 +326,7 @@ export async function createPosOrder(input: {
       discountAmount: discountTotal,
       cashReceived,
       cashChange,
+      pointsEarned,
     };
   } catch (err) {
     console.error("[createPosOrder]", err);

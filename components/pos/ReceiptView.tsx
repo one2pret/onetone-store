@@ -21,6 +21,7 @@ type ReceiptData = {
   cashChange: number | null;
   paymentMethod: "cash" | "qris" | "transfer" | null;
   customerName: string | null;
+  pointsEarned: number;
   createdAt: Date | null;
   items: {
     productName: string;
@@ -76,6 +77,7 @@ export function ReceiptView({
         cashChange: order.cashChange ? Number(order.cashChange) : null,
         paymentMethod: order.posPaymentMethod,
         customerName: order.shippingName,
+        pointsEarned: order.pointsEarned ?? 0,
         createdAt: order.createdAt,
         items: order.items.map((it) => ({
           productName: it.productName,
@@ -126,6 +128,7 @@ export function ReceiptView({
       data.paymentMethod ? `Bayar: ${PAYMENT_LABELS[data.paymentMethod]}` : "",
       data.cashReceived !== null ? `Diterima: ${formatRupiah(data.cashReceived)}` : "",
       data.cashChange !== null ? `Kembalian: ${formatRupiah(data.cashChange)}` : "",
+      data.pointsEarned > 0 ? `Poin diperoleh: +${data.pointsEarned}` : "",
       "",
       footer?.trim() || "Terima kasih!",
     ].filter(Boolean).join("\n");
@@ -261,6 +264,12 @@ export function ReceiptView({
               <div className="flex justify-between">
                 <span>Kembalian</span>
                 <span>{formatRupiah(data.cashChange)}</span>
+              </div>
+            )}
+            {data.pointsEarned > 0 && (
+              <div className="mt-1 flex justify-between border-t border-dashed border-zinc-200 pt-1 font-semibold">
+                <span>Poin diperoleh</span>
+                <span>+{data.pointsEarned.toLocaleString("id-ID")}</span>
               </div>
             )}
           </div>

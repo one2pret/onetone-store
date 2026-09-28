@@ -252,6 +252,33 @@ export const posSessions = mysqlTable('pos_sessions', {
   notes: text('notes'),
 });
 
+// ============ POS CUSTOMER LEADS ============
+// Identitas pelanggan yang didaftarkan kasir tetapi belum mengaktifkan akun.
+// Dipisahkan dari users agar sistem tidak membuat email/password palsu.
+export const posCustomerLeads = mysqlTable('pos_customer_leads', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 255 }).notNull(),
+  phoneNormalized: varchar('phone_normalized', { length: 20 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  status: mysqlEnum('status', ['pending', 'activated', 'cancelled', 'expired'])
+    .default('pending').notNull(),
+  consentAt: timestamp('consent_at').notNull(),
+  marketingConsentAt: timestamp('marketing_consent_at'),
+  source: varchar('source', { length: 30 }).default('pos').notNull(),
+  createdByUserId: int('created_by_user_id').references(() => users.id).notNull(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  activationTokenHash: varchar('activation_token_hash', { length: 64 }),
+  activationExpiresAt: timestamp('activation_expires_at'),
+  claimedUserId: int('claimed_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  phoneUnique: uniqueIndex('pos_customer_leads_phone_unique').on(table.phoneNormalized),
+  activationTokenUnique: uniqueIndex('pos_customer_leads_activation_token_unique').on(table.activationTokenHash),
+  statusCreatedIdx: index('pos_customer_leads_status_created_idx').on(table.status, table.createdAt),
+  locationCreatedIdx: index('pos_customer_leads_location_created_idx').on(table.locationId, table.createdAt),
+}));
+
 // ============ MEMBERSHIPS ============
 // Phase 1: 1 user : 1 membership row. Auto-create saat register atau order pertama.
 export const memberships = mysqlTable('memberships', {
@@ -435,6 +462,7 @@ export const affiliateSettings = mysqlTable('affiliate_settings', {
 export const orders = mysqlTable('orders', {
   id: int('id').primaryKey().autoincrement(),
   userId: int('user_id').references(() => users.id), // nullable — walk-in customer POS tanpa akun
+  posCustomerLeadId: int('pos_customer_lead_id').references(() => posCustomerLeads.id, { onDelete: 'set null' }),
   storeId: int('store_id').references(() => stores.id),          // Phase 1: nullable, backfill ke Onetone
   voucherId: int('voucher_id').references(() => vouchers.id),    // Phase 1: nullable
   orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
@@ -476,7 +504,9 @@ export const orders = mysqlTable('orders', {
   affiliateClickId: int('affiliate_click_id').references(() => affiliateClicks.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
-});
+}, (table) => ({
+  posCustomerLeadIdx: index('orders_pos_customer_lead_id_idx').on(table.posCustomerLeadId),
+}));
 
 // ============ USER VOUCHERS ============
 // Kepemilikan voucher per user. Voucher campaign tetap berada di `vouchers`;
@@ -729,7 +759,10 @@ export const pointsLedger = mysqlTable('points_ledger', {
   delta: int('delta').notNull(),
   reason: varchar('reason', { length: 100 }),                    // "order_earn", "order_redeem", "manual_adjust"
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => ({
+  orderReasonUnique: uniqueIndex('points_ledger_membership_order_reason_unique')
+    .on(table.membershipId, table.orderId, table.reason),
+}));
 
 // ============ RELATIONS ============
 
@@ -740,6 +773,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   posSessions: many(posSessions),
   membership: one(memberships, { fields: [users.id], references: [memberships.userId] }),
   vouchers: many(userVouchers),
+  createdPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadCreator' }),
+  claimedPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadClaimedUser' }),
 }));
 
 export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
@@ -755,6 +790,25 @@ export const inventoryLocationsRelations = relations(inventoryLocations, ({ one,
   transfersOut: many(inventoryTransfers, { relationName: 'inventoryTransferFrom' }),
   transfersIn: many(inventoryTransfers, { relationName: 'inventoryTransferTo' }),
   posSessions: many(posSessions),
+  posCustomerLeads: many(posCustomerLeads),
+}));
+
+export const posCustomerLeadsRelations = relations(posCustomerLeads, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [posCustomerLeads.createdByUserId],
+    references: [users.id],
+    relationName: 'posCustomerLeadCreator',
+  }),
+  claimedUser: one(users, {
+    fields: [posCustomerLeads.claimedUserId],
+    references: [users.id],
+    relationName: 'posCustomerLeadClaimedUser',
+  }),
+  location: one(inventoryLocations, {
+    fields: [posCustomerLeads.locationId],
+    references: [inventoryLocations.id],
+  }),
+  orders: many(orders),
 }));
 
 export const inventoryTransfersRelations = relations(inventoryTransfers, ({ one }) => ({
@@ -858,6 +912,7 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  posCustomerLead: one(posCustomerLeads, { fields: [orders.posCustomerLeadId], references: [posCustomerLeads.id] }),
   store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
   voucher: one(vouchers, { fields: [orders.voucherId], references: [vouchers.id] }),
   posSession: one(posSessions, { fields: [orders.posSessionId], references: [posSessions.id] }),
@@ -998,6 +1053,9 @@ export type NewBanner = InferInsertModel<typeof banners>;
 
 export type PosSession = InferSelectModel<typeof posSessions>;
 export type NewPosSession = InferInsertModel<typeof posSessions>;
+
+export type PosCustomerLead = InferSelectModel<typeof posCustomerLeads>;
+export type NewPosCustomerLead = InferInsertModel<typeof posCustomerLeads>;
 
 export type ProductImage = InferSelectModel<typeof productImages>;
 export type NewProductImage = InferInsertModel<typeof productImages>;

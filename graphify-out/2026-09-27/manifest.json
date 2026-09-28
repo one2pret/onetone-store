@@ -980,8 +980,8 @@
     "semantic_hash": ""
   },
   "app/actions/pos-orders.ts": {
-    "mtime": 1790561941.3624852,
-    "ast_hash": "849739ac98ee1202e0c0d2c6377fb8b1",
+    "mtime": 1790521048.5201614,
+    "ast_hash": "ba4bb9c4845425373baa656f484a2556",
     "semantic_hash": ""
   },
   "app/actions/pos-sessions.ts": {
@@ -1045,8 +1045,8 @@
     "semantic_hash": "5da93fc88061d34fa6e0c281890d9a47"
   },
   "app/actions/voucher.ts": {
-    "mtime": 1790564403.6272714,
-    "ast_hash": "3e4321fba689416e94cd9be82f9a25db",
+    "mtime": 1790345841.4442642,
+    "ast_hash": "2b04a405234553f11becd23a1489c5df",
     "semantic_hash": ""
   },
   "app/admin-ui/CurrencyInputDemo.tsx": {
@@ -1295,13 +1295,13 @@
     "semantic_hash": ""
   },
   "components/pos/PaymentSheet.tsx": {
-    "mtime": 1790560487.151763,
-    "ast_hash": "38cbfd2d9ba6b4d194f7980d6e8aac5a",
+    "mtime": 1790521121.7899482,
+    "ast_hash": "e55469b63c08039b5a280a70adc62dcf",
     "semantic_hash": ""
   },
   "components/pos/ReceiptView.tsx": {
-    "mtime": 1790564424.020025,
-    "ast_hash": "553ef4b1b4475912f0b89c5bfd9f1e98",
+    "mtime": 1790433176.0327954,
+    "ast_hash": "6b8da42b194686cbf01c4ee903dc483f",
     "semantic_hash": ""
   },
   "components/shop/AccountNav.tsx": {
@@ -1535,9 +1535,9 @@
     "semantic_hash": "6b506478f32d9a8114ed34a6eb5ecf20"
   },
   "lib/db/index.ts": {
-    "mtime": 1790521509.3819933,
-    "ast_hash": "a25a6b936a49c483318abd02c1a964c7",
-    "semantic_hash": ""
+    "mtime": 1782524360.7219443,
+    "ast_hash": "0919600917f61448b5f7325c2ff56c58",
+    "semantic_hash": "0919600917f61448b5f7325c2ff56c58"
   },
   "lib/db/migrations/0000_thin_doctor_doom.sql": {
     "mtime": 1784002757.5944457,
@@ -1550,13 +1550,13 @@
     "semantic_hash": "e9f5d066d92ebef1a1709d18621815ab"
   },
   "lib/db/migrations/meta/_journal.json": {
-    "mtime": 1790561920.3342335,
-    "ast_hash": "7c86e81694bd22e747bb30499ac2924c",
+    "mtime": 1790520988.845293,
+    "ast_hash": "31d1093365a1563283f869a631bf03da",
     "semantic_hash": ""
   },
   "lib/db/schema.ts": {
-    "mtime": 1790561920.2994132,
-    "ast_hash": "31a9db06c0e71cd09534548fc314f2c8",
+    "mtime": 1790521176.0841134,
+    "ast_hash": "fae7a4111bbe2003c00123e75381979a",
     "semantic_hash": ""
   },
   "lib/db/seed.ts": {
@@ -1610,8 +1610,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1790558524.2816179,
-    "ast_hash": "3336d43f40d889797b47ce8216a8839a",
+    "mtime": 1790392339.3078992,
+    "ast_hash": "c0d718ec16d9451dbac456a1b6eb68cb",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -2350,8 +2350,8 @@
     "semantic_hash": ""
   },
   "app/actions/pos-returns.ts": {
-    "mtime": 1790562125.7192478,
-    "ast_hash": "2cfde830df525f7235ddd31959d9818d",
+    "mtime": 1790345841.4418135,
+    "ast_hash": "44e30fa0523aba3e98d93845954df7e2",
     "semantic_hash": ""
   },
   "components/pos/PosPrintTest.tsx": {
@@ -2480,13 +2480,13 @@
     "semantic_hash": ""
   },
   "tests/actions/pos-orders.test.ts": {
-    "mtime": 1790561941.378034,
-    "ast_hash": "ac1ec8afabad98a529c32c843d123626",
+    "mtime": 1790521262.5948782,
+    "ast_hash": "7f0ab66662f84c64f555443ea28ce081",
     "semantic_hash": ""
   },
   "tests/actions/pos-returns.test.ts": {
-    "mtime": 1790562096.9836636,
-    "ast_hash": "1e259eabb95d0ef3c9902b0be04897ce",
+    "mtime": 1790345841.4773157,
+    "ast_hash": "87b45bd32ce46f296f456fd1d68b585f",
     "semantic_hash": ""
   },
   "tests/actions/product-variants.test.ts": {
@@ -2595,13 +2595,13 @@
     "semantic_hash": ""
   },
   "app/actions/pos-members.ts": {
-    "mtime": 1790558682.659027,
-    "ast_hash": "7c218638629b8b05abe42ca15030c439",
+    "mtime": 1790521145.7287757,
+    "ast_hash": "614cf332db755733c112903494664fb9",
     "semantic_hash": ""
   },
   "tests/actions/pos-members.test.ts": {
-    "mtime": 1790558860.2055333,
-    "ast_hash": "d3d77403b19518cbe61e80bee19d1d30",
+    "mtime": 1790521262.6140027,
+    "ast_hash": "ca5973af77baae00cd36a43744636f6a",
     "semantic_hash": ""
   },
   "app/(admin)/dashboard/members/_components/PosCustomerLeadsTable.tsx": {
@@ -2612,66 +2612,6 @@
   "lib/db/migrations/0010_pos_customer_leads.sql": {
     "mtime": 1790520988.8279133,
     "ast_hash": "badc0d7e2f062d963fb497df4b59b8a4",
-    "semantic_hash": ""
-  },
-  "tests/unit/db-pool.test.ts": {
-    "mtime": 1790521485.6325357,
-    "ast_hash": "0b445c2f518edb217e39393cf84037cf",
-    "semantic_hash": ""
-  },
-  "app/(auth)/member/activate/[token]/page.tsx": {
-    "mtime": 1790558747.8100846,
-    "ast_hash": "b32ca17e16a9b6dc0e6356074e2f9f53",
-    "semantic_hash": ""
-  },
-  "app/actions/pos-lead-activation.ts": {
-    "mtime": 1790561982.6192887,
-    "ast_hash": "2179e3be7e18cb97d2801dea8219e14d",
-    "semantic_hash": ""
-  },
-  "components/auth/PosLeadActivationForm.tsx": {
-    "mtime": 1790561982.6379871,
-    "ast_hash": "0c86de2ee1219f4d6e9e323129f057a0",
-    "semantic_hash": ""
-  },
-  "lib/pos-lead-activation-token.ts": {
-    "mtime": 1790558682.6411648,
-    "ast_hash": "9aba8f5c432f28c957f24d812d261379",
-    "semantic_hash": ""
-  },
-  "lib/pos-lead-activation.ts": {
-    "mtime": 1790562027.2444298,
-    "ast_hash": "01dbe83ebdd1dca9717b6eaf7d9b55a2",
-    "semantic_hash": ""
-  },
-  "tests/actions/pos-lead-activation.test.ts": {
-    "mtime": 1790561982.652928,
-    "ast_hash": "d6facc046be0ed6e886f7ccd0588aee0",
-    "semantic_hash": ""
-  },
-  "tests/unit/pos-lead-activation-token.test.ts": {
-    "mtime": 1790558860.2246737,
-    "ast_hash": "f9ec833cd021680ebdf3342d469e5858",
-    "semantic_hash": ""
-  },
-  "lib/db/migrations/0011_pos_membership_points.sql": {
-    "mtime": 1790561920.3183408,
-    "ast_hash": "fa793ca12469210412a8f4a4a88944fe",
-    "semantic_hash": ""
-  },
-  "lib/membership-rewards.ts": {
-    "mtime": 1790562027.2209992,
-    "ast_hash": "c346c26731270078874f36408d433589",
-    "semantic_hash": ""
-  },
-  "lib/pos-membership-points.ts": {
-    "mtime": 1790561920.3658688,
-    "ast_hash": "e2cfe189244171fdeac99d9fe5bcef9e",
-    "semantic_hash": ""
-  },
-  "tests/unit/membership-rewards.test.ts": {
-    "mtime": 1790562096.9665759,
-    "ast_hash": "2fd271f977f4e7db097755fe31cf9e62",
     "semantic_hash": ""
   }
 }

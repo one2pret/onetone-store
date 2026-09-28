@@ -1,12 +1,12 @@
-# Graph Report - onetone-store  (2026-09-28)
+# Graph Report - onetone-store  (2026-09-27)
 
 ## Corpus Check
-- 522 files · ~519,191 words
+- 510 files · ~515,252 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4329 nodes · 10645 edges · 211 communities (182 shown, 29 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 153 edges (avg confidence: 0.72)
+- 4279 nodes · 10515 edges · 199 communities (171 shown, 28 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 152 edges (avg confidence: 0.71)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -16,34 +16,34 @@
 
 ## Community Hubs (Navigation)
 - live-browser.js
-- (shop)/products/page.tsx
-- renderDesignVisual
+- ProductsTable.tsx
+- fixtures.ts
 - checks.mjs
 - cn
-- pos-sessions.ts
+- buffer
 - setLiveState
 - schema.ts
 - banners.ts
-- button.tsx
+- label.tsx
 - resumeSession
-- members/MembersTable.tsx
+- renderDesignVisual
 - CheckoutForm.tsx
 - initPageChat
 - modern-screenshot.umd.js
 - el
 - getApiUser
 - live-commit-manual-edits.mjs
-- editorial-settings.ts
+- button.tsx
 - design-system.mjs
 - hook-lib.mjs
-- pos-orders.ts
+- inventory.ts
 - impeccable-config.mjs
 - live-server.mjs
 - live-inject.mjs
 - hook-admin.mjs
 - hook-before-edit.mjs
 - manual-apply.mjs
-- detect-html.mjs
+- OrdersTable.tsx
 - css-cascade.mjs
 - svelte-component.mjs
 - detect-antipatterns-browser.js
@@ -60,14 +60,14 @@
 - currency-input.tsx
 - compilerOptions
 - AddressManager.tsx
-- onAnnotDown
-- live-poll.mjs
 - commission-lifecycle.ts
+- live-poll.mjs
+- StaffList.tsx
 - dependencies
 - insert-ui.mjs
 - live-manual-edit-evidence.mjs
 - Design System: Color Tokens
-- sveltekit-adapter.mjs
+- BannersTable.tsx
 - lib/auth.ts
 - categories.ts
 - impeccable-paths.mjs
@@ -76,14 +76,14 @@
 - AdminHeader.tsx
 - DESIGN.md — Design System: Onetone Store
 - index.mjs
-- sampleCssBackground
+- getMyAffiliate
 - Affiliate Module — Rencana Implementasi
 - Missing Flows & Features - Gap Analysis Lanjutan
 - pos-members.ts
-- detect-text.mjs
+- inline-ignores.mjs
 - initGlobalBar
-- pos-settings.ts
-- scheduleLazyVisualContrast
+- onAnnotDown
+- detect-html.mjs
 - products.ts
 - ProductDetail.tsx
 - resolveLengthPx
@@ -93,13 +93,13 @@
 - affiliate.ts
 - renderGroupedTemplate
 - runHook
-- LinksManager.tsx
-- RollbackStatusForm.tsx
-- session-store.mjs
+- pos-orders.ts
+- StatusUpdateForm.tsx
+- parseRgb
 - parseAnyColor
 - components.json
 - Solved 2 - Search Bar Tidak Muncul di VPS
-- members.ts
+- admin-vouchers.ts
 - impeccable reference/craft.md
 - context-signals.mjs
 - collectBrowserFindings
@@ -109,10 +109,10 @@
 - sampleCssBackground
 - Sesi 04 - Server Actions (CRUD Produk)
 - couriers.ts
-- PosReturnsManager.tsx
-- admin-vouchers.ts
+- pos-returns.ts
+- VariantManager.tsx
 - StaticElement
-- css
+- session-store.mjs
 - refreshParamsPanel
 - event-validation.mjs
 - Analisis Integrasi Bitship & Xendit
@@ -121,56 +121,56 @@
 - design-taste-frontend SKILL.md
 - context.mjs
 - critique-storage.mjs
-- lib/image-processor.ts
 - collectVisualContrastCandidates
+- scheduleLazyVisualContrast
 - readLiveServerInfo
 - Master Plan: Onetone Store to Marketplace
 - impeccable reference/audit.md
 - SAFE_TAGS
-- VariantManager.tsx
+- expandScanTargets
 - ui-core.mjs
 - Phase 8: Xendit Payment Gateway
 - Course Roadmap (Sesi 01-10)
 - utils.ts
-- detect-csp.mjs
-- actions/pos-lead-activation.ts
+- PaymentSheet.tsx
+- store-settings.ts
 - palette.mjs
 - pin.mjs
 - Sesi 08 - Shipping API (Bitship/Biteship)
-- collectVisualContrastCandidates
+- lib/image-processor.ts
 - live.mjs
 - index.ts
 - lib/order-status.ts
 - Sesi 00 - Overview & Arsitektur Next Olshop
 - Sesi 05 - REST API untuk Flutter
-- pos-orders.test.ts
+- createCustomerAccount
 - Sesi 07 - Payment Gateway Xendit
 - vouchers/page.tsx
 - generate-storage/storage.ts
-- cli
-- PaymentSheet.tsx
-- serializeFindings
-- actions/auth.ts
-- normalizeGitHubEvent
+- editorial-settings.ts
+- applyDeferredSvelteComponentAccepts
+- css
+- banner-images.ts
+- sessions/[id]/page.tsx
 - MySCI Storefront (Reference)
 - Phase 0: Prerequisites (store_settings, addresses, weight, couriers)
 - Onetone Store Marketplace Evolution Session Summary
 - impeccable reference/brand.md
 - Deploy VPS Ubuntu Guide
-- banner-images.ts
+- pos-returns.test.ts
 - generate-storage/image-processor.ts
 - impeccable reference/document.md
-- actions/cart.test.ts
+- dashboard/commissions/page.tsx
 - Google Drive Picker Setup & Implementasi
 - next-auth.d.ts
 - app/layout.tsx
 - schema-product-images.ts
 - OrderStepper.tsx
-- createCustomerAccount
+- isGeneratedFile
 - shippings table
 - impeccable reference/animate.md
 - detect.mjs
-- tiers.ts
+- BannerSlider.tsx
 - GitHub Actions: Build & Deploy onetone-store
 - mock-auth.ts
 - impeccable reference/delight.md
@@ -178,17 +178,12 @@
 - deploy.sh
 - closeSession() Z-report flow
 - jose
-- seed-production.ts
 - next-auth
 - next.config.ts
-- pos-members.test.ts
-- drive-import-LIB.ts
-- pos-returns.ts
-- serializeFindings
-- staff.ts
-- db-pool.test.ts
-- actions/drive-import.ts
-- clsx
+- detect-csp.mjs
+- radix-ui
+- react
+- @tanstack/react-table
 - postcss.config.mjs
 - { GET, POST }
 - onetone-store App Icon / Favicon
@@ -197,40 +192,33 @@
 - Biteship Logo
 - onetone Logomark (dark, source asset)
 - onetone Logo (White)
+- actions/drive-import.ts
+- pos-sessions.ts
+- drive-import-LIB.ts
 - product-images.ts
-- lucide-react
-- nuqs
-- qrcode
-- BannerForm.tsx
+- isScreenReaderOnlyTextStyle
 - Runbook Rilis POS, Inventory, Voucher, dan Harga Promo
-- radix-ui
-- syncEditBadgeHitProxies
-- BannersTable.tsx
+- pos-settings.ts
 - codex-audit-23-sep-2026.md
-- applyDeferredSvelteComponentAccepts
 - class-variance-authority
-- pos-returns.test.ts
-- products/[slug]/page.tsx
+- leaflet
 - next
 - sharp
 - slugify
-- affiliate/commissions/page.tsx
+- tailwind-merge
 - xendit-node
-- dashboard/commissions/page.tsx
-- PosCustomerLeadsTable.tsx
-- isGeneratedFile
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 109 edges
-2. `db` - 84 edges
+2. `db` - 82 edges
 3. `formatRupiah()` - 76 edges
-4. `Button()` - 66 edges
+4. `Button()` - 64 edges
 5. `el()` - 42 edges
 6. `getApiUser()` - 36 edges
 7. `runHook()` - 34 edges
 8. `formatDate()` - 34 edges
 9. `setLiveState()` - 29 edges
-10. `Label()` - 29 edges
+10. `detectHtml()` - 28 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Next Elektronik (privacy policy brand name)` --semantically_similar_to--> `Sesi 00 - Overview & Arsitektur Next Olshop`  [AMBIGUOUS] [semantically similar]
@@ -261,31 +249,31 @@
 - **Bitship Shipping Flow (Rates → Send Order → Webhook Tracking)** — docs_mengajar_backend_08_shipping_bitship_calculate_shipping_rates_action, docs_mengajar_backend_08_shipping_bitship_send_order_to_bitship_action, docs_mengajar_backend_08_shipping_bitship_webhook_route, docs_mengajar_backend_02_database_schema_shippings [EXTRACTED 0.90]
 - **NEXT_PUBLIC_* Env Var Deploy Pipeline (env local, deploy.yml, Dockerfile, docker run)** — docs_marketplace_problem_solved_solved_2_search_vps_cache_next_public_four_places_rule, docs_marketplace_problem_solved_solved_2_search_vps_cache_dockerfile, docs_marketplace_problem_solved_solved_2_search_vps_cache_deploy_yml, docs_marketplace_problem_solved_solved_4_otomasi_db_migration_migrator_docker_stage [INFERRED 0.80]
 
-## Communities (211 total, 29 thin omitted)
+## Communities (199 total, 28 thin omitted)
 
 ### Community 0 - "live-browser.js"
 Cohesion: 0.03
-Nodes (119): acceptedDomAlreadyClean(), addManualContextText(), applyPlaceholderSizingStyles(), applySvelteComponentVariantStyle(), averageRgb01(), bufferToBase64(), buildColorModels(), buildLocatorForLeaf() (+111 more)
+Nodes (132): acceptedDomAlreadyClean(), addManualContextText(), applyPlaceholderSizingStyles(), applySvelteComponentVariantStyle(), averageRgb01(), bindEditBadgeProxy(), bufferToBase64(), buildColorModels() (+124 more)
 
-### Community 1 - "(shop)/products/page.tsx"
-Cohesion: 0.40
-Nodes (4): ProductsPage(), Props, Category, CategorySelect()
+### Community 1 - "ProductsTable.tsx"
+Cohesion: 0.11
+Nodes (18): getAffiliateDetail(), AdminAffiliateDetailPage(), COMMISSION_STATUS_STYLE, STATUS_STYLE, DeleteProductButton(), Props, isValidImageUrl(), ProductsTable() (+10 more)
 
-### Community 2 - "renderDesignVisual"
-Cohesion: 0.09
-Nodes (36): buildCollapsible(), buildDesignHeader(), buildListHtml(), buildRadiiModels(), copyToClipboard(), cssSafe(), designPanelCss(), escapeHtml() (+28 more)
+### Community 2 - "fixtures.ts"
+Cohesion: 0.05
+Nodes (34): GET(), CartItem, Courier, Invoice, Order, OrderItem, Shipping, StoreSetting (+26 more)
 
 ### Community 3 - "checks.mjs"
 Cohesion: 0.05
-Nodes (95): borderColorsFromStyle(), borderWidthsFromStyle(), checkClippedOverflow(), checkColors(), checkElementAIPaletteDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementColors() (+87 more)
+Nodes (76): borderColorsFromStyle(), borderWidthsFromStyle(), checkClippedOverflow(), checkCreamPalette(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementGptBorderShadow(), checkElementGptBorderShadowDOM() (+68 more)
 
 ### Community 4 - "cn"
-Cohesion: 0.05
-Nodes (45): ACCOUNT_LINKS, AccountNav(), AlertDialog(), AlertDialogAction(), AlertDialogCancel(), AlertDialogContent(), AlertDialogDescription(), AlertDialogFooter() (+37 more)
+Cohesion: 0.04
+Nodes (50): ProductImageUploader(), Props, ACCOUNT_LINKS, AccountNav(), BottomNav(), BottomNavProps, NAV_ITEMS, LogoWordmark() (+42 more)
 
-### Community 5 - "pos-sessions.ts"
-Cohesion: 0.09
-Nodes (32): getActivePosLocations(), getPosOrder(), getPosProducts(), getRecentPosOrders(), closeSession(), closeSessionSchema, getActiveSession(), getAllPosSessions() (+24 more)
+### Community 5 - "buffer"
+Cohesion: 0.18
+Nodes (12): uploadBannerImage(), uploadProductImage(), uploadProductImage(), buffer, importFromDrive(), ImportResult, detectMimeFromBuffer(), processProductImage() (+4 more)
 
 ### Community 6 - "setLiveState"
 Cohesion: 0.09
@@ -293,31 +281,31 @@ Nodes (70): abortSvelteComponentInjection(), applyEditing(), buildPickedAnchorSn
 
 ### Community 7 - "schema.ts"
 Cohesion: 0.02
-Nodes (94): addressesRelations, AffiliateClick, affiliateClicksRelations, AffiliateCommission, affiliateCommissionsRelations, affiliateLinksRelations, AffiliatePayout, affiliatePayoutsRelations (+86 more)
+Nodes (79): addressesRelations, Affiliate, AffiliateClick, affiliateClicksRelations, AffiliateCommission, affiliateCommissionsRelations, AffiliateLink, affiliateLinksRelations (+71 more)
 
 ### Community 8 - "banners.ts"
 Cohesion: 0.18
-Nodes (19): bannerCropSchema, bannerSchema, createBanner(), deleteBanner(), deleteStoredBannerImage(), externalImageValues(), formValues(), getBanner() (+11 more)
+Nodes (18): bannerCropSchema, bannerSchema, createBanner(), deleteBanner(), deleteStoredBannerImage(), externalImageValues(), formValues(), getBanner() (+10 more)
 
-### Community 9 - "button.tsx"
-Cohesion: 0.08
-Nodes (34): ImportResult, sendOrderToBitship(), Scope, Props, Props, Props, SendOrderButton(), Props (+26 more)
+### Community 9 - "label.tsx"
+Cohesion: 0.07
+Nodes (31): login(), register(), updateTier(), AdjustmentForm(), SuspendForm(), Scope, BannerCropEditor(), BannerCropEditorProps (+23 more)
 
 ### Community 10 - "resumeSession"
 Cohesion: 0.08
 Nodes (56): applyOriginalAttrsToSvelteAnchor(), applySavedSessionMeta(), clampVariantIndex(), clearHandled(), commitAcceptedSvelteComponentToDom(), elementMatchesOriginalMarkup(), ensureInsertPlaceholder(), enterRecoveryWaitingForAnchor() (+48 more)
 
-### Community 11 - "members/MembersTable.tsx"
-Cohesion: 0.22
-Nodes (9): getAllAffiliates(), AffiliateWithUser, MembersTable(), STATUS_LABEL, STATUS_STYLE, AdminAffiliateMembersPage(), FILTERS, Affiliate (+1 more)
+### Community 11 - "renderDesignVisual"
+Cohesion: 0.09
+Nodes (36): buildCollapsible(), buildDesignHeader(), buildListHtml(), buildRadiiModels(), copyToClipboard(), cssSafe(), designPanelCss(), escapeHtml() (+28 more)
 
 ### Community 12 - "CheckoutForm.tsx"
-Cohesion: 0.09
-Nodes (36): calculateShippingRates(), GroupedRates, ShippingRouteInfo, getAvailableVouchers(), GroupedRates, POST(), CheckoutForm(), formatDuration() (+28 more)
+Cohesion: 0.08
+Nodes (43): calculateShippingRates(), GroupedRates, sendOrderToBitship(), ShippingRouteInfo, AvailableVoucher, getAvailableVouchers(), validateVoucher(), VoucherValidationResult (+35 more)
 
 ### Community 13 - "initPageChat"
 Cohesion: 0.07
-Nodes (58): applyGlobalBarLabelState(), armPageChatForTyping(), attachSteerFocusDebug(), attachSteerFocusGuard(), buildSteerProcessingDots(), checkpointPayload(), clearSteerAwaitTimer(), clearSteerFocusRecoverTimer() (+50 more)
+Nodes (55): applyGlobalBarLabelState(), armPageChatForTyping(), attachSteerFocusDebug(), attachSteerFocusGuard(), buildSteerProcessingDots(), checkpointPayload(), clearSteerAwaitTimer(), clearSteerFocusRecoverTimer() (+47 more)
 
 ### Community 14 - "modern-screenshot.umd.js"
 Cohesion: 0.09
@@ -329,27 +317,27 @@ Nodes (53): actionLabel(), applyConfigureBarChrome(), bindConfigureCountPillTool
 
 ### Community 16 - "getApiUser"
 Cohesion: 0.07
-Nodes (38): PUT(), addressSchema, DELETE(), GET(), getOwnedAddress(), PUT(), addressSchema, GET() (+30 more)
+Nodes (37): PUT(), addressSchema, DELETE(), GET(), getOwnedAddress(), PUT(), addressSchema, GET() (+29 more)
 
 ### Community 17 - "live-commit-manual-edits.mjs"
 Cohesion: 0.10
 Nodes (50): allEntryIds(), argVal(), buildRepairBatch(), candidatesForEntry(), changedFilesSinceSnapshot(), clearAppliedEntries(), collectApplyOwnedFiles(), collectRollbackFiles() (+42 more)
 
-### Community 18 - "editorial-settings.ts"
-Cohesion: 0.05
-Nodes (68): getActiveBanners(), DEFAULT_COPY, deleteSetting(), EditorialBreakConfig, EditorialCopy, EditorialMode, getEditorialBreak(), getEditorialBreaks() (+60 more)
+### Community 18 - "button.tsx"
+Cohesion: 0.09
+Nodes (20): ImportResult, seedCategories(), seedProducts(), CategoriesTable(), DeleteCategoryButton(), Props, AdminCategoriesPage(), ImportProductsForm() (+12 more)
 
 ### Community 19 - "design-system.mjs"
-Cohesion: 0.10
-Nodes (47): addColorObject(), addDesignColor(), addRoundedScale(), addRoundedToken(), addSidecarColors(), addSidecarRadii(), addTypographyFonts(), canonicalDesignFindingKey() (+39 more)
+Cohesion: 0.09
+Nodes (51): addColorObject(), addDesignColor(), addRoundedScale(), addRoundedToken(), addSidecarColors(), addSidecarRadii(), addTypographyFonts(), canonicalDesignFindingKey() (+43 more)
 
 ### Community 20 - "hook-lib.mjs"
 Cohesion: 0.07
-Nodes (50): ACK_EXTS, applyConfigSource(), applyDetectorConfigSource(), clampByte(), cloneDefaultConfig(), CO_SCAN_STYLE_NAMES, coLocatedStylesheets(), colorIgnoreKey() (+42 more)
+Nodes (47): ACK_EXTS, applyConfigSource(), applyDetectorConfigSource(), applyPatchText(), clampByte(), cloneDefaultConfig(), CO_SCAN_STYLE_NAMES, colorIgnoreKey() (+39 more)
 
-### Community 21 - "pos-orders.ts"
-Cohesion: 0.07
-Nodes (38): configureOnlineInventoryLocation(), createInventoryLocation(), getInventoryAdminData(), locationSchema, transferInventory(), transferSchema, updateInventoryBalance(), cartItemSchema (+30 more)
+### Community 21 - "inventory.ts"
+Cohesion: 0.13
+Nodes (20): configureOnlineInventoryLocation(), createInventoryLocation(), getInventoryAdminData(), locationSchema, transferInventory(), transferSchema, updateInventoryBalance(), Data (+12 more)
 
 ### Community 22 - "impeccable-config.mjs"
 Cohesion: 0.10
@@ -360,8 +348,8 @@ Cohesion: 0.09
 Nodes (43): assembleLiveBrowserScript(), assertLiveBrowserScriptParts(), LIVE_BROWSER_SCRIPT_PARTS, readLiveBrowserScriptParts(), resolveLiveBrowserScriptParts(), acknowledgePendingEvent(), activeSessionSummaries(), agentPollingConnected() (+35 more)
 
 ### Community 24 - "live-inject.mjs"
-Cohesion: 0.14
-Nodes (25): appendOriginToDirective(), buildTagBlock(), commentClose(), commentOpen(), CONFIG_PATH, detectLineEnding(), __dirname, ensureLiveGitIgnores() (+17 more)
+Cohesion: 0.09
+Nodes (43): appendOriginToDirective(), buildTagBlock(), commentClose(), commentOpen(), CONFIG_PATH, detectLineEnding(), __dirname, ensureLiveGitIgnores() (+35 more)
 
 ### Community 25 - "hook-admin.mjs"
 Cohesion: 0.13
@@ -375,13 +363,13 @@ Nodes (40): allow(), bumpCursorDenial(), deny(), detectProposedHtml(), done(), e
 Cohesion: 0.10
 Nodes (36): addOpToManualApplyChunk(), APPLY_EVENT_HARD_TIMEOUT_MS, APPLY_EVENT_SOFT_DEADLINE_MS, buildManualApplyAgentAction(), clearManualApplyTransaction(), collectManualApplyFiles(), compactManualApplyBatch(), compactManualApplyCandidates() (+28 more)
 
-### Community 28 - "detect-html.mjs"
-Cohesion: 0.15
-Nodes (12): buildStaticWindow(), collectStaticCssText(), StaticDocument, detectHtml(), STATIC_ELEMENT_RULES, checkCreamPalette(), checkHtmlPatterns(), checkPageQualityDOM() (+4 more)
+### Community 28 - "OrdersTable.tsx"
+Cohesion: 0.13
+Nodes (18): getAllOrders(), columns, OrdersTable(), OrderWithUser, Props, statusFilters, AdminOrdersPage(), DataTable() (+10 more)
 
 ### Community 29 - "css-cascade.mjs"
-Cohesion: 0.12
-Nodes (29): applyStaticDeclaration(), buildBorderOverrideMap(), buildStaticStyleMap(), collectStaticCssRules(), compareStaticPriority(), cssPropToCamel(), expandStaticBoxValues(), expandStaticDeclaration() (+21 more)
+Cohesion: 0.15
+Nodes (26): applyStaticDeclaration(), buildStaticStyleMap(), collectStaticCssRules(), compareStaticPriority(), cssPropToCamel(), expandStaticBoxValues(), expandStaticDeclaration(), extractStaticColor() (+18 more)
 
 ### Community 30 - "svelte-component.mjs"
 Cohesion: 0.11
@@ -389,15 +377,15 @@ Nodes (39): appendCssToSvelteStyle(), appendSanitizedCssRule(), bakeParamValuesI
 
 ### Community 31 - "detect-antipatterns-browser.js"
 Cohesion: 0.09
-Nodes (34): checkBorders(), checkClippedOverflow(), checkElementBorders(), checkElementBordersDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementHeroEyebrow(), checkElementHeroEyebrowDOM() (+26 more)
+Nodes (32): checkBorders(), checkClippedOverflow(), checkElementBorders(), checkElementBordersDOM(), checkElementClippedOverflow(), checkElementClippedOverflowDOM(), checkElementItalicSerif(), checkElementItalicSerifDOM() (+24 more)
 
 ### Community 32 - "orders.ts"
-Cohesion: 0.05
-Nodes (71): cancelOrderByAdmin(), cancelOrderByCustomer(), createOrder(), getOrderTracking(), getUserOrders(), queryOrdersWithItems(), repayOrder(), _syncCache (+63 more)
+Cohesion: 0.06
+Nodes (58): cancelOrderByAdmin(), cancelOrderByCustomer(), createOrder(), getOrderTracking(), getUserOrders(), queryOrdersWithItems(), repayOrder(), _syncCache (+50 more)
 
 ### Community 33 - "detect-url.mjs"
-Cohesion: 0.14
-Nodes (26): detectUrl(), runVisualContrastFallback(), serializeDesignSystemForBrowser(), runRegexMatchers(), captureVisualContrastCandidate(), compareScreenshotContrast(), sanitizeScreenshotClip(), finding() (+18 more)
+Cohesion: 0.25
+Nodes (16): detectUrl(), runVisualContrastFallback(), serializeDesignSystemForBrowser(), captureVisualContrastCandidate(), compareScreenshotContrast(), sanitizeScreenshotClip(), createDetectorProfile(), extractFindingIds() (+8 more)
 
 ### Community 34 - "live-wrap.mjs"
 Cohesion: 0.13
@@ -408,8 +396,8 @@ Cohesion: 0.15
 Nodes (33): buildColor(), CANONICAL_SECTIONS, collectBullets(), collectColorValues(), collectParagraphs(), detectFormat(), extractColors(), extractComponents() (+25 more)
 
 ### Community 36 - "detect-antipatterns.mjs"
-Cohesion: 0.21
-Nodes (21): confirm(), detectCli(), formatFindings(), formatFindingSummary(), handleStdin(), printUsage(), loadDesignSystemForCwd(), parseFrontmatter() (+13 more)
+Cohesion: 0.09
+Nodes (41): confirm(), detectCli(), formatFindings(), formatFindingSummary(), handleStdin(), printUsage(), createBrowserDetector(), CSS_IN_JS_EXTENSIONS (+33 more)
 
 ### Community 37 - "live-accept.mjs"
 Cohesion: 0.14
@@ -417,19 +405,19 @@ Nodes (32): acceptCli(), argVal(), buildCarbonizeReplacement(), decodeHtmlAttr()
 
 ### Community 38 - "devDependencies"
 Cohesion: 0.06
-Nodes (35): drizzle-kit, eslint, eslint-config-next, jsdom, devDependencies, drizzle-kit, eslint, eslint-config-next (+27 more)
+Nodes (33): drizzle-kit, eslint, eslint-config-next, jsdom, devDependencies, drizzle-kit, eslint, eslint-config-next (+25 more)
 
 ### Community 39 - "live-copy-edit-agent.mjs"
 Cohesion: 0.14
 Nodes (31): applyMockWrites(), buildCopyEditBatchPrompt(), checkFrameworkSourceSyntax(), chooseCopyEditAgent(), COMMAND_AUTH_CACHE, commandAuthed(), commandExists(), compactBatchForPrompt() (+23 more)
 
 ### Community 40 - "parseRgb"
-Cohesion: 0.19
-Nodes (22): checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlow(), checkElementGlowDOM(), checkElementIconTile(), checkElementIconTileDOM() (+14 more)
+Cohesion: 0.18
+Nodes (23): checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlow(), checkElementGlowDOM(), checkElementIconTile(), checkElementIconTileDOM() (+15 more)
 
 ### Community 41 - "getCategories"
 Cohesion: 0.13
-Nodes (20): logout(), getCartCount(), getCategories(), getProducts(), CreateProductPage(), AdminProductsPage(), CheckoutLayout(), CategoriesPage() (+12 more)
+Nodes (19): getMyLinks(), logout(), getCartCount(), getCategories(), getProducts(), CreateProductPage(), AdminProductsPage(), CheckoutLayout() (+11 more)
 
 ### Community 42 - "currency-input.tsx"
 Cohesion: 0.15
@@ -440,24 +428,24 @@ Cohesion: 0.07
 Nodes (29): arsip-lain, dom, dom.iterable, esnext, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node_modules (+21 more)
 
 ### Community 44 - "AddressManager.tsx"
-Cohesion: 0.11
-Nodes (26): addressSchema, createAddress(), deleteAddress(), getAddress(), getAuthUserId(), getUserAddresses(), setDefaultAddress(), updateAddress() (+18 more)
+Cohesion: 0.09
+Nodes (31): addressSchema, createAddress(), deleteAddress(), getAddress(), getAuthUserId(), getUserAddresses(), setDefaultAddress(), updateAddress() (+23 more)
 
-### Community 45 - "onAnnotDown"
-Cohesion: 0.15
-Nodes (21): applyPlaceholderDimensions(), beginEditPin(), buildAnnotationsForCapture(), buildPinElement(), cancelEditingPin(), clampPlaceholderSize(), finalizeEditingPin(), initAnnotOverlay() (+13 more)
+### Community 45 - "commission-lifecycle.ts"
+Cohesion: 0.20
+Nodes (12): AffiliateTier, calculateCommission(), CommissionCalcResult, getDefaultRatePercent(), createCommissionsForOrder(), RateResolutionParams, resolveRate(), resolveRateFromRules() (+4 more)
 
 ### Community 46 - "live-poll.mjs"
 Cohesion: 0.16
 Nodes (26): completionAckForAcceptResult(), completionTypeForAcceptResult(), augmentEventWithAcceptHandling(), buildAcceptScriptArgs(), buildPollReplyPayload(), DEFAULT_EVENT_LEASE_MS, EVENT_TYPES_NEEDING_AGENT_REPLY, fetchNextEvent() (+18 more)
 
-### Community 47 - "commission-lifecycle.ts"
-Cohesion: 0.20
-Nodes (12): AffiliateTier, calculateCommission(), CommissionCalcResult, getDefaultRatePercent(), createCommissionsForOrder(), RateResolutionParams, resolveRate(), resolveRateFromRules() (+4 more)
+### Community 47 - "StaffList.tsx"
+Cohesion: 0.22
+Nodes (12): createStaffSchema, createStaffUser(), deleteStaffUser(), getStaffUsers(), requireAdmin(), updateStaffSchema, updateStaffUser(), AddStaffForm() (+4 more)
 
 ### Community 48 - "dependencies"
 Cohesion: 0.07
-Nodes (29): @aws-sdk/client-s3, bcryptjs, drizzle-orm, leaflet, mysql2, dependencies, @aws-sdk/client-s3, bcryptjs (+21 more)
+Nodes (27): @aws-sdk/client-s3, bcryptjs, clsx, drizzle-orm, lucide-react, mysql2, nuqs, dependencies (+19 more)
 
 ### Community 49 - "insert-ui.mjs"
 Cohesion: 0.09
@@ -471,21 +459,21 @@ Nodes (26): analyzeSourceHint(), buildCandidatesForOp(), buildContextHintsByRef(
 Cohesion: 0.09
 Nodes (27): Accent by Inversion Principle, Design System: Color Tokens, Premium Micro-Accent Gold Token, White-Dark Monokrom + Micro-Gold (Opsi B), Design System: Typography, Geist Sans/Mono Font System, 4px Grid Spacing System, Design System: Spacing & Layout (+19 more)
 
-### Community 52 - "sveltekit-adapter.mjs"
-Cohesion: 0.18
-Nodes (18): applySvelteKitLiveAdapter(), buildSvelteLiveRootComponent(), defaultSvelteLayout(), detectSvelteKitProject(), ensureSvelteLiveRootComponent(), escapeRegExp(), fileIncludes(), findSvelteKitAppHtml() (+10 more)
+### Community 52 - "BannersTable.tsx"
+Cohesion: 0.33
+Nodes (7): getAllBanners(), BannerFormProps, BannersTable(), BannersTableProps, isValidImageUrl(), BannersPage(), Banner
 
 ### Community 53 - "lib/auth.ts"
-Cohesion: 0.10
-Nodes (20): getMyMembership(), getMyProfile(), profileSchema, ProfileState, updateProfile(), formatRp(), MembershipPage(), TIER_STYLE (+12 more)
+Cohesion: 0.06
+Nodes (37): adminLogout(), loginSchema, LoginState, registerSchema, RegisterState, getMyMembership(), getMyPoints(), getMyProfile() (+29 more)
 
 ### Community 54 - "categories.ts"
-Cohesion: 0.10
-Nodes (28): categorySchema, createCategory(), deleteCategory(), getAllCategories(), getCategory(), isAdmin(), updateCategory(), CategoriesTable() (+20 more)
+Cohesion: 0.12
+Nodes (25): categorySchema, createCategory(), deleteCategory(), getAllCategories(), getCategory(), isAdmin(), updateCategory(), Props (+17 more)
 
 ### Community 55 - "impeccable-paths.mjs"
-Cohesion: 0.16
-Nodes (22): resolveProjectRoot(), CRITIQUE_DIR, firstExisting(), getDesignSidecarCandidates(), getDesignSidecarPath(), getImpeccableDir(), getLegacyLiveAnnotationsDir(), getLegacyLiveConfigPath() (+14 more)
+Cohesion: 0.17
+Nodes (21): resolveProjectRoot(), CRITIQUE_DIR, firstExisting(), getDesignSidecarCandidates(), getDesignSidecarPath(), getImpeccableDir(), getLegacyLiveAnnotationsDir(), getLegacyLiveConfigPath() (+13 more)
 
 ### Community 56 - "manual-edit-routes.mjs"
 Cohesion: 0.19
@@ -497,19 +485,19 @@ Nodes (24): clearStoredManualApplyState(), fetchPendingCount(), handleManualEdit
 
 ### Community 58 - "AdminHeader.tsx"
 Cohesion: 0.13
-Nodes (19): adminLogout(), searchAdmin(), SearchResultItem, AdminHeader(), getInitials(), getPageTitle(), pageTitles, Props (+11 more)
+Nodes (18): searchAdmin(), SearchResultItem, AdminHeader(), getInitials(), getPageTitle(), pageTitles, Props, AdminSearchBar() (+10 more)
 
 ### Community 59 - "DESIGN.md — Design System: Onetone Store"
 Cohesion: 0.13
 Nodes (23): Storage Layer — Panduan Implementasi, CLAUDE.md — Project Rules & AI Context, Impeccable Reference: Onboard, Impeccable Reference: Optimize, Impeccable Reference: Polish, Impeccable Reference: Product Register, Impeccable Reference: Quieter, Impeccable Reference: Shape (+15 more)
 
 ### Community 60 - "index.mjs"
-Cohesion: 0.13
-Nodes (25): browserColorsClose(), browserDesignSystemConfig(), browserFindingsFromMap(), browserHasDirectText(), browserPrimaryFont(), browserRadiusTokens(), browserSampleText(), checkBrowserDesignSystemSources() (+17 more)
+Cohesion: 0.06
+Nodes (68): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), analyzeVisualContrast(), analyzeVisualContrastCandidate(), blendRgba(), browserColorsClose(), browserDesignSystemConfig() (+60 more)
 
-### Community 61 - "sampleCssBackground"
-Cohesion: 0.22
-Nodes (14): firstCssUrl(), getLayerValue(), loadVisualContrastImage(), parseObjectPosition(), parsePositionPair(), parsePositionToken(), pickWorstContrastColor(), pointToImageSource() (+6 more)
+### Community 61 - "getMyAffiliate"
+Cohesion: 0.09
+Nodes (29): createAffiliateLink(), deactivateAffiliateLink(), getAffiliateSettings(), getMyAffiliate(), getMyBalance(), getMyPayouts(), getMyStats(), registerAffiliate() (+21 more)
 
 ### Community 62 - "Affiliate Module — Rencana Implementasi"
 Cohesion: 0.12
@@ -520,52 +508,52 @@ Cohesion: 0.09
 Nodes (23): cancelOrderByCustomer server action, app/api/cron/check-expired-orders/route.ts, lib/stock.ts (deduct/restore/validate), repayOrder server action, repayOrder Xendit Integration Update, A1: Address Management System (Buku Alamat), C2: Admin Notification (Order Masuk), C4: Cart Validation Before Checkout (+15 more)
 
 ### Community 64 - "pos-members.ts"
-Cohesion: 0.28
-Nodes (10): escapeLike(), maskEmail(), maskPhone(), registerLeadSchema, registerPosCustomerLead(), searchPosMembers(), searchSchema, posCustomerLeads (+2 more)
+Cohesion: 0.15
+Nodes (19): escapeLike(), maskEmail(), maskPhone(), PosCustomerLeadResult, registerLeadSchema, registerPosCustomerLead(), searchPosMembers(), searchSchema (+11 more)
 
-### Community 65 - "detect-text.mjs"
-Cohesion: 0.12
-Nodes (22): CSS_IN_JS_EXTENSIONS, detectText(), extFromFilePath(), extractCSSinJS(), extractStyleBlocks(), isNeutralBorderColor(), PAGE_ANALYZER_EXTS, REGEX_ANALYZERS (+14 more)
+### Community 65 - "inline-ignores.mjs"
+Cohesion: 0.40
+Nodes (9): addRules(), applyInlineIgnores(), getSet(), hasDirectives(), isInlineIgnored(), normalizeRule(), parseInlineIgnores(), parseRuleList() (+1 more)
 
 ### Community 66 - "initGlobalBar"
 Cohesion: 0.16
 Nodes (22): barPaletteForTheme(), brandMarkSvg(), detectPageTheme(), ensureAgentPollTooltip(), fetchAgentPollingStatus(), hideAgentPollTooltip(), initActionPicker(), initBar() (+14 more)
 
-### Community 67 - "pos-settings.ts"
-Cohesion: 0.24
-Nodes (14): getPosSettings(), receiptSettingsSchema, removePosQris(), removeReceiptLogo(), requireAdmin(), revalidatePosSettings(), updateReceiptSettings(), uploadPosQris() (+6 more)
+### Community 67 - "onAnnotDown"
+Cohesion: 0.15
+Nodes (21): applyPlaceholderDimensions(), beginEditPin(), buildAnnotationsForCapture(), buildPinElement(), cancelEditingPin(), clampPlaceholderSize(), finalizeEditingPin(), initAnnotOverlay() (+13 more)
 
-### Community 68 - "scheduleLazyVisualContrast"
-Cohesion: 0.20
-Nodes (12): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), clearOverlays(), detachOverlay(), disconnectLazyVisualContrastObserver(), postExtensionError(), rememberVisualContrastAnalysis() (+4 more)
+### Community 68 - "detect-html.mjs"
+Cohesion: 0.14
+Nodes (12): buildBorderOverrideMap(), buildStaticWindow(), collectStaticCssText(), normalizeColorForCheck(), StaticDocument, checkStaticPageTypography(), detectHtml(), STATIC_ELEMENT_RULES (+4 more)
 
 ### Community 69 - "products.ts"
 Cohesion: 0.07
-Nodes (51): getVariantIdsUsedInCarts(), getVariantIdsUsedInOrders(), isAdmin(), updateVariantStock(), upsertProductVariants(), VariantInput, variantSchema, createDraftProduct() (+43 more)
+Nodes (51): getProductImages(), getProductVariants(), getVariantIdsUsedInCarts(), getVariantIdsUsedInOrders(), isAdmin(), SIZES_ORDER, updateVariantStock(), upsertProductVariants() (+43 more)
 
 ### Community 70 - "ProductDetail.tsx"
-Cohesion: 0.13
-Nodes (20): Props, Variant, formatPromoEnd(), GalleryImage, parseDescription(), ProductDescription(), ProductDetail(), Props (+12 more)
+Cohesion: 0.09
+Nodes (27): addToCart(), ensureCartItem(), writeCartItem(), AddToCartButton(), Props, Variant, formatPromoEnd(), GalleryImage (+19 more)
 
 ### Community 71 - "resolveLengthPx"
-Cohesion: 0.16
-Nodes (16): checkElementQualityDOM(), checkRepeatedSectionKickers(), checkRepeatedSectionKickersDOM(), checkRepeatedSectionKickersFromDoc(), cleanInlineText(), clippedByInset(), clippedByRect(), collectRepeatedSectionKickerCandidates() (+8 more)
+Cohesion: 0.15
+Nodes (15): checkElementHeroEyebrow(), checkElementHeroEyebrowDOM(), checkElementQualityDOM(), checkHeroEyebrow(), checkRepeatedSectionKickers(), checkRepeatedSectionKickersDOM(), checkRepeatedSectionKickersFromDoc(), cleanInlineText() (+7 more)
 
 ### Community 72 - "GENERIC_FONTS"
 Cohesion: 0.16
-Nodes (17): checkPageTypography(), checkStaticPageTypography(), checkBorders(), checkElementBorders(), checkElementBordersDOM(), checkPageTypography(), checkTypography(), resolveSerif() (+9 more)
+Nodes (17): checkPageTypography(), resolveSerif(), checkBorders(), checkElementBorders(), checkElementBordersDOM(), checkPageTypography(), checkTypography(), resolveSerif() (+9 more)
 
 ### Community 73 - "formatRupiah"
-Cohesion: 0.06
-Nodes (38): getAdminOverview(), AdminAffiliateOverviewPage(), Member, MembersTable(), Props, tierBadge, DeleteProductButton(), isValidImageUrl() (+30 more)
+Cohesion: 0.08
+Nodes (30): getAllCommissions(), AdminAffiliateCommissionsPage(), FILTERS, STATUS_STYLE, CartPanel(), CashierScreen(), PosProduct, PosVariant (+22 more)
 
 ### Community 74 - "cart.ts"
-Cohesion: 0.21
-Nodes (16): CartWriteMode, getCart(), getCartTotal(), removeFromCart(), updateCartItem(), CartItemRow(), Props, CartPage() (+8 more)
+Cohesion: 0.16
+Nodes (20): CartWriteMode, getCart(), getCartTotal(), removeFromCart(), updateCartItem(), CartItemRow(), Props, CartPage() (+12 more)
 
 ### Community 75 - "affiliate.ts"
-Cohesion: 0.06
-Nodes (53): adjustCommission(), AffiliateBalance, approveAffiliate(), approvePayoutRequest(), createCommissionRule(), deleteCommissionRule(), getAffiliateSettings(), getAllPayouts() (+45 more)
+Cohesion: 0.10
+Nodes (34): adjustCommission(), AffiliateBalance, approveAffiliate(), approvePayoutRequest(), createCommissionRule(), deleteCommissionRule(), getAdminOverview(), getAllAffiliates() (+26 more)
 
 ### Community 76 - "renderGroupedTemplate"
 Cohesion: 0.15
@@ -575,33 +563,33 @@ Nodes (19): cursorBlockMessage(), clampGroupedToBudget(), clampToBudget(), clean
 Cohesion: 0.18
 Nodes (17): bumpEditCount(), dedupeAgainstCache(), depthIsSet(), ensureFile(), ensureSession(), findingCacheKey(), payload(), relativize() (+9 more)
 
-### Community 78 - "LinksManager.tsx"
-Cohesion: 0.14
-Nodes (16): createAffiliateLink(), deactivateAffiliateLink(), getMyLinks(), LinksManager(), TargetType, AffiliateLinksPage(), Select(), SelectContent() (+8 more)
+### Community 78 - "pos-orders.ts"
+Cohesion: 0.15
+Nodes (16): cartItemSchema, createPosOrder(), createPosOrderSchema, discountSchema, generatePosOrderNumber(), balanceCondition(), deductLocationStock(), getLocationBalanceMap() (+8 more)
 
-### Community 79 - "RollbackStatusForm.tsx"
-Cohesion: 0.22
-Nodes (11): changeOrderStatus(), rollbackOrderStatus(), Props, RollbackStatusForm(), STATUS_LABEL, getNextStatuses(), ORDER_STATUSES, OrderStatus (+3 more)
+### Community 79 - "StatusUpdateForm.tsx"
+Cohesion: 0.19
+Nodes (13): changeOrderStatus(), rollbackOrderStatus(), Props, RollbackStatusForm(), STATUS_LABEL, Props, StatusUpdateForm(), getNextStatuses() (+5 more)
 
-### Community 80 - "session-store.mjs"
-Cohesion: 0.27
-Nodes (9): applyEvent(), baseSnapshot(), COMPLETED_PHASES, getJournalPath(), getSnapshotPath(), rebuildSnapshotFromJournal(), safeSessionId(), toPendingEvent() (+1 more)
+### Community 80 - "parseRgb"
+Cohesion: 0.21
+Nodes (22): checkColors(), checkElementAIPaletteDOM(), checkElementColors(), checkElementColorsDOM(), checkElementGlowDOM(), checkElementIconTile(), checkElementIconTileDOM(), checkGlow() (+14 more)
 
 ### Community 81 - "parseAnyColor"
 Cohesion: 0.13
 Nodes (21): borderColorsFromStyle(), borderWidthsFromStyle(), checkCreamPalette(), checkElementGptBorderShadow(), checkElementGptBorderShadowDOM(), checkGptThinBorderWideShadow(), checkQuality(), colorsNearlyMatch() (+13 more)
 
 ### Community 82 - "components.json"
-Cohesion: 0.17
-Nodes (11): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+3 more)
+Cohesion: 0.12
+Nodes (16): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+8 more)
 
 ### Community 83 - "Solved 2 - Search Bar Tidak Muncul di VPS"
 Cohesion: 0.13
 Nodes (17): Browser Cache Layer Issue, .github/workflows/deploy.yml, Dockerfile, Dockerfile ARG/ENV Not Declared Root Cause, components/shop/Navbar.tsx, NEXT_PUBLIC_* Build-Time Baking Issue, NEXT_PUBLIC_* Four Places Update Rule, Solved 2 - Search Bar Tidak Muncul di VPS (+9 more)
 
-### Community 84 - "members.ts"
-Cohesion: 0.19
-Nodes (16): getMember(), getMemberOrders(), getMembers(), getMemberTiers(), getPosCustomerLeads(), isAdmin(), TierOverride(), MemberDetailPage() (+8 more)
+### Community 84 - "admin-vouchers.ts"
+Cohesion: 0.06
+Nodes (54): createVoucher(), deleteOrArchiveVoucher(), getAdminVoucher(), getAdminVouchers(), getVoucherHistory(), optionalDate, optionalInt, persistable() (+46 more)
 
 ### Community 85 - "impeccable reference/craft.md"
 Cohesion: 0.13
@@ -612,8 +600,8 @@ Cohesion: 0.25
 Nodes (12): extractRegister(), cli(), COMMON_DEV_PORTS, devServerSignals(), gatherSignals(), gitSignals(), hasCode(), latestCritique() (+4 more)
 
 ### Community 87 - "collectBrowserFindings"
-Cohesion: 0.12
-Nodes (20): browserColorsClose(), browserDesignSystemConfig(), browserFindingsFromMap(), browserHasDirectText(), browserPrimaryFont(), browserRadiusTokens(), browserSampleText(), checkBrowserDesignSystemSources() (+12 more)
+Cohesion: 0.13
+Nodes (18): browserColorsClose(), browserDesignSystemConfig(), browserFindingsFromMap(), browserHasDirectText(), browserPrimaryFont(), browserRadiusTokens(), browserSampleText(), checkBrowserDesignSystemSources() (+10 more)
 
 ### Community 88 - "Sesi 02 - Database (MySQL + Drizzle ORM)"
 Cohesion: 0.17
@@ -628,8 +616,8 @@ Cohesion: 0.17
 Nodes (15): The 60-30-10 Rule (visual weight), impeccable reference/colorize.md, Live-Mode color-amount Param Contract, OKLCH Color Space Guidance, impeccable reference/distill.md, Find the Essence Principle (obstacles vs features), impeccable reference/layout.md, Live-Mode density Param Contract (+7 more)
 
 ### Community 91 - "sampleCssBackground"
-Cohesion: 0.18
-Nodes (16): blendRgba(), clampByte(), firstCssUrl(), getLayerValue(), loadVisualContrastImage(), parseObjectPosition(), parsePositionPair(), parsePositionToken() (+8 more)
+Cohesion: 0.24
+Nodes (13): firstCssUrl(), getLayerValue(), loadVisualContrastImage(), parseObjectPosition(), parsePositionPair(), parsePositionToken(), pointToImageSource(), resolveObjectImageRect() (+5 more)
 
 ### Community 92 - "Sesi 04 - Server Actions (CRUD Produk)"
 Cohesion: 0.14
@@ -639,17 +627,17 @@ Nodes (15): JWT vs Session Rationale (Edge Runtime), lib/auth.config.ts, lib/aut
 Cohesion: 0.23
 Nodes (11): courierSchema, createCourier(), deleteCourier(), getActiveCouriers(), getCouriers(), requireAdmin(), updateCourier(), mockDeleteReturn (+3 more)
 
-### Community 94 - "PosReturnsManager.tsx"
-Cohesion: 0.18
-Nodes (12): getPosReturnAdminData(), dynamic, PosReturnsPage(), Data, PosReturnsManager(), RefundMethod, allocateFinalItemValues(), calculatePosReturn() (+4 more)
+### Community 94 - "pos-returns.ts"
+Cohesion: 0.13
+Nodes (20): createPosReturn(), createReturnSchema, generateReturnNumber(), getPosReturnAdminData(), dynamic, PosReturnsPage(), Data, PosReturnsManager() (+12 more)
 
-### Community 95 - "admin-vouchers.ts"
-Cohesion: 0.12
-Nodes (27): createVoucher(), deleteOrArchiveVoucher(), getAdminVoucher(), getAdminVouchers(), getVoucherHistory(), optionalDate, optionalInt, persistable() (+19 more)
-
-### Community 97 - "css"
+### Community 95 - "VariantManager.tsx"
 Cohesion: 0.25
-Nodes (9): buildSelectorSegment(), generateSelector(), isLikelyHashedClass(), tailwind, baseColor, config, css, cssVariables (+1 more)
+Nodes (9): emptyRow(), makeKey(), PRESET_COLORS, Props, rowFromVariant(), SIZE_OPTIONS, VariantManager(), VariantRow (+1 more)
+
+### Community 97 - "session-store.mjs"
+Cohesion: 0.27
+Nodes (9): applyEvent(), baseSnapshot(), COMPLETED_PHASES, getJournalPath(), getSnapshotPath(), rebuildSnapshotFromJournal(), safeSessionId(), toPendingEvent() (+1 more)
 
 ### Community 98 - "refreshParamsPanel"
 Cohesion: 0.24
@@ -676,24 +664,24 @@ Cohesion: 0.21
 Nodes (12): Anti-Default Discipline, Brief Inference (Read the Room), design-taste-frontend SKILL.md, Eyebrow Restraint Rule, Layout Discipline (Hero fit, nav single line, bento rules), HorizontalPan Canonical Skeleton (GSAP ScrollTrigger), Image & Visual Asset Priority Order, Premium-Consumer Palette Ban (beige/brass/oxblood) (+4 more)
 
 ### Community 104 - "context.mjs"
-Cohesion: 0.08
-Nodes (57): buildUpdateDirective(), compareSemver(), computeUpdateDirective(), contextSourcePath(), contextSourceStatus(), DESIGN_NAMES, directChildDirs(), discoverRootsForPattern() (+49 more)
+Cohesion: 0.07
+Nodes (66): buildMissingTargetDirective(), buildResolvedContextDirective(), buildTargetSelectionDirective(), buildUpdateDirective(), cli(), compareSemver(), computeUpdateDirective(), contextSourcePath() (+58 more)
 
 ### Community 105 - "critique-storage.mjs"
 Cohesion: 0.32
 Nodes (11): kebab(), listSnapshotsForSlug(), main(), nowFilenameStamp(), parseFrontmatter(), readLatestSnapshot(), readTrend(), serializeFrontmatter() (+3 more)
 
-### Community 106 - "lib/image-processor.ts"
-Cohesion: 0.19
-Nodes (11): uploadProductImage(), productImages, ALLOWED_MIME, BannerCropArea, clampBannerCrop(), detectMimeFromBuffer(), processBannerImage(), ProcessedBannerImages (+3 more)
+### Community 106 - "collectVisualContrastCandidates"
+Cohesion: 0.22
+Nodes (11): analyzeVisualContrastCandidate(), blendRgba(), checkElementTextOverflowDOM(), clampByte(), classSelector(), collectVisualContrastCandidates(), collectVisualContrastReasons(), getDirectText() (+3 more)
 
-### Community 107 - "collectVisualContrastCandidates"
-Cohesion: 0.11
-Nodes (23): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), analyzeVisualContrast(), analyzeVisualContrastCandidate(), checkElementTextOverflowDOM(), classSelector(), clearOverlays() (+15 more)
+### Community 107 - "scheduleLazyVisualContrast"
+Cohesion: 0.18
+Nodes (14): addBrowserFindings(), addVisualContrastFindings(), addVisualContrastResult(), analyzeVisualContrast(), clearOverlays(), detachOverlay(), disconnectLazyVisualContrastObserver(), postExtensionError() (+6 more)
 
 ### Community 108 - "readLiveServerInfo"
-Cohesion: 0.22
-Nodes (16): readLiveServerInfo(), completeCli(), completeThroughServer(), parseArgs(), readServerInfo(), collectManualApplyFiles(), manualApplyReplyCommand(), manualApplyResumeHint() (+8 more)
+Cohesion: 0.21
+Nodes (17): isLiveServerPidReachable(), readLiveServerInfo(), completeCli(), completeThroughServer(), parseArgs(), readServerInfo(), collectManualApplyFiles(), manualApplyReplyCommand() (+9 more)
 
 ### Community 109 - "Master Plan: Onetone Store to Marketplace"
 Cohesion: 0.17
@@ -707,9 +695,9 @@ Nodes (12): Design Audit Checklist (typography/color/layout/interactivity/conten
 Cohesion: 0.22
 Nodes (11): checkElementMotion(), checkElementMotionDOM(), checkLayout(), checkMotion(), checkPageLayout(), isCardLike(), isCardLikeDOM(), isCardLikeFromProps() (+3 more)
 
-### Community 112 - "VariantManager.tsx"
-Cohesion: 0.31
-Nodes (7): emptyRow(), makeKey(), PRESET_COLORS, rowFromVariant(), SIZE_OPTIONS, VariantManager(), VariantRow
+### Community 112 - "expandScanTargets"
+Cohesion: 0.27
+Nodes (10): coLocatedStylesheets(), expandScanTargets(), hasPathTraversal(), isInsideProject(), looksLikeProjectRoot(), normalizeScanTargets(), parseStaticStyleImports(), resolveCacheCwd() (+2 more)
 
 ### Community 113 - "ui-core.mjs"
 Cohesion: 0.23
@@ -724,16 +712,16 @@ Cohesion: 0.18
 Nodes (12): Course Roadmap (Sesi 01-10), Route Group Folder Convention (parentheses), Sesi 01 - Setup Project Next.js 16, tests/helpers/fixtures.ts, vitest.config.ts, Sesi 09 - Testing (Vitest), Let's Encrypt Certbot SSL Setup, ecosystem.config.js (PM2) (+4 more)
 
 ### Community 116 - "utils.ts"
+Cohesion: 0.09
+Nodes (31): getDashboardStats(), getOrder(), getTodayPosSales(), Member, MembersTable(), Props, tierBadge, StatusBadge() (+23 more)
+
+### Community 117 - "PaymentSheet.tsx"
+Cohesion: 0.16
+Nodes (13): PosMemberSearchResult, CartLine, PaymentMethod, PaymentSheet(), Props, QUICK_CASH, calculatePosDiscountPricing(), PosDiscount (+5 more)
+
+### Community 118 - "store-settings.ts"
 Cohesion: 0.07
-Nodes (44): getAffiliateDetail(), getAllOrders(), getDashboardStats(), getOrder(), getTodayPosSales(), AdminAffiliateDetailPage(), COMMISSION_STATUS_STYLE, STATUS_STYLE (+36 more)
-
-### Community 117 - "detect-csp.mjs"
-Cohesion: 0.35
-Nodes (10): detectCsp(), INLINE_HEADER_SIGNALS, LAYOUT_EXTS, MONOREPO_HELPER_SIGNALS, NUXT_ROUTE_RULES_SIGNALS, NUXT_SECURITY_SIGNALS, SCAN_EXTS, SKIP_DIRS (+2 more)
-
-### Community 118 - "actions/pos-lead-activation.ts"
-Cohesion: 0.29
-Nodes (5): activatePosLead(), activationSchema, PosLeadActivationState, PosLeadActivationForm(), mockActivate
+Nodes (40): getActiveBanners(), getEditorialBreaks(), getActiveProducts(), getFeaturedProducts(), getHeroConfig(), getStoreSetting(), getStoreSettings(), HeroConfig (+32 more)
 
 ### Community 119 - "palette.mjs"
 Cohesion: 0.24
@@ -747,17 +735,17 @@ Nodes (9): __dirname, findHarnessDirs(), generatePinnedSkill(), HARNESS_DIRS, lo
 Cohesion: 0.20
 Nodes (11): Sesi 08 - Shipping API (Bitship/Biteship), calculateShippingRates server action, lib/bitship.ts (rates, createShipment, getTracking), sendOrderToBitship server action (admin), ShippingOptions UI component, app/api/webhooks/bitship/route.ts, tests/unit/bitship.test.ts, B4: Bitship Send Order Idempotency & Error Recovery (+3 more)
 
-### Community 122 - "collectVisualContrastCandidates"
-Cohesion: 0.24
-Nodes (10): analyzeVisualContrast(), analyzeVisualContrastCandidate(), blendRgba(), clampByte(), collectVisualContrastCandidates(), collectVisualContrastReasons(), getDirectText(), getDirectTextRect() (+2 more)
+### Community 122 - "lib/image-processor.ts"
+Cohesion: 0.32
+Nodes (6): ALLOWED_MIME, BannerCropArea, clampBannerCrop(), processBannerImage(), ProcessedBannerImages, ProcessedImages
 
 ### Community 123 - "live.mjs"
-Cohesion: 0.19
-Nodes (15): loadContext(), resolveTargetSelection(), safeRead(), parseTargetOptions(), parseTargetPath(), TargetArgError, __dirname, ensureServerRunning() (+7 more)
+Cohesion: 0.20
+Nodes (14): loadContext(), safeRead(), parseTargetOptions(), parseTargetPath(), TargetArgError, __dirname, ensureServerRunning(), globToRegex() (+6 more)
 
 ### Community 124 - "index.ts"
-Cohesion: 0.07
-Nodes (39): ONETONE_CATEGORIES, ONETONE_PRODUCTS, seedProducts(), GET(), GET(), resolveTier(), TIER_THRESHOLDS, GET() (+31 more)
+Cohesion: 0.08
+Nodes (35): ONETONE_CATEGORIES, ONETONE_PRODUCTS, GET(), GET(), resolveTier(), TIER_THRESHOLDS, GET(), appendUtm() (+27 more)
 
 ### Community 125 - "lib/order-status.ts"
 Cohesion: 0.22
@@ -771,9 +759,9 @@ Nodes (10): Dual Persona: Admin & Customer, Sesi 00 - Overview & Arsitektur Next
 Cohesion: 0.22
 Nodes (10): lib/api-auth.ts (JWT bearer token helpers), Bearer Token Auth Strategy for Flutter, app/api/cart/[id]/route.ts, app/api/cart/route.ts, Daftar Endpoint Lengkap Table, app/api/auth/login/route.ts, app/api/products/route.ts, app/api/auth/register/route.ts (+2 more)
 
-### Community 128 - "pos-orders.test.ts"
-Cohesion: 0.22
-Nodes (7): input, mockAwardPosOrderPoints, mockDeductStock, mockInsertedValues, mockInsertReturn, mockRequirePosOperator, mockSelectReturn
+### Community 128 - "createCustomerAccount"
+Cohesion: 0.32
+Nodes (6): POST(), registerSchema, createCustomerAccount(), { mockCreateCustomerAccount }, mockInsertReturn, mockSelectReturn
 
 ### Community 129 - "Sesi 07 - Payment Gateway Xendit"
 Cohesion: 0.25
@@ -787,25 +775,25 @@ Nodes (6): getMyVouchers(), CopyButton(), formatDate(), formatValue(), TYPE_LABE
 Cohesion: 0.25
 Nodes (4): r2Client, storage, UploadOptions, UploadResult
 
-### Community 132 - "cli"
-Cohesion: 0.29
-Nodes (8): buildMissingTargetDirective(), buildResolvedContextDirective(), buildTargetSelectionDirective(), cli(), hasTargetOption(), parseCliOptions(), pathExistsForTarget(), shouldWarnMissingTarget()
+### Community 132 - "editorial-settings.ts"
+Cohesion: 0.20
+Nodes (19): DEFAULT_COPY, deleteSetting(), EditorialBreakConfig, EditorialCopy, EditorialMode, getEditorialBreak(), keys(), removeEditorialImage() (+11 more)
 
-### Community 133 - "PaymentSheet.tsx"
-Cohesion: 0.15
-Nodes (14): PosCustomerLeadResult, PosMemberSearchResult, CartLine, PaymentMethod, PaymentSheet(), Props, QUICK_CASH, calculatePosDiscountPricing() (+6 more)
+### Community 133 - "applyDeferredSvelteComponentAccepts"
+Cohesion: 0.32
+Nodes (8): applyLegacyDeferredAcceptsOnStartup(), applyDeferredSvelteComponentAccepts(), deferredAcceptsPath(), findSvelteComponentManifest(), manifestPathForSession(), readDeferredAccepts(), readManifest(), writeDeferredAccept()
 
-### Community 134 - "serializeFindings"
-Cohesion: 0.25
-Nodes (9): buildSelectorSegment(), generateSelector(), isElementHidden(), isLikelyHashedClass(), postSerializedFindings(), renderBrowserFindings(), scanResultMeta(), serializeFindings() (+1 more)
+### Community 134 - "css"
+Cohesion: 0.32
+Nodes (8): buildSelectorSegment(), generateSelector(), isLikelyHashedClass(), postSerializedFindings(), renderBrowserFindings(), scanResultMeta(), serializeFindings(), css
 
-### Community 135 - "actions/auth.ts"
-Cohesion: 0.13
-Nodes (10): login(), loginSchema, LoginState, register(), registerSchema, RegisterState, metadata, metadata (+2 more)
+### Community 135 - "banner-images.ts"
+Cohesion: 0.24
+Nodes (11): GET(), BannerImageSource, EXTERNAL_IMAGE_HOSTS, isAllowedExternalBannerUrl(), resolveBannerImageUrl(), toPublicBanner(), withResolvedBannerImage(), banners (+3 more)
 
-### Community 136 - "normalizeGitHubEvent"
-Cohesion: 0.38
-Nodes (7): applyPatchText(), envProjectDir(), looksLikeApplyPatch(), normalizeGitHubEvent(), normalizeHookEvent(), parseGitHubToolArgs(), resolveProjectCwd()
+### Community 136 - "sessions/[id]/page.tsx"
+Cohesion: 0.33
+Nodes (6): getPosSessionDetail(), BreakdownRow(), dynamic, PAYMENT_LABELS, PosSessionDetailPage(), Props
 
 ### Community 137 - "MySCI Storefront (Reference)"
 Cohesion: 0.25
@@ -827,9 +815,9 @@ Nodes (7): Serif Discipline (very discouraged as default), Brand Bans (monospace
 Cohesion: 0.29
 Nodes (7): Certbot SSL Setup, Deploy VPS Ubuntu Guide, deploy.sh Script, Nginx Reverse Proxy Setup, PM2 Process Manager, SOP Migrasi Otomatis via deploy.yml, Minggu 4: Checkout + Deploy
 
-### Community 142 - "banner-images.ts"
-Cohesion: 0.24
-Nodes (11): GET(), BannerImageSource, EXTERNAL_IMAGE_HOSTS, isAllowedExternalBannerUrl(), resolveBannerImageUrl(), toPublicBanner(), withResolvedBannerImage(), banners (+3 more)
+### Community 142 - "pos-returns.test.ts"
+Cohesion: 0.29
+Nodes (5): insertedValues, mockRequirePosAdmin, mockRevalidatePath, selectQueue, tx
 
 ### Community 143 - "generate-storage/image-processor.ts"
 Cohesion: 0.47
@@ -839,9 +827,9 @@ Nodes (5): ALLOWED_MIME, detectMimeFromBuffer(), ProcessedImages, processProduct
 Cohesion: 0.33
 Nodes (7): DESIGN.md Format Spec (YAML frontmatter + six sections), impeccable reference/document.md, Scan Mode vs Seed Mode, .impeccable/design.json Sidecar Schema, impeccable reference/init.md, PRODUCT.md Template, Register Hypothesis (brand vs product)
 
-### Community 145 - "actions/cart.test.ts"
-Cohesion: 0.18
-Nodes (11): addToCart(), ensureCartItem(), writeCartItem(), AddToCartButton(), activeProduct, mockDelete, mockInsert, mockSelectReturn (+3 more)
+### Community 145 - "dashboard/commissions/page.tsx"
+Cohesion: 0.40
+Nodes (5): getMyCommissions(), AffiliateCommissionsPage(), FILTERS, STATUS_LABEL, STATUS_STYLE
 
 ### Community 146 - "Google Drive Picker Setup & Implementasi"
 Cohesion: 0.67
@@ -863,9 +851,9 @@ Nodes (4): NewProductImage, ProductImage, productImages, productImagesRelations
 Cohesion: 0.47
 Nodes (5): getStepIndex(), MAIN_STEPS, OrderStepper(), Props, StepKey
 
-### Community 151 - "createCustomerAccount"
-Cohesion: 0.32
-Nodes (6): POST(), registerSchema, createCustomerAccount(), { mockCreateCustomerAccount }, mockInsertReturn, mockSelectReturn
+### Community 151 - "isGeneratedFile"
+Cohesion: 0.70
+Nodes (4): hasGeneratedHeader(), HEADER_MARKERS, isGeneratedFile(), isGitIgnored()
 
 ### Community 152 - "shippings table"
 Cohesion: 0.40
@@ -879,113 +867,69 @@ Nodes (4): impeccable reference/animate.md, The 100/300/500 Duration Rule, Motio
 Cohesion: 0.50
 Nodes (3): candidates, detectorPath, __dirname
 
-### Community 155 - "tiers.ts"
-Cohesion: 0.21
-Nodes (10): getAllTiers(), overrideMemberTier(), tierSchema, updateTier(), Props, Tier, Tier, TierCard() (+2 more)
+### Community 155 - "BannerSlider.tsx"
+Cohesion: 0.50
+Nodes (4): Banner, BannerSlider(), BannerSliderProps, isValidImageUrl()
 
 ### Community 158 - "impeccable reference/delight.md"
 Cohesion: 0.67
 Nodes (3): Delight Amplifies, Never Blocks Principle, impeccable reference/delight.md, Cliched Loading Message Ban (Herding pixels, etc.)
 
-### Community 165 - "seed-production.ts"
-Cohesion: 0.40
-Nodes (3): ADMIN, COURIERS, STORE_SETTINGS
+### Community 168 - "detect-csp.mjs"
+Cohesion: 0.35
+Nodes (10): detectCsp(), INLINE_HEADER_SIGNALS, LAYOUT_EXTS, MONOREPO_HELPER_SIGNALS, NUXT_ROUTE_RULES_SIGNALS, NUXT_SECURITY_SIGNALS, SCAN_EXTS, SKIP_DIRS (+2 more)
 
-### Community 168 - "pos-members.test.ts"
-Cohesion: 0.36
-Nodes (7): mockInsertChain(), mockInsertedValue, mockRequirePosOperator, mockRows, mockSelectChain(), mockUpdateChain(), mockUpdatedValue
+### Community 188 - "actions/drive-import.ts"
+Cohesion: 0.14
+Nodes (18): importFromDrive(), ImportResult, syncProductPrimaryImage(), GoogleDrivePicker(), loadScript(), Props, Window, GoogleDrivePicker() (+10 more)
 
-### Community 169 - "drive-import-LIB.ts"
+### Community 189 - "pos-sessions.ts"
+Cohesion: 0.10
+Nodes (30): getActivePosLocations(), getPosOrder(), getPosProducts(), getRecentPosOrders(), closeSession(), closeSessionSchema, getActiveSession(), getAllPosSessions() (+22 more)
+
+### Community 190 - "drive-import-LIB.ts"
 Cohesion: 0.38
 Nodes (6): ALLOWED_MIME, downloadBatchFromDrive(), DownloadedFile, downloadFromDrive(), DriveFileMeta, getDriveFileMeta()
 
-### Community 170 - "pos-returns.ts"
-Cohesion: 0.08
-Nodes (36): getMyPoints(), createPosReturn(), createReturnSchema, generateReturnNumber(), AvailableVoucher, VoucherValidationResult, metadata, PosLeadActivationPage() (+28 more)
-
-### Community 171 - "serializeFindings"
-Cohesion: 0.67
-Nodes (4): postSerializedFindings(), renderBrowserFindings(), scanResultMeta(), serializeFindings()
-
-### Community 172 - "staff.ts"
-Cohesion: 0.27
-Nodes (10): createStaffSchema, createStaffUser(), deleteStaffUser(), getStaffUsers(), requireAdmin(), updateStaffSchema, updateStaffUser(), AddStaffForm() (+2 more)
-
-### Community 174 - "actions/drive-import.ts"
-Cohesion: 0.13
-Nodes (20): importFromDrive(), ImportResult, syncProductPrimaryImage(), GoogleDrivePicker(), loadScript(), Props, Window, importFromDrive() (+12 more)
-
-### Community 188 - "product-images.ts"
-Cohesion: 0.15
-Nodes (16): deleteProductImage(), setImageAsPrimary(), syncProductPrimaryImage(), updateImageVariantColor(), uploadProductImage(), ImageWithUrl, ImageWithUrl, ProductImageUploader() (+8 more)
-
-### Community 193 - "BannerForm.tsx"
+### Community 191 - "product-images.ts"
 Cohesion: 0.23
-Nodes (8): BannerCropEditor(), BannerCropEditorProps, INITIAL_CROP, ActionState, ALLOWED_HOSTNAMES, BannerForm(), checkImageUrl(), UrlStatus
+Nodes (10): deleteProductImage(), setImageAsPrimary(), syncProductPrimaryImage(), updateImageVariantColor(), ImageWithUrl, ImageWithUrl, ImageWithUrl, ProductImageUploader() (+2 more)
+
+### Community 192 - "isScreenReaderOnlyTextStyle"
+Cohesion: 0.47
+Nodes (6): clippedByInset(), clippedByRect(), expandBoxShorthand(), firstMetricLengthPx(), isScreenReaderOnlyTextStyle(), metricLengthPx()
 
 ### Community 194 - "Runbook Rilis POS, Inventory, Voucher, dan Harga Promo"
 Cohesion: 0.20
 Nodes (9): Fakta mekanisme deploy saat ini, Gerbang production, Gerbang sebelum push ke `main`, Perubahan schema yang diharapkan, Risiko yang masih harus diselesaikan, Runbook Rilis POS, Inventory, Voucher, dan Harga Promo, Smoke test testing, Urutan deploy testing (+1 more)
 
-### Community 197 - "syncEditBadgeHitProxies"
-Cohesion: 0.27
-Nodes (10): bindEditBadgeProxy(), editBadgeProxyTargets(), initEditBadge(), initEditBadgeHitProxies(), positionEditBadge(), proxyMouseEvent(), setImportantStyle(), styleEditBadgeProxy() (+2 more)
-
-### Community 198 - "BannersTable.tsx"
-Cohesion: 0.33
-Nodes (7): getAllBanners(), BannerFormProps, BannersTable(), BannersTableProps, isValidImageUrl(), BannersPage(), Banner
-
-### Community 201 - "applyDeferredSvelteComponentAccepts"
-Cohesion: 0.32
-Nodes (8): applyLegacyDeferredAcceptsOnStartup(), applyDeferredSvelteComponentAccepts(), deferredAcceptsPath(), findSvelteComponentManifest(), manifestPathForSession(), readDeferredAccepts(), readManifest(), writeDeferredAccept()
-
-### Community 203 - "pos-returns.test.ts"
-Cohesion: 0.25
-Nodes (6): insertedValues, mockRequirePosAdmin, mockRevalidatePath, selectQueue, tx, updatedValues
-
-### Community 204 - "products/[slug]/page.tsx"
-Cohesion: 0.43
-Nodes (6): getProductImages(), getProductVariants(), SIZES_ORDER, getProductBySlug(), ProductDetailPage(), Props
-
-### Community 208 - "affiliate/commissions/page.tsx"
-Cohesion: 0.40
-Nodes (5): getAllCommissions(), AdjustmentForm(), AdminAffiliateCommissionsPage(), FILTERS, STATUS_STYLE
-
-### Community 210 - "dashboard/commissions/page.tsx"
-Cohesion: 0.40
-Nodes (5): getMyCommissions(), AffiliateCommissionsPage(), FILTERS, STATUS_LABEL, STATUS_STYLE
-
-### Community 211 - "PosCustomerLeadsTable.tsx"
-Cohesion: 0.40
-Nodes (5): displayPhone(), PosCustomerLeadRow, PosCustomerLeadsTable(), statusLabels, statusStyles
-
-### Community 212 - "isGeneratedFile"
-Cohesion: 0.70
-Nodes (4): hasGeneratedHeader(), HEADER_MARKERS, isGeneratedFile(), isGitIgnored()
+### Community 195 - "pos-settings.ts"
+Cohesion: 0.24
+Nodes (14): getPosSettings(), receiptSettingsSchema, removePosQris(), removeReceiptLogo(), requireAdmin(), revalidatePosSettings(), updateReceiptSettings(), uploadPosQris() (+6 more)
 
 ## Ambiguous Edges - Review These
 - `Sesi 00 - Overview & Arsitektur Next Olshop` → `Next Elektronik (privacy policy brand name)`  [AMBIGUOUS]
   public/privacy-policy.html · relation: semantically_similar_to
 
 ## Knowledge Gaps
-- **786 isolated node(s):** `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES`, `DESIGN_NAMES`, `FALLBACK_DIRS` (+781 more)
+- **769 isolated node(s):** `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES`, `DESIGN_NAMES`, `FALLBACK_DIRS` (+764 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **29 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Sesi 00 - Overview & Arsitektur Next Olshop` and `Next Elektronik (privacy policy brand name)`?**
   _Edge tagged AMBIGUOUS (relation: semantically_similar_to) - confidence is low._
-- **Why does `buffer` connect `pos-settings.ts` to `detect-antipatterns.mjs`, `banners.ts`, `drive-import-LIB.ts`, `lib/image-processor.ts`, `runHook`, `actions/drive-import.ts`, `editorial-settings.ts`, `isGeneratedFile`, `detect-csp.mjs`, `live-server.mjs`, `manual-edit-routes.mjs`, `live-inject.mjs`, `hook-before-edit.mjs`, `product-images.ts`?**
-  _High betweenness centrality (0.452) - this node is a cross-community bridge._
-- **Why does `handleStdin()` connect `detect-antipatterns.mjs` to `detect-text.mjs`, `pos-settings.ts`, `detect-html.mjs`?**
-  _High betweenness centrality (0.244) - this node is a cross-community bridge._
-- **Why does `detectHtml()` connect `detect-html.mjs` to `detect-text.mjs`, `detect-url.mjs`, `checks.mjs`, `detect-antipatterns.mjs`, `GENERIC_FONTS`, `el`, `design-system.mjs`, `css-cascade.mjs`?**
-  _High betweenness centrality (0.193) - this node is a cross-community bridge._
+- **Why does `buffer` connect `buffer` to `pos-settings.ts`, `editorial-settings.ts`, `detect-antipatterns.mjs`, `detect-csp.mjs`, `runHook`, `live-server.mjs`, `isGeneratedFile`, `manual-edit-routes.mjs`, `live-inject.mjs`, `hook-before-edit.mjs`, `actions/drive-import.ts`, `drive-import-LIB.ts`?**
+  _High betweenness centrality (0.447) - this node is a cross-community bridge._
+- **Why does `handleStdin()` connect `detect-antipatterns.mjs` to `detect-html.mjs`, `buffer`?**
+  _High betweenness centrality (0.241) - this node is a cross-community bridge._
+- **Why does `detectHtml()` connect `detect-html.mjs` to `detect-url.mjs`, `inline-ignores.mjs`, `checks.mjs`, `detect-antipatterns.mjs`, `el`, `design-system.mjs`, `css-cascade.mjs`?**
+  _High betweenness centrality (0.191) - this node is a cross-community bridge._
 - **Are the 16 inferred relationships involving `el()` (e.g. with `collectVisualContrastCandidates()` and `renderBrowserFindings()`) actually correct?**
   _`el()` has 16 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `COMMON_DEV_PORTS`, `SOURCE_DIRS`, `PRODUCT_NAMES` to the rest of the system?**
-  _786 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _769 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `live-browser.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.032109470261482184 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.029187396351575457 - nodes in this community are weakly interconnected._

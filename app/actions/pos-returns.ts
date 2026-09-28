@@ -5,14 +5,17 @@ import {
   inventoryBalances,
   inventoryLocations,
   inventoryMovements,
+  memberships,
   orderItems,
   orders,
+  pointsLedger,
   posReturnItems,
   posReturns,
   posSessions,
   users,
 } from "@/lib/db/schema";
 import { calculatePosReturn } from "@/lib/pos-return-pricing";
+import { calculateReturnPointsTarget, calculateReturnSpendTarget } from "@/lib/membership-rewards";
 import { requirePosAdmin } from "@/lib/pos-auth";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -114,6 +117,10 @@ export async function createPosReturn(input: z.input<typeof createReturnSchema>)
         id: orders.id,
         channel: orders.channel,
         status: orders.status,
+        userId: orders.userId,
+        subtotal: orders.subtotal,
+        total: orders.total,
+        pointsEarned: orders.pointsEarned,
         discountAmount: orders.discountAmount,
         locationId: posSessions.locationId,
       }).from(orders)
@@ -214,6 +221,65 @@ export async function createPosReturn(input: z.input<typeof createReturnSchema>)
           });
         }
       }
+
+      if (order.userId) {
+        const memberRows = await tx.select().from(memberships)
+          .where(eq(memberships.userId, order.userId))
+          .limit(1)
+          .for("update");
+        const membership = memberRows[0];
+
+        if (membership) {
+          const cumulativeRows = await tx.select({
+            amount: sql<string>`COALESCE(SUM(${posReturns.refundAmount}), 0)`,
+          }).from(posReturns).where(eq(posReturns.orderId, order.id));
+          const reversalRows = await tx.select({
+            delta: pointsLedger.delta,
+            reason: pointsLedger.reason,
+          }).from(pointsLedger).where(and(
+            eq(pointsLedger.membershipId, membership.id),
+            eq(pointsLedger.orderId, order.id),
+          ));
+          const hasEarnLedger = reversalRows.some(row => row.reason === "order_earn");
+          const alreadyReversed = Math.abs(reversalRows
+            .filter(row => row.reason?.startsWith("pos_return:"))
+            .reduce((sum, row) => sum + Math.min(0, row.delta), 0));
+          const targetReversal = calculateReturnPointsTarget({
+            pointsEarned: order.pointsEarned ?? 0,
+            orderTotal: Number(order.total),
+            cumulativeRefund: Number(cumulativeRows[0]?.amount ?? 0),
+          });
+          const pointsToReverse = Math.max(0, targetReversal - alreadyReversed);
+          const cumulativeRefund = Number(cumulativeRows[0]?.amount ?? 0);
+          const spendReversalAfter = calculateReturnSpendTarget({
+            orderSubtotal: Number(order.subtotal),
+            orderTotal: Number(order.total),
+            cumulativeRefund,
+          });
+          const spendReversalBefore = calculateReturnSpendTarget({
+            orderSubtotal: Number(order.subtotal),
+            orderTotal: Number(order.total),
+            cumulativeRefund: Math.max(0, cumulativeRefund - pricing.refundAmount),
+          });
+          const spendToReverse = Math.max(0, spendReversalAfter - spendReversalBefore);
+
+          if (hasEarnLedger) {
+            await tx.update(memberships).set({
+              points: (membership.points ?? 0) - pointsToReverse,
+              totalSpend: Math.max(0, (membership.totalSpend ?? 0) - spendToReverse),
+            }).where(eq(memberships.id, membership.id));
+
+            if (pointsToReverse > 0) {
+              await tx.insert(pointsLedger).values({
+                membershipId: membership.id,
+                orderId: order.id,
+                delta: -pointsToReverse,
+                reason: `pos_return:${returnId}`,
+              });
+            }
+          }
+        }
+      }
       return { returnId, refundAmount: pricing.refundAmount };
     });
 
@@ -221,6 +287,8 @@ export async function createPosReturn(input: z.input<typeof createReturnSchema>)
     revalidatePath("/dashboard/pos/sessions");
     revalidatePath("/dashboard/inventory");
     revalidatePath("/pos");
+    revalidatePath("/account/membership");
+    revalidatePath("/account/points");
     return { success: true, ...result };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Gagal memproses retur" };
