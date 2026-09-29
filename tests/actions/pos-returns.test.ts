@@ -2,14 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const selectQueue: unknown[] = [];
 const insertedValues: unknown[] = [];
+const updatedValues: unknown[] = [];
 const mockRequirePosAdmin = vi.fn();
 const mockRevalidatePath = vi.fn();
 
 function chain(value: unknown = []) {
   const query: Record<string, unknown> = {};
-  for (const method of ["from", "where", "limit", "innerJoin", "leftJoin", "orderBy", "groupBy", "set"]) {
+  for (const method of ["from", "where", "limit", "innerJoin", "leftJoin", "orderBy", "groupBy"]) {
     query[method] = vi.fn().mockReturnValue(query);
   }
+  query.set = vi.fn((values: unknown) => {
+    updatedValues.push(values);
+    return query;
+  });
+  query.for = vi.fn().mockResolvedValue(value);
   query.values = vi.fn((values: unknown) => {
     insertedValues.push(values);
     return query;
@@ -46,6 +52,7 @@ describe("POS return action", () => {
     vi.clearAllMocks();
     selectQueue.length = 0;
     insertedValues.length = 0;
+    updatedValues.length = 0;
     mockRequirePosAdmin.mockResolvedValue({ ok: true, actor: { id: 1, name: "Admin", role: "admin" } });
   });
 
@@ -97,5 +104,42 @@ describe("POS return action", () => {
 
     expect(result).toEqual({ success: false, error: "Jumlah retur melebihi sisa item" });
     expect(insertedValues).toHaveLength(0);
+  });
+
+  it("reverses member points and spend on a full POS refund", async () => {
+    selectQueue.push(
+      [{
+        id: 10,
+        channel: "pos",
+        status: "delivered",
+        userId: 41,
+        subtotal: "100000",
+        total: "90000",
+        pointsEarned: 10,
+        discountAmount: "10000",
+        locationId: 3,
+      }],
+      [{ id: 20, orderId: 10, productId: 5, variantId: null, quantity: 1, price: "100000", subtotal: "90000" }],
+      [],
+      [{ id: 12, userId: 41, tierId: 1, points: 30, totalSpend: 200000 }],
+      [{ amount: "90000" }],
+      [{ delta: 10, reason: "order_earn" }],
+    );
+
+    const result = await createPosReturn({
+      orderId: 10,
+      items: [{ orderItemId: 20, quantity: 1, restock: false }],
+      refundMethod: "transfer",
+      reason: "Refund penuh transaksi member",
+    });
+
+    expect(result).toMatchObject({ success: true, refundAmount: 90000 });
+    expect(updatedValues).toContainEqual(expect.objectContaining({ points: 20, totalSpend: 100000 }));
+    expect(insertedValues).toContainEqual(expect.objectContaining({
+      membershipId: 12,
+      orderId: 10,
+      delta: -10,
+      reason: "pos_return:77",
+    }));
   });
 });

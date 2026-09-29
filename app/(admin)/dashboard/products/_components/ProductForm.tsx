@@ -177,6 +177,7 @@ export function ProductForm({ product, categories, variants = [], images = [], u
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    formData.set('timezoneOffsetMinutes', String(new Date().getTimezoneOffset()));
     formData.set('image', mainImage);
     formData.set('images', imagesJson);
 
@@ -291,7 +292,15 @@ export function ProductForm({ product, categories, variants = [], images = [], u
           <ProductImageUploader
             productId={activeProductId}
             initialImages={images}
-            variantColors={[...new Set(variantRows.map((v) => v.color).filter(Boolean))] as string[]}
+            variants={variantRows
+              .filter((variant): variant is VariantRow & { id: number } => Boolean(variant.id))
+              .map((variant) => ({
+                id: variant.id,
+                size: variant.size,
+                color: variant.color,
+                sku: variant.sku || null,
+                isActive: variant.isActive,
+              }))}
           />
         ) : (
           <div className="border-2 border-dashed rounded-xl p-8 text-center text-sm text-muted-foreground">
@@ -347,9 +356,9 @@ export function ProductForm({ product, categories, variants = [], images = [], u
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Promo Harga Online</h2>
+            <h2 className="text-base font-semibold text-foreground">Promo Harga</h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Berlaku otomatis di katalog, detail produk, keranjang, dan checkout. Harga POS tidak berubah.
+              Atur harga coret otomatis untuk toko online, POS, atau kedua kanal.
             </p>
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer shrink-0">
@@ -364,7 +373,7 @@ export function ProductForm({ product, categories, variants = [], images = [], u
         </div>
 
         {promoEnabled && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-5 pt-5 border-t border-border">
             <div>
               <Label htmlFor="salePrice">Harga Promo (Rp)</Label>
               <CurrencyInput
@@ -375,6 +384,19 @@ export function ProductForm({ product, categories, variants = [], images = [], u
                 className="mt-1"
               />
               {state?.errors?.salePrice && <p className="text-destructive text-sm mt-1">{state.errors.salePrice[0]}</p>}
+            </div>
+            <div>
+              <Label htmlFor="saleChannel">Berlaku di</Label>
+              <select
+                id="saleChannel"
+                name="saleChannel"
+                defaultValue={product?.saleChannel ?? 'online'}
+                className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="online">Toko online saja</option>
+                <option value="pos">POS saja</option>
+                <option value="all">Toko online dan POS</option>
+              </select>
             </div>
             <div>
               <Label htmlFor="saleStartsAt">Mulai (opsional)</Label>
@@ -397,8 +419,8 @@ export function ProductForm({ product, categories, variants = [], images = [], u
               />
               {state?.errors?.saleEndsAt && <p className="text-destructive text-sm mt-1">{state.errors.saleEndsAt[0]}</p>}
             </div>
-            <p className="md:col-span-3 text-xs text-muted-foreground">
-              Tanpa jadwal, promo langsung aktif sampai dinonaktifkan. Voucher tetap dihitung setelah harga promo.
+            <p className="md:col-span-2 xl:col-span-4 text-xs text-muted-foreground">
+              Tanpa jadwal, promo langsung aktif sampai dinonaktifkan. Diskon manual POS dan voucher online dihitung setelah harga promo, sesuai batas kewenangan.
             </p>
           </div>
         )}

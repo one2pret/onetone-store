@@ -7,7 +7,7 @@ import {
   uploadProductImage,
   setImageAsPrimary,
   deleteProductImage,
-  updateImageVariantColor,
+  updateImageVariant,
 } from "@/app/actions/product-images";
 import type { ProductImage } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -47,11 +47,16 @@ interface ImageWithUrl extends ProductImage {
 interface Props {
   productId: number;
   initialImages: ImageWithUrl[];
-  /** Warna-warna yang tersedia dari varian produk */
-  variantColors?: string[];
+  variants?: {
+    id: number;
+    size: string;
+    color: string;
+    sku: string | null;
+    isActive: boolean;
+  }[];
 }
 
-export function ProductImageUploader({ productId, initialImages, variantColors = [] }: Props) {
+export function ProductImageUploader({ productId, initialImages, variants = [] }: Props) {
   const [images, setImages] = useState<ImageWithUrl[]>(initialImages);
   const [isPending, startTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
@@ -93,6 +98,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
               sortOrder: prev.length,
               isPrimary: result.data!.isPrimary,
               variantColor: null,
+              variantId: null,
               createdAt: new Date(),
               url: result.data!.url,
               thumbUrl: result.data!.thumbUrl,
@@ -131,16 +137,18 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
     });
   }
 
-  function handleColorChange(imageId: number, color: string) {
-    const variantColor = color === "" ? null : color;
+  function handleVariantChange(imageId: number, value: string) {
+    const variantId = value === "" ? null : Number(value);
     startTransition(async () => {
-      const result = await updateImageVariantColor(imageId, variantColor);
+      const result = await updateImageVariant(imageId, variantId);
       if (result.success) {
         setImages((prev) =>
-          prev.map((img) => (img.id === imageId ? { ...img, variantColor } : img))
+          prev.map((img) => (img.id === imageId
+            ? { ...img, variantId, variantColor: null }
+            : img))
         );
       } else {
-        toast.error(result.error ?? "Gagal simpan warna");
+        toast.error(result.error ?? "Gagal menyimpan varian gambar");
       }
     });
   }
@@ -209,9 +217,14 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                   </div>
                 )}
 
-                {img.variantColor && (
+                {(img.variantId || img.variantColor) && (
                   <div className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-full z-10 max-w-[80px] truncate">
-                    {img.variantColor}
+                    {img.variantId
+                      ? (() => {
+                          const variant = variants.find(item => item.id === img.variantId);
+                          return variant ? `${variant.size} / ${variant.color}` : `Varian #${img.variantId}`;
+                        })()
+                      : `Warna: ${img.variantColor}`}
                   </div>
                 )}
 
@@ -219,6 +232,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
                   {!img.isPrimary && (
                     <button
+                      type="button"
                       onClick={() => handleSetPrimary(img.id)}
                       disabled={isPending}
                       className="bg-white text-gray-800 text-xs px-2 py-1 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
@@ -227,6 +241,7 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => handleDelete(img.id)}
                     disabled={isPending}
                     className="bg-white text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
@@ -236,30 +251,34 @@ export function ProductImageUploader({ productId, initialImages, variantColors =
                 </div>
               </div>
 
-              {/* Color tag selector — di bawah gambar */}
-              {variantColors.length > 0 && (
-                <div className="px-2 py-1.5 bg-card border-t border-border">
-                  <select
-                    value={img.variantColor ?? ""}
-                    onChange={(e) => handleColorChange(img.id, e.target.value)}
-                    disabled={isPending}
-                    className="w-full text-xs h-6 rounded border border-input bg-background text-foreground px-1 focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="">— Semua warna —</option>
-                    {variantColors.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="space-y-1 px-2 py-2 bg-card border-t border-border">
+                <label htmlFor={`image-variant-${img.id}`} className="block text-[10px] font-medium text-muted-foreground">
+                  Digunakan untuk
+                </label>
+                <select
+                  id={`image-variant-${img.id}`}
+                  value={img.variantId ?? ""}
+                  onChange={(e) => handleVariantChange(img.id, e.target.value)}
+                  disabled={isPending}
+                  className="h-8 w-full rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Gambar umum produk</option>
+                  {variants.map((variant) => (
+                    <option key={variant.id} value={variant.id} disabled={!variant.isActive}>
+                      {variant.size} / {variant.color}{variant.sku ? ` — ${variant.sku}` : ""}{!variant.isActive ? " (nonaktif)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {variantColors.length > 0 && images.length > 0 && (
+      {images.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Assign setiap foto ke warna varian — saat customer pilih warna, foto yang sesuai akan tampil otomatis.
+          Pilih varian spesifik untuk foto varian, atau biarkan sebagai gambar umum produk.
+          {variants.length === 0 && " Simpan varian terlebih dahulu agar muncul pada pilihan."}
         </p>
       )}
 

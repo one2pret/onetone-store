@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createVoucher, updateVoucher, type VoucherActionState } from '@/app/actions/admin-vouchers';
@@ -31,6 +31,15 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
   const [state, formAction, pending] = useActionState<VoucherActionState, FormData>(action, null);
   const [type, setType] = useState(voucher?.type ?? 'fixed');
   const [audience, setAudience] = useState(voucher?.audience ?? 'public');
+  const timezoneOffsetRef = useCallback((input: HTMLInputElement | null) => {
+    if (input) input.value = String(new Date().getTimezoneOffset());
+  }, []);
+  const startsAtRef = useCallback((input: HTMLInputElement | null) => {
+    if (input) input.value = toDatetimeLocal(voucher?.startsAt);
+  }, [voucher?.startsAt]);
+  const endsAtRef = useCallback((input: HTMLInputElement | null) => {
+    if (input) input.value = toDatetimeLocal(voucher?.endsAt);
+  }, [voucher?.endsAt]);
 
   useEffect(() => {
     if (!state) return;
@@ -45,6 +54,7 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
 
   return (
     <form action={formAction} className="max-w-4xl space-y-6">
+      <input ref={timezoneOffsetRef} type="hidden" name="timezoneOffsetMinutes" defaultValue="" />
       {state?.error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{state.error}</div>
       )}
@@ -158,8 +168,8 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
       <section className="rounded-xl border border-border bg-card p-5 md:p-6">
         <h2 className="text-base font-semibold text-foreground">Jadwal campaign</h2>
         <div className="grid gap-4 mt-4 md:grid-cols-2">
-          <div><Label htmlFor="startsAt">Mulai</Label><Input id="startsAt" name="startsAt" type="datetime-local" defaultValue={toDatetimeLocal(voucher?.startsAt)} className="mt-1" /></div>
-          <div><Label htmlFor="endsAt">Selesai</Label><Input id="endsAt" name="endsAt" type="datetime-local" defaultValue={toDatetimeLocal(voucher?.endsAt)} className="mt-1" /><FieldError errors={state?.errors?.endsAt} /></div>
+          <div><Label htmlFor="startsAt">Mulai</Label><Input ref={startsAtRef} id="startsAt" name="startsAt" type="datetime-local" defaultValue="" className="mt-1" /><FieldError errors={state?.errors?.startsAt} /></div>
+          <div><Label htmlFor="endsAt">Selesai</Label><Input ref={endsAtRef} id="endsAt" name="endsAt" type="datetime-local" defaultValue="" className="mt-1" /><FieldError errors={state?.errors?.endsAt} /></div>
         </div>
       </section>
 

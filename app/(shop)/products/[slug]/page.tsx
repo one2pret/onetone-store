@@ -63,6 +63,7 @@ export default async function ProductDetailPage({ params }: Props) {
         salePrice={product.salePrice === null ? null : Number(product.salePrice)}
         saleStartsAt={product.saleStartsAt?.toISOString() ?? null}
         saleEndsAt={product.saleEndsAt?.toISOString() ?? null}
+        saleChannel={product.saleChannel}
         pricingNow={pricingNow.toISOString()}
         initialPricing={initialPricing}
         variants={variants}

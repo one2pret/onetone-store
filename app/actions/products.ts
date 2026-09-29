@@ -22,6 +22,7 @@ import { getAllCategories } from '@/app/actions/categories';
 import { auth } from '@/lib/auth';
 import { assertBarcodeAvailable, getProductBarcodeRows, setPrimaryBarcode } from '@/lib/product-barcodes';
 import { storage } from '@/lib/storage';
+import { parseBrowserLocalDateTime } from '@/lib/browser-local-datetime';
 
 async function isAdmin(): Promise<boolean> {
   const session = await auth();
@@ -47,6 +48,7 @@ const productSchema = z.object({
   salePrice: optionalNumber,
   saleStartsAt: optionalDate,
   saleEndsAt: optionalDate,
+  saleChannel: z.enum(['online', 'pos', 'all']).default('online'),
   stock: z.coerce.number().min(0, 'Stock tidak boleh negatif'),
   weight: z.coerce.number().min(0, 'Berat tidak boleh negatif').default(0),
   isActive: z.coerce.boolean().optional(),
@@ -62,6 +64,16 @@ const productSchema = z.object({
 });
 
 function productFormValues(formData: FormData) {
+  const timezoneOffset = Number(formData.get('timezoneOffsetMinutes'));
+  const absoluteDate = (name: string) => {
+    const value = String(formData.get(name) ?? '');
+    if (!value) return null;
+    try {
+      return parseBrowserLocalDateTime(value, timezoneOffset);
+    } catch {
+      return value;
+    }
+  };
   return {
     name: formData.get('name'),
     posName: formData.get('posName') || '',
@@ -69,8 +81,9 @@ function productFormValues(formData: FormData) {
     description: formData.get('description'),
     price: formData.get('price'),
     salePrice: formData.get('salePrice'),
-    saleStartsAt: formData.get('saleStartsAt'),
-    saleEndsAt: formData.get('saleEndsAt'),
+    saleStartsAt: absoluteDate('saleStartsAt'),
+    saleEndsAt: absoluteDate('saleEndsAt'),
+    saleChannel: formData.get('saleChannel') || 'online',
     stock: formData.get('stock'),
     weight: formData.get('weight') || 0,
     isActive: formData.get('isActive') === 'on',

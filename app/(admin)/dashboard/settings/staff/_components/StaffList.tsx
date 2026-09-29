@@ -18,19 +18,24 @@ type Staff = {
   phone: string | null;
   role: string | null;
   createdAt: Date | null;
+  locationIds: number[];
 };
+
+type Location = { id: number; name: string; code: string; type: string };
 
 interface Props {
   staff: Staff[];
   currentUserId: number;
+  locations: Location[];
 }
 
-function EditForm({ staff, onClose }: { staff: Staff; onClose: () => void }) {
+function EditForm({ staff, locations, onClose }: { staff: Staff; locations: Location[]; onClose: () => void }) {
   const router = useRouter();
   const action = updateStaffUser.bind(null, staff.id);
-  const [state, setState] = useState<any>(null);
+  const [state, setState] = useState<{ success: boolean; error?: string; errors?: Record<string, string[]> } | null>(null);
   const [pending, startTransition] = useTransition();
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState(staff.role ?? 'cashier');
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -80,6 +85,13 @@ function EditForm({ staff, onClose }: { staff: Staff; onClose: () => void }) {
         </div>
         {state?.errors?.password && <p className="text-destructive text-xs mt-0.5">{state.errors.password[0]}</p>}
       </div>
+      <div>
+        <Label className="text-xs">Role</Label>
+        <select name="role" value={role} onChange={event => setRole(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="cashier">Kasir</option><option value="inventory_staff">Staf Inventori</option><option value="admin">Admin</option>
+        </select>
+      </div>
+      {role === 'inventory_staff' && <fieldset className="rounded-lg border border-border p-3"><legend className="px-1 text-xs font-semibold">Akses lokasi</legend><div className="mt-1 grid gap-2 sm:grid-cols-2">{locations.map(location => <label key={location.id} className="flex items-center gap-2 rounded-md border border-border p-2 text-xs"><input type="checkbox" name="locationIds" value={location.id} defaultChecked={staff.locationIds.includes(location.id)} className="h-4 w-4 accent-primary" /><span>{location.name} <span className="text-muted-foreground">· {location.code}</span></span></label>)}</div>{state?.errors?.locationIds && <p className="mt-2 text-xs text-destructive">{state.errors.locationIds[0]}</p>}</fieldset>}
       {state?.error && <p className="text-destructive text-xs">{state.error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
@@ -94,7 +106,7 @@ function EditForm({ staff, onClose }: { staff: Staff; onClose: () => void }) {
   );
 }
 
-export function StaffList({ staff, currentUserId }: Props) {
+export function StaffList({ staff, locations, currentUserId }: Props) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -147,8 +159,9 @@ export function StaffList({ staff, currentUserId }: Props) {
                     ? 'bg-amber-500/10 text-amber-600'
                     : 'bg-sky-500/10 text-sky-600'
                 }`}>
-                  {s.role === 'admin' ? 'Admin' : 'Kasir'}
+                  {s.role === 'admin' ? 'Admin' : s.role === 'inventory_staff' ? 'Staf Inventori' : 'Kasir'}
                 </span>
+                {s.role === 'inventory_staff' && <span className="basis-full text-xs text-muted-foreground">{s.locationIds.map(id => locations.find(location => location.id === id)?.name).filter(Boolean).join(', ') || 'Belum ada lokasi'}</span>}
               </div>
               <span className="text-sm text-muted-foreground">{s.email}</span>
               <span className="text-sm text-muted-foreground">{s.phone ?? '—'}</span>
@@ -168,7 +181,7 @@ export function StaffList({ staff, currentUserId }: Props) {
             </div>
 
             {editingId === s.id && (
-              <EditForm staff={s} onClose={() => setEditingId(null)} />
+              <EditForm staff={s} locations={locations} onClose={() => setEditingId(null)} />
             )}
 
             {deletingId === s.id && (

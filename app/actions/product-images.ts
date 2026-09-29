@@ -2,10 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { products, productImages } from "@/lib/db/schema";
+import { products, productImages, productVariants } from "@/lib/db/schema";
 import { storage, generateObjectKey } from "@/lib/storage";
 import { processProductImage, detectMimeFromBuffer } from "@/lib/image-processor";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // Sync products.image dengan CDN URL dari primary image R2
@@ -76,6 +76,7 @@ export async function uploadProductImage(productId: number, formData: FormData) 
     revalidatePath(`/dashboard/products/${productId}/edit`);
     revalidatePath("/dashboard/products");
     revalidatePath(`/products/${product.slug}`);
+    revalidatePath("/pos");
 
     return {
       success: true,
@@ -116,6 +117,7 @@ export async function setImageAsPrimary(imageId: number, productId: number) {
 
   revalidatePath(`/dashboard/products/${productId}/edit`);
   revalidatePath("/dashboard/products");
+  revalidatePath("/pos");
   if (product) revalidatePath(`/products/${product.slug}`);
 
   return { success: true };
@@ -159,6 +161,7 @@ export async function deleteProductImage(imageId: number) {
 
   revalidatePath(`/dashboard/products/${image.productId}/edit`);
   revalidatePath("/dashboard/products");
+  revalidatePath("/pos");
   if (product) revalidatePath(`/products/${product.slug}`);
 
   return { success: true };
@@ -178,7 +181,50 @@ export async function updateImageVariantColor(imageId: number, variantColor: str
   await db.update(productImages).set({ variantColor }).where(eq(productImages.id, imageId));
 
   revalidatePath(`/dashboard/products/${image.productId}/edit`);
+  revalidatePath("/pos");
   return { success: true };
+}
+
+export async function updateImageVariant(imageId: number, variantId: number | null) {
+  const session = await auth();
+  if (session?.user?.role !== "admin") {
+    return { success: false, error: "Forbidden" };
+  }
+  if (!Number.isInteger(imageId) || imageId <= 0) {
+    return { success: false, error: "Gambar tidak valid" };
+  }
+  if (variantId !== null && (!Number.isInteger(variantId) || variantId <= 0)) {
+    return { success: false, error: "Varian tidak valid" };
+  }
+
+  const image = await db.query.productImages.findFirst({
+    where: eq(productImages.id, imageId),
+  });
+  if (!image) return { success: false, error: "Gambar tidak ditemukan" };
+
+  if (variantId !== null) {
+    const variant = await db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(and(
+        eq(productVariants.id, variantId),
+        eq(productVariants.productId, image.productId),
+        eq(productVariants.isActive, true),
+      ))
+      .limit(1)
+      .then(rows => rows[0] ?? null);
+    if (!variant) {
+      return { success: false, error: "Varian tidak ditemukan pada produk ini atau sudah nonaktif" };
+    }
+  }
+
+  await db.update(productImages)
+    .set({ variantId, variantColor: null })
+    .where(and(eq(productImages.id, imageId), eq(productImages.productId, image.productId)));
+
+  revalidatePath(`/dashboard/products/${image.productId}/edit`);
+  revalidatePath("/pos");
+  return { success: true, variantId };
 }
 
 export async function getProductImages(productId: number) {

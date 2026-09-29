@@ -11,12 +11,19 @@ import {
   products,
   productVariants,
   posSessions,
+  posCustomerLeads,
+  memberships,
+  users,
+  productImages,
 } from "@/lib/db/schema";
 import { deductLocationStock, getLocationBalanceMap, validateLocationStock } from "@/lib/inventory-stock";
 import { canAccessPosSession, requirePosOperator } from "@/lib/pos-auth";
 import { calculatePosDiscountPricing, type PosDiscount } from "@/lib/pos-discounts";
+import { awardPosOrderPoints } from "@/lib/pos-membership-points";
 import { storage } from "@/lib/storage";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { preferredProductImageKey, selectProductImage } from "@/lib/product-image-resolution";
+import { resolveProductPrice } from "@/lib/product-pricing";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -39,9 +46,13 @@ const createPosOrderSchema = z.object({
   items: z.array(cartItemSchema).min(1, "Keranjang kosong"),
   paymentMethod: z.enum(["cash", "qris", "transfer"]),
   cashReceived: z.number().min(0).optional(),
+  customerUserId: z.number().int().positive().optional(),
+  customerLeadId: z.number().int().positive().optional(),
   customerName: z.string().max(255).optional(),
   notes: z.string().max(500).optional(),
   orderDiscount: discountSchema.optional(),
+}).refine(data => !(data.customerUserId && data.customerLeadId), {
+  message: "Pilih member atau calon member, bukan keduanya",
 });
 
 // ─── Helper: order number POS ─────────────────────────────────────────────────
@@ -64,6 +75,8 @@ export async function createPosOrder(input: {
   items: { productId: number; variantId?: number; quantity: number; discount?: PosDiscount }[];
   paymentMethod: "cash" | "qris" | "transfer";
   cashReceived?: number;
+  customerUserId?: number;
+  customerLeadId?: number;
   customerName?: string;
   notes?: string;
   orderDiscount?: PosDiscount;
@@ -95,6 +108,43 @@ export async function createPosOrder(input: {
     return { success: false, error: "Sesi kasir bukan milikmu" };
   }
 
+  // Member dari client selalu divalidasi ulang. Hanya customer aktif yang
+  // memiliki membership yang boleh ditautkan ke transaksi POS.
+  let memberCustomer: { id: number; name: string } | null = null;
+  if (data.customerUserId) {
+    const memberRows = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .innerJoin(memberships, eq(memberships.userId, users.id))
+      .where(and(
+        eq(users.id, data.customerUserId),
+        eq(users.role, "customer"),
+        isNull(users.deletedAt),
+      ))
+      .limit(1);
+    memberCustomer = memberRows[0] ?? null;
+    if (!memberCustomer) {
+      return { success: false, error: "Member tidak ditemukan atau tidak aktif" };
+    }
+  }
+
+  let leadCustomer: { id: number; name: string } | null = null;
+  if (data.customerLeadId) {
+    const leadRows = await db
+      .select({ id: posCustomerLeads.id, name: posCustomerLeads.name })
+      .from(posCustomerLeads)
+      .where(and(
+        eq(posCustomerLeads.id, data.customerLeadId),
+        eq(posCustomerLeads.status, "pending"),
+        isNull(posCustomerLeads.claimedUserId),
+      ))
+      .limit(1);
+    leadCustomer = leadRows[0] ?? null;
+    if (!leadCustomer) {
+      return { success: false, error: "Calon member tidak ditemukan atau sudah diaktivasi" };
+    }
+  }
+
   // 2. Ambil detail produk + varian (untuk harga, nama, snapshot)
   const enrichment = await Promise.all(
     data.items.map(async (item) => {
@@ -122,18 +172,33 @@ export async function createPosOrder(input: {
         variant = variantRow[0];
       }
 
-      const base = Number(product.price);
-      const modifier = Number(variant?.priceModifier ?? 0);
-      const unitPrice = base + modifier;
+      const productPricing = resolveProductPrice({
+        price: product.price,
+        salePrice: product.salePrice,
+        saleStartsAt: product.saleStartsAt,
+        saleEndsAt: product.saleEndsAt,
+        saleChannel: product.saleChannel,
+        pricingChannel: 'pos',
+        priceModifier: variant?.priceModifier,
+        variantSalePriceOverride: variant?.salePriceOverride,
+      });
+      const unitPrice = productPricing.finalPrice;
+      const imageRows = await db.query.productImages.findMany({
+        where: eq(productImages.productId, product.id),
+      });
+      const selectedImage = selectProductImage(imageRows, variant);
+      const selectedImageKey = preferredProductImageKey(selectedImage);
 
       return {
         productId: product.id,
         variantId: variant?.id,
         quantity: item.quantity,
         productName: product.posName?.trim() || product.name,
-        productImage: product.image,
+        productImage: selectedImageKey ? storage.getUrl(selectedImageKey) : product.image,
         variantLabel: variant ? (variant.posLabel?.trim() || `${variant.size} / ${variant.color}`) : null,
         unitPrice,
+        regularUnitPrice: productPricing.regularPrice,
+        automaticDiscountAmount: productPricing.discountAmount,
         subtotal: unitPrice * item.quantity,
         discount: item.discount,
       };
@@ -167,6 +232,7 @@ export async function createPosOrder(input: {
       enriched.map((item, index) => ({
         key: String(index),
         unitPrice: item.unitPrice,
+        regularUnitPrice: item.regularUnitPrice,
         quantity: item.quantity,
         discount: item.discount,
       })),
@@ -201,7 +267,8 @@ export async function createPosOrder(input: {
   //    minimal — POS single-kasir per sesi.
   try {
     const [orderResult] = await db.insert(orders).values({
-      userId: null, // walk-in customer — POS tidak butuh akun
+      userId: memberCustomer?.id ?? null,
+      posCustomerLeadId: leadCustomer?.id ?? null,
       orderNumber,
       channel: "pos",
       status: "delivered", // langsung selesai (transaksi tatap muka)
@@ -211,7 +278,7 @@ export async function createPosOrder(input: {
       total: String(total),
       shippingAddress: null,
       shippingPhone: null,
-      shippingName: data.customerName || null,
+      shippingName: memberCustomer?.name ?? leadCustomer?.name ?? data.customerName ?? null,
       notes: data.notes || null,
       posSessionId: data.sessionId,
       posPaymentMethod: data.paymentMethod,
@@ -234,8 +301,9 @@ export async function createPosOrder(input: {
           productImage: e.productImage,
           variantLabel: e.variantLabel,
           price: String(e.unitPrice),
-          regularPrice: String(e.unitPrice),
-          productDiscountAmount: String(lineDiscount / e.quantity),
+          regularPrice: String(e.regularUnitPrice),
+          productDiscountAmount: String(e.automaticDiscountAmount),
+          manualDiscountAmount: String(lineDiscount / e.quantity),
           quantity: e.quantity,
           subtotal: String(e.subtotal - lineDiscount),
         };
@@ -252,9 +320,23 @@ export async function createPosOrder(input: {
       { type: "pos_sale", referenceId: orderId, actorUserId: authResult.actor.id }
     );
 
+    let pointsEarned = 0;
+    if (memberCustomer) {
+      try {
+        const reward = await awardPosOrderPoints(orderId, memberCustomer.id);
+        pointsEarned = reward.pointsEarned;
+      } catch (membershipError) {
+        // Penjualan tetap sah; kegagalan benefit tidak boleh membuat kasir
+        // mengulang pembayaran dan menciptakan order ganda.
+        console.error("[createPosOrder:membership]", membershipError);
+      }
+    }
+
     revalidatePath("/pos");
     revalidatePath("/dashboard/orders");
     revalidatePath("/dashboard/products");
+    revalidatePath("/account/membership");
+    revalidatePath("/account/points");
 
     return {
       success: true,
@@ -264,6 +346,7 @@ export async function createPosOrder(input: {
       discountAmount: discountTotal,
       cashReceived,
       cashChange,
+      pointsEarned,
     };
   } catch (err) {
     console.error("[createPosOrder]", err);
@@ -330,21 +413,47 @@ export async function getPosProducts(locationId?: number) {
   });
 
   // Untuk POS: pakai thumb (400px) — hemat ~4x bandwidth R2 vs main (800px).
-  // Prioritas: primary image thumb → any thumb → products.image (fallback CDN).
+  // Varian: exact variantId → legacy color → primary → first → products.image.
   const balances = await getLocationBalanceMap(locationId);
+  const pricingNow = new Date();
   return rows.map((p) => {
-    const primary = p.images.find((img) => img.isPrimary) ?? p.images[0];
-    const thumbUrl = primary?.objectKeyThumb
-      ? storage.getUrl(primary.objectKeyThumb)
-      : primary?.objectKey
-        ? storage.getUrl(primary.objectKey)
-        : p.image; // last fallback: main CDN URL
+    const { images, ...product } = p;
+    const productImage = selectProductImage(images);
+    const productImageKey = preferredProductImageKey(productImage);
+    const productImageUrl = productImageKey ? storage.getUrl(productImageKey) : p.image;
+    const productPricing = resolveProductPrice({
+      price: p.price,
+      salePrice: p.salePrice,
+      saleStartsAt: p.saleStartsAt,
+      saleEndsAt: p.saleEndsAt,
+      saleChannel: p.saleChannel,
+      pricingChannel: 'pos',
+    }, pricingNow);
 
     return {
-      ...p,
+      ...product,
       stock: balances.get(`${p.id}:0`) ?? 0,
-      variants: p.variants.map(variant => ({ ...variant, stock: balances.get(`${p.id}:${variant.id}`) ?? 0 })),
-      image: thumbUrl, // override dengan thumb untuk katalog POS
+      variants: p.variants.map(variant => {
+        const variantImage = selectProductImage(images, variant);
+        const variantImageKey = preferredProductImageKey(variantImage);
+        return {
+          ...variant,
+          stock: balances.get(`${p.id}:${variant.id}`) ?? 0,
+          image: variantImageKey ? storage.getUrl(variantImageKey) : p.image,
+          ...resolveProductPrice({
+            price: p.price,
+            salePrice: p.salePrice,
+            saleStartsAt: p.saleStartsAt,
+            saleEndsAt: p.saleEndsAt,
+            saleChannel: p.saleChannel,
+            pricingChannel: 'pos',
+            priceModifier: variant.priceModifier,
+            variantSalePriceOverride: variant.salePriceOverride,
+          }, pricingNow),
+        };
+      }),
+      image: productImageUrl,
+      ...productPricing,
     };
   });
 }

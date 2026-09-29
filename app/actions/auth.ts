@@ -100,6 +100,7 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
   const role = userRows[0]?.role;
   if (role === 'admin') redirect('/dashboard');
   if (role === 'cashier') redirect('/pos');
+  if (role === 'inventory_staff') redirect('/dashboard/inventory/scan');
   redirect('/');
 }
 

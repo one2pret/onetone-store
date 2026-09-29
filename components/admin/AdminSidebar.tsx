@@ -9,7 +9,7 @@ import {
   ExternalLink, X, Menu, Store, Calculator, Receipt, Users, Handshake, TicketPercent, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 
 const navigation = [
   { name: 'Dashboard',   href: '/dashboard',            icon: LayoutDashboard },
@@ -46,10 +46,6 @@ export function useSidebar() {
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((v) => !v), []);
-  const pathname = usePathname();
-
-  useEffect(() => { setOpen(false); }, [pathname]);
-
   return (
     <SidebarContext.Provider value={{ open, setOpen, toggle }}>
       {children}
@@ -70,8 +66,15 @@ export function MobileMenuButton() {
   );
 }
 
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+function SidebarContent({ onClose, userRole }: { onClose?: () => void; userRole?: string }) {
   const pathname = usePathname();
+  const visibleNavigation = userRole === 'inventory_staff'
+    ? [
+        { name: 'Penerimaan Barang', href: '/dashboard/inventory/scan', icon: Warehouse },
+        { name: 'Riwayat Saya', href: '/dashboard/inventory/history', icon: Receipt },
+        { name: 'Katalog Produk', href: '/dashboard/inventory/catalog', icon: Package },
+      ]
+    : navigation;
 
   return (
     <>
@@ -85,7 +88,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
             <h1 className="text-sm font-bold text-foreground leading-tight animate-gold-shimmer">
               Onetone
             </h1>
-            <p className="text-[10px] text-muted-foreground leading-tight">Admin Panel</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">{userRole === 'inventory_staff' ? 'Inventori' : 'Admin Panel'}</p>
           </div>
         </div>
         {onClose && (
@@ -105,7 +108,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           Menu
         </p>
         <ul className="space-y-0.5">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive = item.href === '/dashboard'
               ? pathname === '/dashboard'
               : pathname.startsWith(item.href);
@@ -113,6 +116,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
               <li key={item.name}>
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all',
                     isActive
@@ -150,14 +154,14 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ userRole }: { userRole?: string }) {
   const { open, setOpen } = useSidebar();
 
   return (
     <>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-50 w-[250px] bg-surface border-r border-border hidden lg:flex flex-col">
-        <SidebarContent />
+        <SidebarContent userRole={userRole} />
       </aside>
 
       {/* Mobile overlay */}
@@ -175,7 +179,7 @@ export function AdminSidebar() {
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <SidebarContent onClose={() => setOpen(false)} />
+        <SidebarContent userRole={userRole} onClose={() => setOpen(false)} />
       </aside>
     </>
   );

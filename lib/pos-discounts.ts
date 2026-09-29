@@ -6,12 +6,16 @@ export type PosDiscount = {
 export type PosDiscountLine = {
   key: string;
   unitPrice: number;
+  /** Harga sebelum promo otomatis. Bila kosong, sama dengan unitPrice. */
+  regularUnitPrice?: number;
   quantity: number;
   discount?: PosDiscount;
 };
 
 export type PosDiscountPricing = {
   subtotal: number;
+  regularSubtotal: number;
+  automaticDiscountTotal: number;
   itemDiscountTotal: number;
   orderDiscountAmount: number;
   discountTotal: number;
@@ -43,35 +47,46 @@ export function calculatePosDiscountPricing(
   }
 
   let subtotal = 0;
+  let regularSubtotal = 0;
   let itemDiscountTotal = 0;
   const lineDiscounts = new Map<string, number>();
 
   for (const line of lines) {
-    if (!Number.isFinite(line.unitPrice) || line.unitPrice < 0 || !Number.isInteger(line.quantity) || line.quantity < 1) {
+    const regularUnitPrice = line.regularUnitPrice ?? line.unitPrice;
+    if (!Number.isFinite(line.unitPrice) || line.unitPrice < 0
+      || !Number.isFinite(regularUnitPrice) || regularUnitPrice < line.unitPrice
+      || !Number.isInteger(line.quantity) || line.quantity < 1) {
       throw new Error("Item diskon tidak valid");
     }
     const lineSubtotal = roundRupiah(line.unitPrice * line.quantity);
     const discountAmount = requestedDiscount(lineSubtotal, line.discount);
     if (discountAmount > lineSubtotal) throw new Error("Diskon item melebihi nilai item");
     subtotal += lineSubtotal;
+    regularSubtotal += roundRupiah(regularUnitPrice * line.quantity);
     itemDiscountTotal += discountAmount;
     lineDiscounts.set(line.key, discountAmount);
   }
 
-  const maximumDiscount = roundRupiah(subtotal * maxTotalPercent / 100);
-  if (itemDiscountTotal > maximumDiscount) {
+  const automaticDiscountTotal = regularSubtotal - subtotal;
+  const maximumDiscount = roundRupiah(regularSubtotal * maxTotalPercent / 100);
+  // Promo produk disahkan admin dan tidak boleh menghalangi kasir menjual item.
+  // Namun jika promo sudah menyentuh/melewati batas kasir, tambahan manual = 0.
+  const allowedCombinedDiscount = Math.max(maximumDiscount, automaticDiscountTotal);
+  if (automaticDiscountTotal + itemDiscountTotal > allowedCombinedDiscount) {
     throw new Error(`Total diskon maksimal ${maxTotalPercent}%`);
   }
 
   const afterItemDiscount = subtotal - itemDiscountTotal;
   const orderDiscountAmount = requestedDiscount(afterItemDiscount, orderDiscount);
-  if (itemDiscountTotal + orderDiscountAmount > maximumDiscount) {
+  if (automaticDiscountTotal + itemDiscountTotal + orderDiscountAmount > allowedCombinedDiscount) {
     throw new Error(`Total diskon maksimal ${maxTotalPercent}%`);
   }
 
   const discountTotal = itemDiscountTotal + orderDiscountAmount;
   return {
     subtotal,
+    regularSubtotal,
+    automaticDiscountTotal,
     itemDiscountTotal,
     orderDiscountAmount,
     discountTotal,

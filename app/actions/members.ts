@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { users, memberships, memberTiers, orders } from '@/lib/db/schema';
+import { users, memberships, memberTiers, orders, posCustomerLeads, inventoryLocations } from '@/lib/db/schema';
 import { eq, desc, count, and, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
@@ -81,6 +81,29 @@ export async function getMember(userId: number) {
 export async function getMemberTiers() {
   if (!(await isAdmin())) return [];
   return db.select().from(memberTiers).orderBy(memberTiers.sortOrder);
+}
+
+export async function getPosCustomerLeads() {
+  if (!(await isAdmin())) return [];
+  return db
+    .select({
+      id: posCustomerLeads.id,
+      name: posCustomerLeads.name,
+      phone: posCustomerLeads.phoneNormalized,
+      email: posCustomerLeads.email,
+      status: posCustomerLeads.status,
+      consentAt: posCustomerLeads.consentAt,
+      marketingConsentAt: posCustomerLeads.marketingConsentAt,
+      createdAt: posCustomerLeads.createdAt,
+      createdByName: users.name,
+      locationName: inventoryLocations.name,
+      claimedUserId: posCustomerLeads.claimedUserId,
+    })
+    .from(posCustomerLeads)
+    .leftJoin(users, eq(posCustomerLeads.createdByUserId, users.id))
+    .leftJoin(inventoryLocations, eq(posCustomerLeads.locationId, inventoryLocations.id))
+    .orderBy(desc(posCustomerLeads.createdAt))
+    .limit(100);
 }
 
 export async function getMemberOrders(userId: number) {

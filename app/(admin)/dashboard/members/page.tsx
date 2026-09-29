@@ -1,6 +1,8 @@
 // app/(admin)/dashboard/members/page.tsx
-import { getMembers, getMemberTiers } from '@/app/actions/members';
+import { getMembers, getMemberTiers, getPosCustomerLeads } from '@/app/actions/members';
 import { MembersTable } from './_components/MembersTable';
+import { PosCustomerLeadsTable } from './_components/PosCustomerLeadsTable';
+import Link from 'next/link';
 
 interface Props {
   searchParams: Promise<{ tier?: string }>;
@@ -9,7 +11,12 @@ interface Props {
 export default async function AdminMembersPage({ searchParams }: Props) {
   const { tier } = await searchParams;
   const tierId = tier ? Number(tier) : undefined;
-  const [members, tiers] = await Promise.all([getMembers(tierId), getMemberTiers()]);
+  const [members, tiers, posLeads] = await Promise.all([
+    getMembers(tierId),
+    getMemberTiers(),
+    getPosCustomerLeads(),
+  ]);
+  const pendingLeadCount = posLeads.filter(lead => lead.status === 'pending').length;
 
   return (
     <div className="space-y-6">
@@ -17,7 +24,7 @@ export default async function AdminMembersPage({ searchParams }: Props) {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Member</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {members.length} member terdaftar
+            {members.length} member terdaftar · {pendingLeadCount} calon member POS
           </p>
         </div>
         <a
@@ -28,22 +35,24 @@ export default async function AdminMembersPage({ searchParams }: Props) {
         </a>
       </div>
 
+      <PosCustomerLeadsTable data={posLeads} />
+
       {/* Filter tier */}
       <div className="flex items-center gap-2 flex-wrap">
-        <a
+        <Link
           href="/dashboard/members"
           className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${!tier ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-accent'}`}
         >
           Semua
-        </a>
+        </Link>
         {tiers.map((t) => (
-          <a
+          <Link
             key={t.id}
             href={`/dashboard/members?tier=${t.id}`}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${tier === String(t.id) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-accent'}`}
           >
             {t.name}
-          </a>
+          </Link>
         ))}
       </div>
 

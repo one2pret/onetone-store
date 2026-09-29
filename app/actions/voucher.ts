@@ -3,7 +3,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { memberships, orders, userVouchers, vouchers } from '@/lib/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray } from 'drizzle-orm';
 import { calculateDiscount } from '@/lib/membership-utils';
 
 export type AvailableVoucher = {
@@ -161,9 +161,13 @@ export async function validateVoucher(
       const completedOrders = await db.select({ id: orders.id }).from(orders).where(and(
         eq(orders.userId, userId),
         inArray(orders.status, ['packing', 'shipping', 'delivered']),
+        // MySQL timestamp berpresisi detik. Gunakan strict `>` agar order POS
+        // yang dibuat sesaat sebelum grant tetapi tersimpan pada detik sama
+        // tidak menggugurkan voucher selamat datang.
+        gt(orders.createdAt, grant.grantedAt),
       )).limit(1);
       if (completedOrders.length > 0) {
-        return { valid: false, error: 'Voucher hanya berlaku untuk pesanan pertama' };
+        return { valid: false, error: 'Voucher hanya berlaku untuk pesanan pertama setelah voucher diberikan' };
       }
     }
     userVoucherId = grant.id;

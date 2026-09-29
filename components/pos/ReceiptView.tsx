@@ -21,12 +21,15 @@ type ReceiptData = {
   cashChange: number | null;
   paymentMethod: "cash" | "qris" | "transfer" | null;
   customerName: string | null;
+  pointsEarned: number;
   createdAt: Date | null;
   items: {
     productName: string;
     variantLabel: string | null;
     quantity: number;
     unitPrice: number;
+    regularUnitPrice: number;
+    automaticDiscountAmount: number;
     discountAmount: number;
     subtotal: number;
   }[];
@@ -76,13 +79,16 @@ export function ReceiptView({
         cashChange: order.cashChange ? Number(order.cashChange) : null,
         paymentMethod: order.posPaymentMethod,
         customerName: order.shippingName,
+        pointsEarned: order.pointsEarned ?? 0,
         createdAt: order.createdAt,
         items: order.items.map((it) => ({
           productName: it.productName,
           variantLabel: it.variantLabel,
           quantity: it.quantity,
           unitPrice: Number(it.price),
-          discountAmount: Math.max(0, Number(it.price) * it.quantity - Number(it.subtotal)),
+          regularUnitPrice: Number(it.regularPrice ?? it.price),
+          automaticDiscountAmount: Number(it.productDiscountAmount ?? 0) * it.quantity,
+          discountAmount: Number(it.manualDiscountAmount ?? 0) * it.quantity,
           subtotal: Number(it.subtotal),
         })),
       };
@@ -117,7 +123,7 @@ export function ReceiptView({
       ...data.items.map(
         (it) =>
           `${it.productName}${it.variantLabel ? ` (${it.variantLabel})` : ""}\n` +
-          `  ${it.quantity} × ${formatRupiah(it.unitPrice)}${it.discountAmount > 0 ? ` - diskon ${formatRupiah(it.discountAmount)}` : ""} = ${formatRupiah(it.subtotal)}`
+          `  ${it.quantity} × ${formatRupiah(it.unitPrice)}${it.automaticDiscountAmount > 0 ? ` (promo dari ${formatRupiah(it.regularUnitPrice)})` : ""}${it.discountAmount > 0 ? ` - diskon kasir ${formatRupiah(it.discountAmount)}` : ""} = ${formatRupiah(it.subtotal)}`
       ),
       "",
       data.discountAmount > 0 ? `Subtotal: ${formatRupiah(data.subtotal)}` : "",
@@ -126,6 +132,7 @@ export function ReceiptView({
       data.paymentMethod ? `Bayar: ${PAYMENT_LABELS[data.paymentMethod]}` : "",
       data.cashReceived !== null ? `Diterima: ${formatRupiah(data.cashReceived)}` : "",
       data.cashChange !== null ? `Kembalian: ${formatRupiah(data.cashChange)}` : "",
+      data.pointsEarned > 0 ? `Poin diperoleh: +${data.pointsEarned}` : "",
       "",
       footer?.trim() || "Terima kasih!",
     ].filter(Boolean).join("\n");
@@ -217,9 +224,15 @@ export function ReceiptView({
                   <span className="text-zinc-600">{it.quantity} × {formatRupiah(it.unitPrice)}</span>
                   <span className="font-semibold">{formatRupiah(it.unitPrice * it.quantity)}</span>
                 </div>
+                {it.automaticDiscountAmount > 0 && (
+                  <div className="flex justify-between text-[10px] text-rose-600">
+                    <span>Promo produk (normal {formatRupiah(it.regularUnitPrice)})</span>
+                    <span>-{formatRupiah(it.automaticDiscountAmount)}</span>
+                  </div>
+                )}
                 {it.discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] text-zinc-500">
-                    <span>Diskon item</span>
+                    <span>Diskon kasir</span>
                     <span>-{formatRupiah(it.discountAmount)}</span>
                   </div>
                 )}
@@ -261,6 +274,12 @@ export function ReceiptView({
               <div className="flex justify-between">
                 <span>Kembalian</span>
                 <span>{formatRupiah(data.cashChange)}</span>
+              </div>
+            )}
+            {data.pointsEarned > 0 && (
+              <div className="mt-1 flex justify-between border-t border-dashed border-zinc-200 pt-1 font-semibold">
+                <span>Poin diperoleh</span>
+                <span>+{data.pointsEarned.toLocaleString("id-ID")}</span>
               </div>
             )}
           </div>

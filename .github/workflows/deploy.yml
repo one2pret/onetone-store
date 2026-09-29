@@ -75,7 +75,7 @@ jobs:
             NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY }}
             NEXT_PUBLIC_SEARCH_ENABLED=true
 
-      # Image terpisah buat drizzle-kit push — reuse cache dari build di atas,
+      # Image terpisah untuk migration SQL versioned — reuse cache dari build di atas,
       # jadi ini bukan build ulang dari nol (layer builder sudah ada di cache).
       - name: Build & Push migrator image
         uses: docker/build-push-action@v5
@@ -148,7 +148,8 @@ jobs:
             # menghentikan deploy sebelum image aplikasi baru diaktifkan.
             docker compose up -d onetone-db
 
-            # Migrate schema — jalan sekali, container langsung berhenti sendiri.
+            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
+            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
             # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
             # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
@@ -210,7 +211,8 @@ jobs:
             # menghentikan deploy sebelum image aplikasi baru diaktifkan.
             docker compose -f docker-compose.prod.yml up -d onetone-db
 
-            # Migrate schema — jalan sekali, container langsung berhenti sendiri.
+            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
+            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
             # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
             # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate

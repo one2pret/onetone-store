@@ -22,7 +22,7 @@ export const users = mysqlTable('users', {
   phone: varchar('phone', { length: 20 }),
   address: text('address'),
   birthdate: varchar('birthdate', { length: 10 }),                  // format: YYYY-MM-DD
-  role: mysqlEnum('role', ['customer', 'admin', 'cashier']).default('customer'),
+  role: mysqlEnum('role', ['customer', 'admin', 'cashier', 'inventory_staff']).default('customer'),
   deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
@@ -118,6 +118,7 @@ export const products = mysqlTable('products', {
   salePrice: decimal('sale_price', { precision: 12, scale: 2 }),
   saleStartsAt: timestamp('sale_starts_at'),
   saleEndsAt: timestamp('sale_ends_at'),
+  saleChannel: mysqlEnum('sale_channel', ['online', 'pos', 'all']).default('online').notNull(),
   stock: int('stock').default(0),
   weight: int('weight').default(0), // grams
   image: varchar('image', { length: 500 }),
@@ -173,6 +174,17 @@ export const inventoryLocations = mysqlTable('inventory_locations', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+export const userInventoryLocations = mysqlTable('user_inventory_locations', {
+  id: int('id').primaryKey().autoincrement(),
+  userId: int('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  locationId: int('location_id').references(() => inventoryLocations.id, { onDelete: 'cascade' }).notNull(),
+  createdByUserId: int('created_by_user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  userLocationUnique: uniqueIndex('user_inventory_locations_user_location_unique').on(table.userId, table.locationId),
+  locationIdx: index('user_inventory_locations_location_idx').on(table.locationId),
+}));
+
 export const inventoryBalances = mysqlTable('inventory_balances', {
   id: int('id').primaryKey().autoincrement(),
   locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
@@ -203,6 +215,19 @@ export const inventoryTransfers = mysqlTable('inventory_transfers', {
   toLocationIdx: index('inventory_transfer_to_location_idx').on(table.toLocationId),
 }));
 
+export const inventoryReceipts = mysqlTable('inventory_receipts', {
+  id: int('id').primaryKey().autoincrement(),
+  receiptNumber: varchar('receipt_number', { length: 50 }).notNull().unique(),
+  idempotencyKey: varchar('idempotency_key', { length: 64 }).notNull().unique(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  actorUserId: int('actor_user_id').references(() => users.id).notNull(),
+  referenceNumber: varchar('reference_number', { length: 100 }),
+  notes: varchar('notes', { length: 500 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  locationCreatedIdx: index('inventory_receipts_location_created_idx').on(table.locationId, table.createdAt),
+}));
+
 export const inventoryMovements = mysqlTable('inventory_movements', {
   id: int('id').primaryKey().autoincrement(),
   locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
@@ -211,7 +236,7 @@ export const inventoryMovements = mysqlTable('inventory_movements', {
   quantityDelta: int('quantity_delta').notNull(),
   balanceAfter: int('balance_after').notNull(),
   type: mysqlEnum('type', [
-    'opening_balance', 'online_sale', 'pos_sale', 'return', 'transfer_in', 'transfer_out', 'adjustment',
+    'opening_balance', 'receipt', 'online_sale', 'pos_sale', 'return', 'transfer_in', 'transfer_out', 'adjustment',
   ]).notNull(),
   referenceType: varchar('reference_type', { length: 50 }),
   referenceId: int('reference_id'),
@@ -251,6 +276,33 @@ export const posSessions = mysqlTable('pos_sessions', {
   assignedCashierName: varchar('assigned_cashier_name', { length: 255 }), // nama kasir bertugas (display only)
   notes: text('notes'),
 });
+
+// ============ POS CUSTOMER LEADS ============
+// Identitas pelanggan yang didaftarkan kasir tetapi belum mengaktifkan akun.
+// Dipisahkan dari users agar sistem tidak membuat email/password palsu.
+export const posCustomerLeads = mysqlTable('pos_customer_leads', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 255 }).notNull(),
+  phoneNormalized: varchar('phone_normalized', { length: 20 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  status: mysqlEnum('status', ['pending', 'activated', 'cancelled', 'expired'])
+    .default('pending').notNull(),
+  consentAt: timestamp('consent_at').notNull(),
+  marketingConsentAt: timestamp('marketing_consent_at'),
+  source: varchar('source', { length: 30 }).default('pos').notNull(),
+  createdByUserId: int('created_by_user_id').references(() => users.id).notNull(),
+  locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  activationTokenHash: varchar('activation_token_hash', { length: 64 }),
+  activationExpiresAt: timestamp('activation_expires_at'),
+  claimedUserId: int('claimed_user_id').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  phoneUnique: uniqueIndex('pos_customer_leads_phone_unique').on(table.phoneNormalized),
+  activationTokenUnique: uniqueIndex('pos_customer_leads_activation_token_unique').on(table.activationTokenHash),
+  statusCreatedIdx: index('pos_customer_leads_status_created_idx').on(table.status, table.createdAt),
+  locationCreatedIdx: index('pos_customer_leads_location_created_idx').on(table.locationId, table.createdAt),
+}));
 
 // ============ MEMBERSHIPS ============
 // Phase 1: 1 user : 1 membership row. Auto-create saat register atau order pertama.
@@ -435,6 +487,7 @@ export const affiliateSettings = mysqlTable('affiliate_settings', {
 export const orders = mysqlTable('orders', {
   id: int('id').primaryKey().autoincrement(),
   userId: int('user_id').references(() => users.id), // nullable — walk-in customer POS tanpa akun
+  posCustomerLeadId: int('pos_customer_lead_id').references(() => posCustomerLeads.id, { onDelete: 'set null' }),
   storeId: int('store_id').references(() => stores.id),          // Phase 1: nullable, backfill ke Onetone
   voucherId: int('voucher_id').references(() => vouchers.id),    // Phase 1: nullable
   orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
@@ -476,7 +529,9 @@ export const orders = mysqlTable('orders', {
   affiliateClickId: int('affiliate_click_id').references(() => affiliateClicks.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
-});
+}, (table) => ({
+  posCustomerLeadIdx: index('orders_pos_customer_lead_id_idx').on(table.posCustomerLeadId),
+}));
 
 // ============ USER VOUCHERS ============
 // Kepemilikan voucher per user. Voucher campaign tetap berada di `vouchers`;
@@ -510,6 +565,7 @@ export const orderItems = mysqlTable('order_items', {
   price: decimal('price', { precision: 12, scale: 2 }).notNull(),
   regularPrice: decimal('regular_price', { precision: 12, scale: 2 }),
   productDiscountAmount: decimal('product_discount_amount', { precision: 12, scale: 2 }).default('0'),
+  manualDiscountAmount: decimal('manual_discount_amount', { precision: 12, scale: 2 }).default('0'),
   quantity: int('quantity').notNull(),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
 });
@@ -716,8 +772,11 @@ export const productImages = mysqlTable("product_images", {
   sortOrder: int("sort_order").default(0),
   isPrimary: boolean("is_primary").default(false),
   variantColor: varchar("variant_color", { length: 100 }), // null = gambar umum, isi = gambar untuk warna tertentu
+  variantId: int("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  variantIdx: index("product_images_variant_id_idx").on(table.variantId),
+}));
 
 // ============ POINTS LEDGER ============
 // Phase 1: Audit trail semua mutasi poin. Jangan simpan saldo saja.
@@ -729,7 +788,10 @@ export const pointsLedger = mysqlTable('points_ledger', {
   delta: int('delta').notNull(),
   reason: varchar('reason', { length: 100 }),                    // "order_earn", "order_redeem", "manual_adjust"
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => ({
+  orderReasonUnique: uniqueIndex('points_ledger_membership_order_reason_unique')
+    .on(table.membershipId, table.orderId, table.reason),
+}));
 
 // ============ RELATIONS ============
 
@@ -740,6 +802,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   posSessions: many(posSessions),
   membership: one(memberships, { fields: [users.id], references: [memberships.userId] }),
   vouchers: many(userVouchers),
+  createdPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadCreator' }),
+  claimedPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadClaimedUser' }),
+  inventoryLocations: many(userInventoryLocations, { relationName: 'inventoryStaffAssignments' }),
 }));
 
 export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
@@ -754,7 +819,39 @@ export const inventoryLocationsRelations = relations(inventoryLocations, ({ one,
   movements: many(inventoryMovements),
   transfersOut: many(inventoryTransfers, { relationName: 'inventoryTransferFrom' }),
   transfersIn: many(inventoryTransfers, { relationName: 'inventoryTransferTo' }),
+  receipts: many(inventoryReceipts),
+  assignedUsers: many(userInventoryLocations),
   posSessions: many(posSessions),
+  posCustomerLeads: many(posCustomerLeads),
+}));
+
+export const userInventoryLocationsRelations = relations(userInventoryLocations, ({ one }) => ({
+  user: one(users, { fields: [userInventoryLocations.userId], references: [users.id], relationName: 'inventoryStaffAssignments' }),
+  location: one(inventoryLocations, { fields: [userInventoryLocations.locationId], references: [inventoryLocations.id] }),
+  createdBy: one(users, { fields: [userInventoryLocations.createdByUserId], references: [users.id] }),
+}));
+
+export const inventoryReceiptsRelations = relations(inventoryReceipts, ({ one }) => ({
+  location: one(inventoryLocations, { fields: [inventoryReceipts.locationId], references: [inventoryLocations.id] }),
+  actor: one(users, { fields: [inventoryReceipts.actorUserId], references: [users.id] }),
+}));
+
+export const posCustomerLeadsRelations = relations(posCustomerLeads, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [posCustomerLeads.createdByUserId],
+    references: [users.id],
+    relationName: 'posCustomerLeadCreator',
+  }),
+  claimedUser: one(users, {
+    fields: [posCustomerLeads.claimedUserId],
+    references: [users.id],
+    relationName: 'posCustomerLeadClaimedUser',
+  }),
+  location: one(inventoryLocations, {
+    fields: [posCustomerLeads.locationId],
+    references: [inventoryLocations.id],
+  }),
+  orders: many(orders),
 }));
 
 export const inventoryTransfersRelations = relations(inventoryTransfers, ({ one }) => ({
@@ -834,10 +931,15 @@ export const productImagesRelations = relations(productImages, ({ one }) => ({
     fields: [productImages.productId],
     references: [products.id],
   }),
+  variant: one(productVariants, {
+    fields: [productImages.variantId],
+    references: [productVariants.id],
+  }),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
   product: one(products, { fields: [productVariants.productId], references: [products.id] }),
+  images: many(productImages),
   cartItems: many(cartItems),
   orderItems: many(orderItems),
   inventoryBalances: many(inventoryBalances),
@@ -858,6 +960,7 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
+  posCustomerLead: one(posCustomerLeads, { fields: [orders.posCustomerLeadId], references: [posCustomerLeads.id] }),
   store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
   voucher: one(vouchers, { fields: [orders.voucherId], references: [vouchers.id] }),
   posSession: one(posSessions, { fields: [orders.posSessionId], references: [posSessions.id] }),
@@ -998,6 +1101,9 @@ export type NewBanner = InferInsertModel<typeof banners>;
 
 export type PosSession = InferSelectModel<typeof posSessions>;
 export type NewPosSession = InferInsertModel<typeof posSessions>;
+
+export type PosCustomerLead = InferSelectModel<typeof posCustomerLeads>;
+export type NewPosCustomerLead = InferInsertModel<typeof posCustomerLeads>;
 
 export type ProductImage = InferSelectModel<typeof productImages>;
 export type NewProductImage = InferInsertModel<typeof productImages>;

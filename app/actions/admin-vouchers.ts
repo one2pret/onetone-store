@@ -4,6 +4,7 @@ import { desc, eq, isNotNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
+import { parseBrowserLocalDateTime } from '@/lib/browser-local-datetime';
 import { db } from '@/lib/db';
 import { orders, userVouchers, users, vouchers } from '@/lib/db/schema';
 
@@ -11,10 +12,7 @@ const optionalInt = z.preprocess(
   (value) => value === '' || value === null || value === undefined ? null : value,
   z.coerce.number().int().min(0).nullable(),
 );
-const optionalDate = z.preprocess(
-  (value) => value === '' || value === null || value === undefined ? null : value,
-  z.coerce.date().nullable(),
-);
+const optionalDate = z.date().nullable();
 
 const voucherSchema = z.object({
   code: z.string().trim().min(3).max(50).regex(/^[A-Z0-9_-]+$/, 'Gunakan huruf besar, angka, - atau _'),
@@ -65,6 +63,21 @@ async function requireAdmin() {
 
 function valuesFromForm(formData: FormData) {
   const type = formData.get('type');
+  const timezoneOffsetValue = formData.get('timezoneOffsetMinutes');
+  const timezoneOffsetMinutes = timezoneOffsetValue === null || String(timezoneOffsetValue).trim() === ''
+    ? Number.NaN
+    : Number(timezoneOffsetValue);
+  const parseDate = (field: 'startsAt' | 'endsAt') => {
+    const value = String(formData.get(field) ?? '').trim();
+    if (!value) return null;
+    try {
+      return parseBrowserLocalDateTime(value, timezoneOffsetMinutes);
+    } catch {
+      // Biarkan Zod menghasilkan field error tanpa menebak timezone server.
+      return value;
+    }
+  };
+
   return {
     code: String(formData.get('code') ?? '').trim().toUpperCase(),
     name: formData.get('name'),
@@ -79,8 +92,8 @@ function valuesFromForm(formData: FormData) {
     maxUsesPerUser: formData.get('maxUsesPerUser') || 1,
     firstOrderOnly: formData.get('firstOrderOnly') === 'on',
     allowPoints: formData.get('allowPoints') === 'on',
-    startsAt: formData.get('startsAt'),
-    endsAt: formData.get('endsAt'),
+    startsAt: parseDate('startsAt'),
+    endsAt: parseDate('endsAt'),
     isActive: formData.get('isActive') === 'on',
   };
 }
