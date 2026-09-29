@@ -119,6 +119,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
           cart.map(line => ({
             key: line.key,
             unitPrice: line.unitPrice,
+            regularUnitPrice: line.regularUnitPrice,
             quantity: line.quantity,
             discount: lineDiscounts[line.key],
           })),
@@ -311,11 +312,11 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
         <section className="px-4 py-6 bg-slate-900 text-white text-center">
           <p className="text-xs uppercase tracking-wide text-slate-400">Total Belanja</p>
           <p className="text-4xl md:text-5xl font-bold mt-1">{formatRupiah(payableTotal)}</p>
-          {discountPricing.value && discountPricing.value.discountTotal > 0 && (
+          {discountPricing.value && (discountPricing.value.automaticDiscountTotal > 0 || discountPricing.value.discountTotal > 0) && (
             <div className="mt-2 flex items-center justify-center gap-2 text-xs">
-              <span className="text-slate-400 line-through">{formatRupiah(discountPricing.value.subtotal)}</span>
+              <span className="text-slate-400 line-through">{formatRupiah(discountPricing.value.regularSubtotal)}</span>
               <span className="font-semibold text-emerald-300">
-                Hemat {formatRupiah(discountPricing.value.discountTotal)}
+                Hemat {formatRupiah(discountPricing.value.automaticDiscountTotal + discountPricing.value.discountTotal)}
               </span>
             </div>
           )}
@@ -334,7 +335,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
             </span>
             <span className="text-xs font-medium text-slate-500">
               {discountPricing.value?.discountTotal
-                ? `-${formatRupiah(discountPricing.value.discountTotal)}`
+                ? `Diskon kasir -${formatRupiah(discountPricing.value.discountTotal)}`
                 : discountOpen ? "Tutup" : "Tambah"}
             </span>
           </button>
@@ -342,7 +343,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
           {discountOpen && (
             <div className="mt-3 space-y-3">
               <p className="text-[11px] text-slate-500">
-                Batas diskon gabungan akun ini {maxDiscountPercent}% dari subtotal.
+                Batas promo otomatis dan diskon kasir gabungan akun ini {maxDiscountPercent}% dari harga normal.
               </p>
               {cart.map(line => (
                 <div key={line.key} className="rounded-xl bg-slate-50 p-3">

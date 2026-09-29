@@ -14,12 +14,15 @@ import {
   posCustomerLeads,
   memberships,
   users,
+  productImages,
 } from "@/lib/db/schema";
 import { deductLocationStock, getLocationBalanceMap, validateLocationStock } from "@/lib/inventory-stock";
 import { canAccessPosSession, requirePosOperator } from "@/lib/pos-auth";
 import { calculatePosDiscountPricing, type PosDiscount } from "@/lib/pos-discounts";
 import { awardPosOrderPoints } from "@/lib/pos-membership-points";
 import { storage } from "@/lib/storage";
+import { preferredProductImageKey, selectProductImage } from "@/lib/product-image-resolution";
+import { resolveProductPrice } from "@/lib/product-pricing";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -169,18 +172,33 @@ export async function createPosOrder(input: {
         variant = variantRow[0];
       }
 
-      const base = Number(product.price);
-      const modifier = Number(variant?.priceModifier ?? 0);
-      const unitPrice = base + modifier;
+      const productPricing = resolveProductPrice({
+        price: product.price,
+        salePrice: product.salePrice,
+        saleStartsAt: product.saleStartsAt,
+        saleEndsAt: product.saleEndsAt,
+        saleChannel: product.saleChannel,
+        pricingChannel: 'pos',
+        priceModifier: variant?.priceModifier,
+        variantSalePriceOverride: variant?.salePriceOverride,
+      });
+      const unitPrice = productPricing.finalPrice;
+      const imageRows = await db.query.productImages.findMany({
+        where: eq(productImages.productId, product.id),
+      });
+      const selectedImage = selectProductImage(imageRows, variant);
+      const selectedImageKey = preferredProductImageKey(selectedImage);
 
       return {
         productId: product.id,
         variantId: variant?.id,
         quantity: item.quantity,
         productName: product.posName?.trim() || product.name,
-        productImage: product.image,
+        productImage: selectedImageKey ? storage.getUrl(selectedImageKey) : product.image,
         variantLabel: variant ? (variant.posLabel?.trim() || `${variant.size} / ${variant.color}`) : null,
         unitPrice,
+        regularUnitPrice: productPricing.regularPrice,
+        automaticDiscountAmount: productPricing.discountAmount,
         subtotal: unitPrice * item.quantity,
         discount: item.discount,
       };
@@ -214,6 +232,7 @@ export async function createPosOrder(input: {
       enriched.map((item, index) => ({
         key: String(index),
         unitPrice: item.unitPrice,
+        regularUnitPrice: item.regularUnitPrice,
         quantity: item.quantity,
         discount: item.discount,
       })),
@@ -282,8 +301,9 @@ export async function createPosOrder(input: {
           productImage: e.productImage,
           variantLabel: e.variantLabel,
           price: String(e.unitPrice),
-          regularPrice: String(e.unitPrice),
-          productDiscountAmount: String(lineDiscount / e.quantity),
+          regularPrice: String(e.regularUnitPrice),
+          productDiscountAmount: String(e.automaticDiscountAmount),
+          manualDiscountAmount: String(lineDiscount / e.quantity),
           quantity: e.quantity,
           subtotal: String(e.subtotal - lineDiscount),
         };
@@ -393,21 +413,47 @@ export async function getPosProducts(locationId?: number) {
   });
 
   // Untuk POS: pakai thumb (400px) — hemat ~4x bandwidth R2 vs main (800px).
-  // Prioritas: primary image thumb → any thumb → products.image (fallback CDN).
+  // Varian: exact variantId → legacy color → primary → first → products.image.
   const balances = await getLocationBalanceMap(locationId);
+  const pricingNow = new Date();
   return rows.map((p) => {
-    const primary = p.images.find((img) => img.isPrimary) ?? p.images[0];
-    const thumbUrl = primary?.objectKeyThumb
-      ? storage.getUrl(primary.objectKeyThumb)
-      : primary?.objectKey
-        ? storage.getUrl(primary.objectKey)
-        : p.image; // last fallback: main CDN URL
+    const { images, ...product } = p;
+    const productImage = selectProductImage(images);
+    const productImageKey = preferredProductImageKey(productImage);
+    const productImageUrl = productImageKey ? storage.getUrl(productImageKey) : p.image;
+    const productPricing = resolveProductPrice({
+      price: p.price,
+      salePrice: p.salePrice,
+      saleStartsAt: p.saleStartsAt,
+      saleEndsAt: p.saleEndsAt,
+      saleChannel: p.saleChannel,
+      pricingChannel: 'pos',
+    }, pricingNow);
 
     return {
-      ...p,
+      ...product,
       stock: balances.get(`${p.id}:0`) ?? 0,
-      variants: p.variants.map(variant => ({ ...variant, stock: balances.get(`${p.id}:${variant.id}`) ?? 0 })),
-      image: thumbUrl, // override dengan thumb untuk katalog POS
+      variants: p.variants.map(variant => {
+        const variantImage = selectProductImage(images, variant);
+        const variantImageKey = preferredProductImageKey(variantImage);
+        return {
+          ...variant,
+          stock: balances.get(`${p.id}:${variant.id}`) ?? 0,
+          image: variantImageKey ? storage.getUrl(variantImageKey) : p.image,
+          ...resolveProductPrice({
+            price: p.price,
+            salePrice: p.salePrice,
+            saleStartsAt: p.saleStartsAt,
+            saleEndsAt: p.saleEndsAt,
+            saleChannel: p.saleChannel,
+            pricingChannel: 'pos',
+            priceModifier: variant.priceModifier,
+            variantSalePriceOverride: variant.salePriceOverride,
+          }, pricingNow),
+        };
+      }),
+      image: productImageUrl,
+      ...productPricing,
     };
   });
 }

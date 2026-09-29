@@ -82,6 +82,7 @@ export async function calculateShippingRates(addressId: number): Promise<{
           salePrice: row.products!.salePrice,
           saleStartsAt: row.products!.saleStartsAt,
           saleEndsAt: row.products!.saleEndsAt,
+          saleChannel: row.products!.saleChannel,
           variantSalePriceOverride: row.product_variants?.salePriceOverride,
         },
       ) * (row.cart_items.quantity ?? 1),

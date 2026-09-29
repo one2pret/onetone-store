@@ -5,6 +5,10 @@ export type ProductPricingInput = {
   saleEndsAt?: Date | string | null;
   priceModifier?: string | number | null;
   variantSalePriceOverride?: string | number | null;
+  /** Kanal promo yang dipilih admin. Data lama/default hanya berlaku online. */
+  saleChannel?: 'online' | 'pos' | 'all' | null;
+  /** Kanal yang sedang meminta harga. Default online menjaga kompatibilitas storefront. */
+  pricingChannel?: 'online' | 'pos';
 };
 
 export type ProductPricing = {
@@ -30,6 +34,9 @@ export function resolveProductPrice(
   const startsAt = validDate(input.saleStartsAt);
   const endsAt = validDate(input.saleEndsAt);
   const scheduled = (!startsAt || now >= startsAt) && (!endsAt || now <= endsAt);
+  const promotionChannel = input.saleChannel ?? 'online';
+  const pricingChannel = input.pricingChannel ?? 'online';
+  const channelMatches = promotionChannel === 'all' || promotionChannel === pricingChannel;
   // Variant override belongs to the product promotion and must not activate by itself.
   const candidate = input.salePrice === null || input.salePrice === undefined || input.salePrice === ''
     ? null
@@ -37,7 +44,8 @@ export function resolveProductPrice(
   const promotionalPrice = candidate === null || candidate === undefined || candidate === ''
     ? null
     : Number(candidate);
-  const isOnSale = scheduled
+  const isOnSale = channelMatches
+    && scheduled
     && promotionalPrice !== null
     && Number.isFinite(promotionalPrice)
     && promotionalPrice >= 0

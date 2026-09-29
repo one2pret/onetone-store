@@ -19,12 +19,13 @@ interface Props {
   salePrice?: number | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  saleChannel?: 'online' | 'pos' | 'all';
   pricingNow: string;
   onVariantChange: (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => void;
   onColorChange?: (color: string | null) => void;
 }
 
-export function VariantSelector({ variants, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow, onVariantChange, onColorChange }: Props) {
+export function VariantSelector({ variants, basePrice, salePrice, saleStartsAt, saleEndsAt, saleChannel, pricingNow, onVariantChange, onColorChange }: Props) {
   const activeVariants = useMemo(() => variants.filter((v) => v.stock >= 0), [variants]);
 
   const sizes = useMemo(() => {
@@ -66,7 +67,7 @@ export function VariantSelector({ variants, basePrice, salePrice, saleStartsAt, 
 
   useEffect(() => {
     if (!matchedVariant) {
-      const pricing = resolveProductPrice({ price: basePrice, salePrice, saleStartsAt, saleEndsAt }, new Date(pricingNow));
+      const pricing = resolveProductPrice({ price: basePrice, salePrice, saleStartsAt, saleEndsAt, saleChannel }, new Date(pricingNow));
       onVariantChange(null, pricing.finalPrice, 0, pricing);
       return;
     }
@@ -76,10 +77,11 @@ export function VariantSelector({ variants, basePrice, salePrice, saleStartsAt, 
       salePrice,
       saleStartsAt,
       saleEndsAt,
+      saleChannel,
       variantSalePriceOverride: matchedVariant.salePriceOverride,
     }, new Date(pricingNow));
     onVariantChange(matchedVariant.id, pricing.finalPrice, matchedVariant.stock, pricing);
-  }, [matchedVariant, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [matchedVariant, basePrice, salePrice, saleStartsAt, saleEndsAt, saleChannel, pricingNow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isColorOutOfStock = (color: string) => {
     if (!selectedSize) return false;

@@ -7,6 +7,7 @@ type CartPriceItem = {
     salePrice?: string | number | null;
     saleStartsAt?: Date | string | null;
     saleEndsAt?: Date | string | null;
+    saleChannel?: 'online' | 'pos' | 'all' | null;
   };
   variant?: {
     priceModifier: string | number | null;
@@ -25,6 +26,7 @@ export function getEffectiveUnitPrice(
     salePrice: promotion?.salePrice,
     saleStartsAt: promotion?.saleStartsAt,
     saleEndsAt: promotion?.saleEndsAt,
+    saleChannel: promotion?.saleChannel,
     variantSalePriceOverride: promotion?.variantSalePriceOverride,
   }).finalPrice;
 }

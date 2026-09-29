@@ -50,4 +50,17 @@ describe('resolveProductPrice', () => {
     expect(resolveProductPrice({ price: 100_000, variantSalePriceOverride: 70_000 }, now))
       .toMatchObject({ finalPrice: 100_000, isOnSale: false });
   });
+
+  it('applies a POS promotion only to the POS channel', () => {
+    const input = { price: 100_000, salePrice: 80_000, saleChannel: 'pos' as const };
+    expect(resolveProductPrice(input, now)).toMatchObject({ finalPrice: 100_000, isOnSale: false });
+    expect(resolveProductPrice({ ...input, pricingChannel: 'pos' }, now))
+      .toMatchObject({ finalPrice: 80_000, isOnSale: true });
+  });
+
+  it('applies an all-channel promotion online and in POS', () => {
+    const input = { price: 100_000, salePrice: 75_000, saleChannel: 'all' as const };
+    expect(resolveProductPrice(input, now).finalPrice).toBe(75_000);
+    expect(resolveProductPrice({ ...input, pricingChannel: 'pos' }, now).finalPrice).toBe(75_000);
+  });
 });

@@ -44,7 +44,7 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
   const productNames = new Map(data.products.map(product => [product.id, product.name]));
   const variantNames = new Map(data.variants.map(variant => [variant.id, `${variant.size} / ${variant.color}`]));
   const locationNames = new Map(data.locations.map(location => [location.id, location.name]));
-  const movementLabels: Record<string, string> = { opening_balance: "Saldo awal", online_sale: "Penjualan online", pos_sale: "Penjualan POS", return: "Retur", transfer_in: "Transfer masuk", transfer_out: "Transfer keluar", adjustment: "Penyesuaian" };
+  const movementLabels: Record<string, string> = { opening_balance: "Saldo awal", receipt: "Penerimaan", online_sale: "Penjualan online", pos_sale: "Penjualan POS", return: "Retur", transfer_in: "Transfer masuk", transfer_out: "Transfer keluar", adjustment: "Penyesuaian" };
   const filteredMovements = data.movements.filter(movement => {
     const haystack = `${productNames.get(movement.productId) ?? ""} ${movement.variantId ? variantNames.get(movement.variantId) ?? "" : ""} ${movement.notes ?? ""}`.toLowerCase();
     return (!movementLocation || movement.locationId === movementLocation)

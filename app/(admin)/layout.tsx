@@ -15,13 +15,13 @@ export default async function AdminLayout({
 
   if (!session) redirect('/login');
   if (session.user.role === 'cashier') redirect('/pos');
-  if (session.user.role !== 'admin') redirect('/login');
+  if (session.user.role !== 'admin' && session.user.role !== 'inventory_staff') redirect('/login');
 
   return (
     <NuqsAdapter>
       <SidebarProvider>
         <div className="min-h-screen bg-background">
-          <AdminSidebar />
+          <AdminSidebar userRole={session.user.role} />
           <div className="lg:pl-[250px]">
             <AdminHeader user={session.user} />
             <main className="p-4 md:p-6">

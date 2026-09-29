@@ -63,9 +63,7 @@ export function AdminHeader({ user }: Props) {
             {getPageTitle(pathname)}
           </h2>
           {/* Search — hanya tampil di md ke atas */}
-          <div className="hidden md:block">
-            <AdminSearchBar />
-          </div>
+          {user.role !== 'inventory_staff' && <div className="hidden md:block"><AdminSearchBar /></div>}
         </div>
 
         {/* Right */}

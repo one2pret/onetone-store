@@ -21,7 +21,7 @@ export const authConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = (user as { role?: string }).role ?? 'customer';
       }
       return token;
     },
@@ -38,8 +38,15 @@ export const authConfig = {
 
       // Admin routes (all under /dashboard/*)
       if (pathname.startsWith('/dashboard')) {
-        if (!isLoggedIn || (auth?.user as any)?.role !== 'admin') {
+        const role = (auth?.user as { role?: string } | undefined)?.role;
+        if (!isLoggedIn || (role !== 'admin' && role !== 'inventory_staff')) {
           return Response.redirect(new URL('/login', nextUrl));
+        }
+        const inventoryStaffPath = pathname.startsWith('/dashboard/inventory/scan')
+          || pathname.startsWith('/dashboard/inventory/history')
+          || pathname.startsWith('/dashboard/inventory/catalog');
+        if (role === 'inventory_staff' && !inventoryStaffPath) {
+          return Response.redirect(new URL('/dashboard/inventory/scan', nextUrl));
         }
       }
 
@@ -57,8 +64,9 @@ export const authConfig = {
 
       // Auth routes - redirect if already logged in
       if ((pathname === '/login' || pathname === '/register') && isLoggedIn) {
-        const isAdmin = (auth?.user as any)?.role === 'admin';
-        return Response.redirect(new URL(isAdmin ? '/dashboard' : '/', nextUrl));
+        const role = (auth?.user as { role?: string } | undefined)?.role;
+        const destination = role === 'admin' ? '/dashboard' : role === 'cashier' ? '/pos' : role === 'inventory_staff' ? '/dashboard/inventory/scan' : '/';
+        return Response.redirect(new URL(destination, nextUrl));
       }
 
       return true;

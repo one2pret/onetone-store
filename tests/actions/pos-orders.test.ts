@@ -5,6 +5,9 @@ const mockInsertReturn = vi.fn();
 const mockRequirePosOperator = vi.fn();
 const mockDeductStock = vi.fn();
 const mockAwardPosOrderPoints = vi.fn();
+const mockProductImages = vi.fn();
+const mockPosProducts = vi.fn();
+const mockGetLocationBalanceMap = vi.fn();
 const mockInsertedValues: unknown[] = [];
 
 function mockChain(returnFn: () => unknown) {
@@ -22,7 +25,10 @@ vi.mock("@/lib/db", () => ({
   db: {
     select: vi.fn(() => mockChain(mockSelectReturn)),
     insert: vi.fn(() => mockChain(mockInsertReturn)),
-    query: { products: { findMany: vi.fn() } },
+    query: {
+      products: { findMany: (...args: unknown[]) => mockPosProducts(...args) },
+      productImages: { findMany: (...args: unknown[]) => mockProductImages(...args) },
+    },
   },
 }));
 
@@ -35,7 +41,7 @@ vi.mock("@/lib/pos-auth", () => ({
 vi.mock("@/lib/inventory-stock", () => ({
   validateLocationStock: vi.fn().mockResolvedValue({ valid: true, errors: [] }),
   deductLocationStock: (...args: unknown[]) => mockDeductStock(...args),
-  getLocationBalanceMap: vi.fn(),
+  getLocationBalanceMap: (...args: unknown[]) => mockGetLocationBalanceMap(...args),
 }));
 
 vi.mock("@/lib/storage", () => ({
@@ -48,7 +54,7 @@ vi.mock("@/lib/pos-membership-points", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createPosOrder } from "@/app/actions/pos-orders";
+import { createPosOrder, getPosProducts } from "@/app/actions/pos-orders";
 
 const input = {
   sessionId: 10,
@@ -67,6 +73,9 @@ describe("POS order authorization", () => {
     mockInsertReturn.mockReturnValue([{ insertId: 99 }]);
     mockDeductStock.mockResolvedValue(undefined);
     mockAwardPosOrderPoints.mockResolvedValue({ awarded: true, pointsEarned: 2 });
+    mockProductImages.mockResolvedValue([]);
+    mockPosProducts.mockResolvedValue([]);
+    mockGetLocationBalanceMap.mockResolvedValue(new Map());
     mockInsertedValues.length = 0;
   });
 
@@ -76,11 +85,72 @@ describe("POS order authorization", () => {
       .mockReturnValueOnce([{ id: 5, name: "Nama Produk Online Sangat Panjang", posName: "Produk POS", price: "15000", image: null }])
       .mockReturnValueOnce([{ id: 8, productId: 5, size: "EXTRA LARGE", color: "Midnight Black", posLabel: "XL / Black", priceModifier: "2000" }]);
 
-    const result = await createPosOrder({ ...input, items: [{ productId: 5, variantId: 8, quantity: 1 }] });
+    const result = await createPosOrder({
+      ...input,
+      cashReceived: 120_000,
+      items: [{ productId: 5, variantId: 8, quantity: 1 }],
+    });
 
     expect(result.success).toBe(true);
     const insertedItems = mockInsertedValues[1] as { productName: string; variantLabel: string }[];
     expect(insertedItems[0]).toMatchObject({ productName: "Produk POS", variantLabel: "XL / Black" });
+  });
+
+  it("snapshots the exact selected variant image", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{ id: 5, name: "Bolero", posName: null, price: "110000", image: "/product.webp" }])
+      .mockReturnValueOnce([{ id: 8, productId: 5, size: "M", color: "Black", posLabel: null, priceModifier: "0" }]);
+    mockProductImages.mockResolvedValue([
+      { id: 1, variantId: null, variantColor: null, isPrimary: true, sortOrder: 0, objectKey: "product.webp", objectKeyThumb: "product-thumb.webp" },
+      { id: 2, variantId: 8, variantColor: null, isPrimary: false, sortOrder: 1, objectKey: "m-black.webp", objectKeyThumb: "m-black-thumb.webp" },
+    ]);
+
+    const result = await createPosOrder({
+      ...input,
+      cashReceived: 120_000,
+      items: [{ productId: 5, variantId: 8, quantity: 1 }],
+    });
+
+    expect(result.success).toBe(true);
+    const insertedItems = mockInsertedValues[1] as { productImage: string | null }[];
+    expect(insertedItems[0].productImage).toBe("m-black-thumb.webp");
+  });
+
+  it("returns exact and legacy fallback image URLs for POS variants", async () => {
+    mockGetLocationBalanceMap.mockResolvedValue(new Map([
+      ["5:8", 3],
+      ["5:9", 2],
+    ]));
+    mockPosProducts.mockResolvedValue([{
+      id: 5,
+      name: "Bolero",
+      posName: null,
+      slug: "bolero",
+      price: "110000",
+      stock: 0,
+      image: "/product.webp",
+      category: null,
+      barcodes: [],
+      variants: [
+        { id: 8, productId: 5, size: "M", color: "Black", priceModifier: "0", isActive: true, sku: null, posLabel: null, barcodes: [] },
+        { id: 9, productId: 5, size: "S", color: "Olive", priceModifier: "0", isActive: true, sku: null, posLabel: null, barcodes: [] },
+      ],
+      images: [
+        { id: 1, variantId: null, variantColor: null, isPrimary: true, sortOrder: 0, objectKey: "product.webp", objectKeyThumb: "product-thumb.webp" },
+        { id: 2, variantId: 8, variantColor: null, isPrimary: false, sortOrder: 1, objectKey: "m-black.webp", objectKeyThumb: "m-black-thumb.webp" },
+        { id: 3, variantId: null, variantColor: "Olive", isPrimary: false, sortOrder: 2, objectKey: "olive.webp", objectKeyThumb: "olive-thumb.webp" },
+      ],
+    }]);
+
+    const result = await getPosProducts(7);
+
+    expect(result[0].image).toBe("product-thumb.webp");
+    expect(result[0]).not.toHaveProperty("images");
+    expect(result[0].variants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 8, image: "m-black-thumb.webp", stock: 3 }),
+      expect.objectContaining({ id: 9, image: "olive-thumb.webp", stock: 2 }),
+    ]));
   });
 
   it("allows a registered cashier to checkout their own open session", async () => {
@@ -197,7 +267,8 @@ describe("POS order authorization", () => {
     });
     expect((mockInsertedValues[1] as Record<string, unknown>[])[0]).toMatchObject({
       price: "15000",
-      productDiscountAmount: "1500",
+      productDiscountAmount: "0",
+      manualDiscountAmount: "1500",
       subtotal: "13500",
     });
   });
@@ -220,6 +291,33 @@ describe("POS order authorization", () => {
     expect(result).toEqual({ success: false, error: "Total diskon maksimal 20%" });
     expect(mockInsertedValues).toHaveLength(0);
     expect(mockDeductStock).not.toHaveBeenCalled();
+  });
+
+  it("recalculates an active POS promotion on the server and snapshots it separately", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{
+        id: 5,
+        name: "Produk Promo POS",
+        price: "100000",
+        salePrice: "85000",
+        saleStartsAt: null,
+        saleEndsAt: null,
+        saleChannel: "pos",
+        image: null,
+      }]);
+
+    const result = await createPosOrder({ ...input, cashReceived: 100_000 });
+
+    expect(result).toMatchObject({ success: true, total: 85_000, discountAmount: 0 });
+    expect(mockInsertedValues[0]).toMatchObject({ subtotal: "85000", total: "85000" });
+    expect((mockInsertedValues[1] as Record<string, unknown>[])[0]).toMatchObject({
+      price: "85000",
+      regularPrice: "100000",
+      productDiscountAmount: "15000",
+      manualDiscountAmount: "0",
+      subtotal: "85000",
+    });
   });
 
   it("rejects a variant that belongs to another product", async () => {

@@ -24,6 +24,7 @@ interface Props {
   salePrice?: number | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  saleChannel?: 'online' | 'pos' | 'all';
   pricingNow: string;
   variants: Variant[];
   initialStock: number;
@@ -31,7 +32,7 @@ interface Props {
   onVariantPriceChange?: (variantId: number | null, price: number, stock: number, pricing: ProductPricing) => void;
 }
 
-export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt, saleEndsAt, pricingNow, variants, initialStock, onColorChange, onVariantPriceChange }: Props) {
+export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt, saleEndsAt, saleChannel, pricingNow, variants, initialStock, onColorChange, onVariantPriceChange }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
@@ -101,6 +102,7 @@ export function AddToCartButton({ productId, basePrice, salePrice, saleStartsAt,
           salePrice={salePrice}
           saleStartsAt={saleStartsAt}
           saleEndsAt={saleEndsAt}
+          saleChannel={saleChannel}
           pricingNow={pricingNow}
           onVariantChange={handleVariantChange}
           onColorChange={onColorChange}

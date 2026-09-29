@@ -9,10 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function AddStaffForm() {
+type Location = { id: number; name: string; code: string; type: string };
+
+export function AddStaffForm({ locations }: { locations: Location[] }) {
   const [state, formAction, pending] = useActionState(createStaffUser, null);
   const formRef = useRef<HTMLFormElement>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState('cashier');
 
   useEffect(() => {
     if (state?.success) {
@@ -71,15 +74,27 @@ export function AddStaffForm() {
 
       <div>
         <Label htmlFor="role" className="text-sm">Akses Role *</Label>
-        <select id="role" name="role" defaultValue="cashier"
+        <select id="role" name="role" value={role} onChange={event => setRole(event.target.value)}
           className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
           <option value="cashier">Kasir — hanya akses POS</option>
+          <option value="inventory_staff">Staf Inventori — akses lokasi yang dipilih</option>
           <option value="admin">Admin — akses penuh dashboard + POS</option>
         </select>
         <p className="text-xs text-muted-foreground mt-1">
-          Kasir hanya bisa login ke halaman POS. Admin bisa akses seluruh dashboard.
+          Kasir diarahkan ke POS. Staf inventori diarahkan langsung ke terminal penerimaan.
         </p>
       </div>
+
+      {role === 'inventory_staff' && (
+        <fieldset className="rounded-lg border border-border p-4">
+          <legend className="px-1 text-sm font-semibold text-foreground">Lokasi yang dapat diakses</legend>
+          <p className="mb-3 text-xs text-muted-foreground">Pilih satu atau beberapa lokasi kerja. Akses dapat diubah kapan saja.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {locations.map(location => <label key={location.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 hover:bg-accent"><input type="checkbox" name="locationIds" value={location.id} className="mt-0.5 h-4 w-4 accent-primary" /><span><span className="block text-sm font-medium text-foreground">{location.name}</span><span className="text-xs text-muted-foreground">{location.code} · {location.type}</span></span></label>)}
+          </div>
+          {state?.errors?.locationIds && <p className="mt-2 text-xs text-destructive">{state.errors.locationIds[0]}</p>}
+        </fieldset>
+      )}
 
       <Button type="submit" disabled={pending}>
         {pending ? 'Menambahkan...' : 'Tambah Staff'}

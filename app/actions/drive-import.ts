@@ -131,6 +131,7 @@ export async function importFromDrive(
   revalidatePath(`/dashboard/products/${productId}/edit`);
   revalidatePath("/dashboard/products");
   revalidatePath(`/products/${product.slug}`);
+  revalidatePath("/pos");
 
   return {
     success: imported > 0,

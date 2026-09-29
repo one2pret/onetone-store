@@ -36,6 +36,7 @@ interface Props {
   salePrice?: number | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
+  saleChannel?: 'online' | 'pos' | 'all';
   pricingNow: string;
   initialPricing: ProductPricing;
   variants: Variant[];
@@ -188,6 +189,7 @@ export function ProductDetail({
   salePrice,
   saleStartsAt,
   saleEndsAt,
+  saleChannel,
   pricingNow,
   initialPricing,
   variants,
@@ -258,6 +260,7 @@ export function ProductDetail({
           salePrice={salePrice}
           saleStartsAt={saleStartsAt}
           saleEndsAt={saleEndsAt}
+          saleChannel={saleChannel}
           pricingNow={pricingNow}
           variants={variants}
           initialStock={initialStock}

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Search, ScanBarcode, ShoppingBag, X, Plus, Minus, Trash2, LogOut, ChevronUp, Printer, History, MapPin } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+import { buildPosCartLine } from "@/lib/pos-cart-line";
 import {
   appendBarcodeCharacter,
   consumeBarcodeBuffer,
@@ -32,6 +33,11 @@ type PosVariant = {
   isActive: boolean | null;
   sku: string | null;
   posLabel: string | null;
+  image: string | null;
+  regularPrice: number;
+  finalPrice: number;
+  discountPercent: number;
+  isOnSale: boolean;
   barcodes: { code: string }[];
 };
 
@@ -43,6 +49,10 @@ export type PosProduct = {
   price: string;
   stock: number | null;
   image: string | null;
+  regularPrice: number;
+  finalPrice: number;
+  discountPercent: number;
+  isOnSale: boolean;
   category: { id: number; name: string; slug: string } | null;
   variants: PosVariant[];
   barcodes: { code: string; variantId: number | null }[];
@@ -56,6 +66,8 @@ export type CartLine = {
   variantLabel?: string | null;
   image?: string | null;
   unitPrice: number;
+  regularUnitPrice: number;
+  automaticDiscountAmount: number;
   quantity: number;
   maxStock: number;
 };
@@ -136,11 +148,8 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
       return;
     }
 
-    const base = Number(product.price);
-    const modifier = Number(variant?.priceModifier ?? 0);
-    const unitPrice = base + modifier;
-    const key = variant ? `${product.id}-${variant.id}` : `${product.id}`;
-    const maxStock = variant ? variant.stock : product.stock ?? 0;
+    const nextLine = buildPosCartLine(product, variant);
+    const { key, maxStock } = nextLine;
 
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
@@ -159,17 +168,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
       }
       return [
         ...prev,
-        {
-          key,
-          productId: product.id,
-          variantId: variant?.id,
-          productName: product.posName?.trim() || product.name,
-          variantLabel: variant ? (variant.posLabel?.trim() || `${variant.size} / ${variant.color}`) : null,
-          image: product.image,
-          unitPrice,
-          quantity: 1,
-          maxStock,
-        },
+        nextLine,
       ];
     });
     setVariantPickerFor(null);
@@ -569,7 +568,6 @@ function ProductCard({
   onClick: () => void;
   priority?: boolean;
 }) {
-  const basePrice = Number(product.price);
   const hasVariants = product.variants.length > 0;
   const totalStock = hasVariants
     ? product.variants.reduce((s, v) => s + v.stock, 0)
@@ -578,10 +576,14 @@ function ProductCard({
   const pricedVariants = product.variants.some(variant => variant.stock > 0)
     ? product.variants.filter(variant => variant.stock > 0)
     : product.variants;
-  const variantPrices = pricedVariants.map(variant => basePrice + Number(variant.priceModifier ?? 0));
-  const minPrice = variantPrices.length ? Math.min(...variantPrices) : basePrice;
-  const maxPrice = variantPrices.length ? Math.max(...variantPrices) : basePrice;
+  const variantPrices = pricedVariants.map(variant => variant.finalPrice);
+  const minPrice = variantPrices.length ? Math.min(...variantPrices) : product.finalPrice;
+  const maxPrice = variantPrices.length ? Math.max(...variantPrices) : product.finalPrice;
   const priceLabel = minPrice === maxPrice ? formatRupiah(minPrice) : `Mulai ${formatRupiah(minPrice)}`;
+  const promotionPrices = pricedVariants.length ? pricedVariants : [product];
+  const hasPromotion = promotionPrices.some(item => item.isOnSale);
+  const minimumRegularPrice = Math.min(...promotionPrices.map(item => item.regularPrice));
+  const bestDiscountPercent = Math.max(...promotionPrices.map(item => item.discountPercent));
 
   return (
     <button
@@ -614,6 +616,11 @@ function ProductCard({
             </span>
           </div>
         )}
+        {hasPromotion && (
+          <span className="absolute left-2 top-2 rounded-md bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+            Hemat s.d. {bestDiscountPercent}%
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-2.5">
         <p className="text-xs font-medium text-slate-800 line-clamp-2 min-h-[2.4em]">
@@ -623,6 +630,11 @@ function ProductCard({
           <p className="whitespace-nowrap text-sm font-extrabold tabular-nums text-slate-950 sm:text-base">
             {priceLabel}
           </p>
+          {hasPromotion && (
+            <p className="text-[10px] tabular-nums text-slate-400 line-through">
+              {minimumRegularPrice === product.regularPrice ? formatRupiah(minimumRegularPrice) : `Normal mulai ${formatRupiah(minimumRegularPrice)}`}
+            </p>
+          )}
           <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500">
             <span>{hasVariants ? `${product.variants.length} varian` : "Tanpa varian"}</span>
             <span className={outOfStock ? "font-semibold text-rose-600" : "font-medium text-slate-600"}>
@@ -644,8 +656,6 @@ function VariantPickerSheet({
   onClose: () => void;
   onPick: (variant: PosVariant) => void;
 }) {
-  const base = Number(product.price);
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
       <div className="flex-1 bg-black/40" onClick={onClose} />
@@ -664,8 +674,6 @@ function VariantPickerSheet({
         </div>
         <div className="overflow-y-auto p-3 space-y-2">
           {product.variants.map((v) => {
-            const modifier = Number(v.priceModifier ?? 0);
-            const finalPrice = base + modifier;
             const disabled = v.stock <= 0 || !v.isActive;
             return (
               <button
@@ -674,11 +682,26 @@ function VariantPickerSheet({
                 onClick={() => onPick(v)}
                 className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition disabled:opacity-40 disabled:cursor-not-allowed text-left"
               >
-                {v.colorHex && (
+                {v.image ? (
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                    <Image
+                      src={v.image}
+                      alt={`${product.posName?.trim() || product.name} - ${v.posLabel?.trim() || `${v.size} / ${v.color}`}`}
+                      fill
+                      unoptimized
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : v.colorHex ? (
                   <div
                     className="w-8 h-8 rounded-full border border-slate-200 shrink-0"
                     style={{ backgroundColor: v.colorHex }}
                   />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100">
+                    <ShoppingBag className="h-5 w-5 text-slate-300" />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900">
@@ -688,9 +711,12 @@ function VariantPickerSheet({
                     Stok: {v.stock} {disabled && "(habis)"}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-extrabold tabular-nums text-slate-950">
-                  {formatRupiah(finalPrice)}
-                </p>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-extrabold tabular-nums text-slate-950">{formatRupiah(v.finalPrice)}</p>
+                  {v.isOnSale && (
+                    <p className="text-[10px] tabular-nums text-slate-400 line-through">{formatRupiah(v.regularPrice)}</p>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -755,7 +781,7 @@ function CartPanel({
                 {line.image ? (
                   <Image
                     src={line.image}
-                    alt={line.productName}
+                    alt={line.variantLabel ? `${line.productName} - ${line.variantLabel}` : line.productName}
                     fill
                     unoptimized
                     sizes="56px"
@@ -777,6 +803,12 @@ function CartPanel({
                 <p className="text-xs font-bold text-primary mt-0.5">
                   {formatRupiah(line.unitPrice * line.quantity)}
                 </p>
+                {line.automaticDiscountAmount > 0 && (
+                  <p className="text-[10px] text-rose-600">
+                    Promo {formatRupiah(line.regularUnitPrice * line.quantity)}
+                    <span className="ml-1 text-slate-400 line-through">normal</span>
+                  </p>
+                )}
                 <p className="text-[10px] text-slate-400">
                   {formatRupiah(line.unitPrice)} × {line.quantity}
                 </p>
