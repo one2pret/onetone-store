@@ -40,11 +40,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ── Stage 2: Migrator ──────────────────────────────────────────────────────────
-# Image terpisah buat jalanin `drizzle-kit push` di VPS (docker run --rm, bukan service
-# yang jalan terus). Reuse layer dari builder — DATABASE_URL diisi runtime via --env-file,
-# bukan dari ARG build-time di atas (itu cuma dummy value buat next build).
+# Jalankan hanya migration SQL versioned yang belum tercatat. Jangan gunakan
+# `drizzle-kit push --force` di server karena schema diff dapat mengusulkan truncate
+# atau perubahan destruktif terhadap database yang sudah berisi data.
 FROM builder AS migrator
-CMD ["npx", "drizzle-kit", "push", "--force"]
+CMD ["npx", "drizzle-kit", "migrate"]
 
 # ── Stage 3: Production image ─────────────────────────────────────────────────
 FROM node:20-alpine AS runner
