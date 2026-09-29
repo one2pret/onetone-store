@@ -39,6 +39,7 @@ export async function getMyInventoryReceiptHistory() {
     locationCode: inventoryLocations.code,
     itemCount: sql<number>`(select count(*) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id})`.mapWith(Number),
     totalQuantity: sql<number>`(select coalesce(sum(${inventoryMovements.quantityDelta}), 0) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id})`.mapWith(Number),
+    barcodeCodes: sql<string>`(select coalesce(group_concat(distinct pb.code separator ' '), '') from inventory_movements im left join product_barcodes pb on pb.product_id = im.product_id and (pb.variant_id = im.variant_id or (pb.variant_id is null and im.variant_id is null)) where im.reference_type = 'inventory_receipt' and im.reference_id = ${inventoryReceipts.id})`,
   }).from(inventoryReceipts)
     .innerJoin(inventoryLocations, eq(inventoryReceipts.locationId, inventoryLocations.id))
     .where(and(...conditions))

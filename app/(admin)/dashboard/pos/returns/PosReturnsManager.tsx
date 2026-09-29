@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { createPosReturn, getPosReturnAdminData } from "@/app/actions/pos-returns";
 import { calculatePosReturn } from "@/lib/pos-return-pricing";
 import { formatRupiah } from "@/lib/utils";
+import { useBarcodeScanner } from "@/components/hooks/use-barcode-scanner";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
 
 type Data = NonNullable<Awaited<ReturnType<typeof getPosReturnAdminData>>>;
 type RefundMethod = "cash" | "qris" | "transfer";
@@ -45,14 +47,27 @@ export function PosReturnsManager({ data }: { data: Data }) {
     }
   }, [items, quantities, returned, sale]);
 
-  function selectOrder(orderId: number) {
+  const selectOrder = useCallback((orderId: number) => {
     setSelectedOrderId(orderId);
     setQuantities({});
     setRestocks({});
     const selected = data.sales.find(row => row.id === orderId);
     setRefundMethod(selected?.paymentMethod ?? "cash");
     setRefundSessionId(data.activeSessions.find(session => session.locationId === selected?.locationId)?.id ?? null);
-  }
+  }, [data.activeSessions, data.sales]);
+
+  const scanOrder = useCallback((rawCode: string) => {
+    const code = rawCode.trim();
+    const selected = data.sales.find(row => row.orderNumber.toLowerCase() === code.toLowerCase());
+    if (!selected) {
+      toast.error(`Transaksi ${code} tidak ditemukan atau tidak dapat diretur`);
+      return;
+    }
+    selectOrder(selected.id);
+    toast.success(`${selected.orderNumber} dipilih`);
+  }, [data.sales, selectOrder]);
+
+  useBarcodeScanner(scanOrder);
 
   function submit() {
     const selectedItems = items.filter(item => (quantities[item.id] ?? 0) > 0).map(item => ({
@@ -78,9 +93,10 @@ export function PosReturnsManager({ data }: { data: Data }) {
       <div className="space-y-5">
         <section className="rounded-xl border border-border bg-card p-5">
           <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transaksi POS</label>
-          <select value={selectedOrderId} onChange={event => selectOrder(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
+          <div className="flex flex-col gap-2 sm:flex-row"><select value={selectedOrderId} onChange={event => selectOrder(Number(event.target.value))} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm">
             {data.sales.map(row => <option key={row.id} value={row.id}>{row.orderNumber} · {formatRupiah(row.total)} · {row.locationName ?? "Lokasi POS"}</option>)}
-          </select>
+          </select><CameraBarcodeScanner onScan={scanOrder} label="Scan struk" className="shrink-0" /></div>
+          <p className="mt-2 text-xs text-muted-foreground">Scan QR/nomor order pada struk untuk memilih transaksi. Retur tetap memerlukan item, alasan, dan konfirmasi.</p>
         </section>
 
         <section className="overflow-hidden rounded-xl border border-border bg-card">

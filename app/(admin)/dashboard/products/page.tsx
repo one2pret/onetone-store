@@ -1,14 +1,15 @@
 // app/(admin)/dashboard/products/page.tsx
-import { getProducts, getCategories } from '@/app/actions/products';
+import { getProducts, getCategories, getAdminProductSearchData } from '@/app/actions/products';
 import { ProductsTable } from './_components/ProductsTable';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus, Upload } from 'lucide-react';
 
 export default async function AdminProductsPage() {
-  const [products, categories] = await Promise.all([
+  const [products, categories, searchData] = await Promise.all([
     getProducts(),
     getCategories(),
+    getAdminProductSearchData(),
   ]);
 
   return (
@@ -34,7 +35,7 @@ export default async function AdminProductsPage() {
         </div>
       </div>
 
-      <ProductsTable data={products} categories={categories} />
+      <ProductsTable data={products} categories={categories} searchData={searchData ?? { variants: [], barcodes: [] }} />
     </div>
   );
 }

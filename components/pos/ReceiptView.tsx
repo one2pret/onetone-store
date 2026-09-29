@@ -11,6 +11,7 @@ import { Check, Printer, MessageCircle, Plus } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { getPosOrder } from "@/app/actions/pos-orders";
 import Image from "next/image";
+import QRCode from "qrcode";
 
 type ReceiptData = {
   orderNumber: string;
@@ -59,6 +60,8 @@ export function ReceiptView({
   const [data, setData] = useState<ReceiptData | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoReady, setLogoReady] = useState(!receiptLogoUrl);
+  const [orderQrUrl, setOrderQrUrl] = useState("");
+  const [orderQrReady, setOrderQrReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,10 +103,32 @@ export function ReceiptView({
   }, [orderId, autoPrint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!autoPrint || !data || !logoReady) return;
+    if (!data?.orderNumber) return;
+    let cancelled = false;
+
+    void QRCode.toDataURL(data.orderNumber, {
+      width: 192,
+      margin: 1,
+      errorCorrectionLevel: "M",
+    })
+      .then((url) => {
+        if (!cancelled) setOrderQrUrl(url);
+      })
+      .catch(() => {
+        // Nomor transaksi tetap tercetak sebagai teks bila QR gagal dibuat.
+      })
+      .finally(() => {
+        if (!cancelled) setOrderQrReady(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [data?.orderNumber]);
+
+  useEffect(() => {
+    if (!autoPrint || !data || !logoReady || !orderQrReady) return;
     const timer = window.setTimeout(() => window.print(), 300);
     return () => window.clearTimeout(timer);
-  }, [autoPrint, data, logoReady]);
+  }, [autoPrint, data, logoReady, orderQrReady]);
 
   function handlePrint() {
     window.print();
@@ -283,6 +308,22 @@ export function ReceiptView({
               </div>
             )}
           </div>
+
+          {/* QR nomor transaksi untuk pencarian retur */}
+          {orderQrUrl && (
+            <div className="border-t border-dashed border-zinc-300 pt-3 mt-3 text-center">
+              <Image
+                src={orderQrUrl}
+                alt={`QR transaksi ${data.orderNumber}`}
+                width={96}
+                height={96}
+                unoptimized
+                className="mx-auto h-24 w-24"
+              />
+              <p className="mt-1 text-[9px] text-zinc-500">Scan untuk pencarian transaksi</p>
+              <p className="font-semibold tracking-wide text-[10px] text-zinc-700">{data.orderNumber}</p>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="text-center border-t border-dashed border-zinc-300 pt-3 mt-3 text-[10px] text-zinc-500 whitespace-pre-line">

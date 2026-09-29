@@ -1,12 +1,15 @@
 "use client";
 
 import { configureOnlineInventoryLocation, createInventoryLocation, transferInventory, updateInventoryBalance } from "@/app/actions/inventory";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ScanBarcode } from "lucide-react";
+import { useBarcodeScanner } from "@/components/hooks/use-barcode-scanner";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
 
 type Data = Awaited<ReturnType<typeof import("@/app/actions/inventory").getInventoryAdminData>>;
-type InventoryRow = { productId: number; variantId: number | null; name: string; detail: string };
+type InventoryRow = { productId: number; variantId: number | null; name: string; detail: string; barcode: string | null };
 const jakartaDateKey = (value: Date | string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
 
 export function InventoryManager({ data }: { data: NonNullable<Data> }) {
@@ -33,14 +36,37 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
     }
     return grouped;
   }, [data]);
-  const rows: InventoryRow[] = data.products.flatMap<InventoryRow>(product => {
+  const allRows = useMemo<InventoryRow[]>(() => data.products.flatMap<InventoryRow>(product => {
     const variants = variantsByProduct.get(product.id) ?? [];
-    return variants.length ? variants.map(v => ({ productId: product.id, variantId: v.id, name: product.name, detail: `${v.size} / ${v.color}${v.sku ? ` · ${v.sku}` : ""}` })) : [{ productId: product.id, variantId: null, name: product.name, detail: "Tanpa varian" }];
-  }).filter(row => `${row.name} ${row.detail}`.toLowerCase().includes(search.toLowerCase()));
-  const allRows: InventoryRow[] = data.products.flatMap<InventoryRow>(product => {
-    const variants = variantsByProduct.get(product.id) ?? [];
-    return variants.length ? variants.map(v => ({ productId: product.id, variantId: v.id, name: product.name, detail: `${v.size} / ${v.color}${v.sku ? ` · ${v.sku}` : ""}` })) : [{ productId: product.id, variantId: null, name: product.name, detail: "Tanpa varian" }];
-  });
+    return variants.length ? variants.map(v => ({
+      productId: product.id,
+      variantId: v.id,
+      name: product.name,
+      detail: `${v.size} / ${v.color}${v.sku ? ` · ${v.sku}` : ""}`,
+      barcode: data.barcodes.find(barcode => barcode.variantId === v.id)?.code ?? null,
+    })) : [{
+      productId: product.id,
+      variantId: null,
+      name: product.name,
+      detail: "Tanpa varian",
+      barcode: data.barcodes.find(barcode => barcode.productId === product.id && barcode.variantId === null)?.code ?? null,
+    }];
+  }), [data.barcodes, data.products, variantsByProduct]);
+  const rows = allRows.filter(row => `${row.name} ${row.detail} ${row.barcode ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const barcodeTargets = useMemo(() => new Map(allRows.filter(row => row.barcode).map(row => [row.barcode!, row])), [allRows]);
+
+  const handleScan = useCallback((code: string) => {
+    const target = barcodeTargets.get(code);
+    setSearch(code);
+    if (!target) {
+      toast.error(`Barcode ${code} tidak ditemukan`);
+      return;
+    }
+    setSelectedItem(`${target.productId}:${target.variantId ?? 0}`);
+    toast.success(`${target.name} · ${target.detail} ditemukan`);
+  }, [barcodeTargets]);
+
+  useBarcodeScanner(handleScan);
   const productNames = new Map(data.products.map(product => [product.id, product.name]));
   const variantNames = new Map(data.variants.map(variant => [variant.id, `${variant.size} / ${variant.color}`]));
   const locationNames = new Map(data.locations.map(location => [location.id, location.name]));
@@ -129,8 +155,10 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
         <select value={locationId} onChange={e => setLocationId(Number(e.target.value))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
           {data.locations.map(l => <option key={l.id} value={l.id}>{l.name}{l.isOnlineDefault ? " · sumber online" : ""}</option>)}
         </select>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari produk, varian, atau SKU" className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari produk, varian, SKU, atau barcode" className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+        <CameraBarcodeScanner onScan={handleScan} className="shrink-0" />
       </div>
+      <div className="flex items-center gap-2 border-b border-border bg-primary/5 px-4 py-2 text-xs text-muted-foreground"><ScanBarcode className="h-4 w-4 shrink-0 text-primary" /><span>Scan akan memfilter stok dan memilih item yang sama pada form transfer; stok tidak berubah sebelum disimpan.</span></div>
       <div className="divide-y divide-border">
         {rows.map(row => <StockRow key={`${locationId}:${row.productId}:${row.variantId ?? 0}`} row={row} initial={balances.get(`${row.productId}:${row.variantId ?? 0}`) ?? 0} disabled={pending || !locationId} onSave={saveStock} />)}
       </div>
@@ -151,10 +179,10 @@ export function InventoryManager({ data }: { data: NonNullable<Data> }) {
   </div>;
 }
 
-function StockRow({ row, initial, disabled, onSave }: { row: { productId: number; variantId: number | null; name: string; detail: string }; initial: number; disabled: boolean; onSave: (productId: number, variantId: number | null, quantity: number) => void }) {
+function StockRow({ row, initial, disabled, onSave }: { row: InventoryRow; initial: number; disabled: boolean; onSave: (productId: number, variantId: number | null, quantity: number) => void }) {
   const [value, setValue] = useState(initial);
   return <div className="flex items-center gap-4 p-4">
-    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{row.name}</p><p className="text-xs text-muted-foreground">{row.detail}</p></div>
+    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{row.name}</p><p className="text-xs text-muted-foreground">{row.detail}</p>{row.barcode && <p className="font-mono text-[11px] text-muted-foreground">{row.barcode}</p>}</div>
     <input type="number" min={0} value={value} onChange={e => setValue(Math.max(0, Number(e.target.value)))} className="w-24 rounded-lg border border-border bg-background px-3 py-2 text-right text-sm" />
     <button type="button" disabled={disabled} onClick={() => onSave(row.productId, row.variantId, value)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-accent disabled:opacity-50">Simpan</button>
   </div>;

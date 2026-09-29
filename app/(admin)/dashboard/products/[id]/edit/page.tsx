@@ -5,6 +5,7 @@ import { ProductForm } from '../../_components/ProductForm';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { ProductBarcodeManager } from '../../_components/ProductBarcodeManager';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -51,6 +52,7 @@ export default async function EditProductPage({ params }: Props) {
           primaryImageUrl={images.find(img => img.isPrimary)?.url ?? images[0]?.url}
           barcodes={barcodes}
         />
+        <ProductBarcodeManager productId={product.id} productName={product.name} barcodes={barcodes} variants={variants.map(variant => ({ id: variant.id, size: variant.size, color: variant.color, sku: variant.sku }))} />
       </div>
     </div>
   );
