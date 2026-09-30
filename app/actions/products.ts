@@ -12,6 +12,8 @@ import {
   orderItems,
   posReturnItems,
   commissionRules,
+  productVariants,
+  productBarcodes,
 } from '@/lib/db/schema';
 import { eq, desc, and, like, asc, or, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -114,6 +116,29 @@ export async function getProducts() {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .orderBy(desc(products.createdAt));
   return rows.map(row => ({ ...row.products, category: row.categories }));
+}
+
+export async function getAdminProductSearchData() {
+  if (!(await isAdmin())) return null;
+
+  const [variants, barcodes] = await Promise.all([
+    db.select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      size: productVariants.size,
+      color: productVariants.color,
+      sku: productVariants.sku,
+      posLabel: productVariants.posLabel,
+      isActive: productVariants.isActive,
+    }).from(productVariants),
+    db.select({
+      code: productBarcodes.code,
+      productId: productBarcodes.productId,
+      variantId: productBarcodes.variantId,
+    }).from(productBarcodes),
+  ]);
+
+  return { variants, barcodes };
 }
 
 export async function getActiveProducts(options?: {

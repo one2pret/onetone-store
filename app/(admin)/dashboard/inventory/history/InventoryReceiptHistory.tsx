@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileClock, Search } from "lucide-react";
+import { useBarcodeScanner } from "@/components/hooks/use-barcode-scanner";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
+import { toast } from "sonner";
 
 type Receipt = Awaited<ReturnType<typeof import("@/app/actions/inventory-workspace").getMyInventoryReceiptHistory>>[number];
 
@@ -12,14 +15,22 @@ export function InventoryReceiptHistory({ history }: { history: Receipt[] }) {
   const [date, setDate] = useState("");
   const locations = useMemo(() => Array.from(new Map(history.map(item => [item.locationId, item.locationName])).entries()), [history]);
   const filtered = useMemo(() => history.filter(item => {
-    const haystack = `${item.receiptNumber} ${item.referenceNumber ?? ""} ${item.locationName} ${item.notes ?? ""}`.toLowerCase();
+    const haystack = `${item.receiptNumber} ${item.referenceNumber ?? ""} ${item.locationName} ${item.notes ?? ""} ${item.barcodeCodes ?? ""}`.toLowerCase();
     const dateKey = item.createdAt ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt)) : "";
     return (!search || haystack.includes(search.toLowerCase())) && (!locationId || item.locationId === locationId) && (!date || dateKey === date);
   }), [date, history, locationId, search]);
+  const handleScan = useCallback((code: string) => {
+    setSearch(code);
+    const count = history.filter(item => item.barcodeCodes?.split(' ').includes(code)).length;
+    if (count) toast.success(`${count} dokumen penerimaan ditemukan`);
+    else toast.error(`Barcode ${code} tidak ditemukan pada riwayat Anda`);
+  }, [history]);
+  useBarcodeScanner(handleScan);
 
   return <div className="overflow-hidden rounded-xl border border-border bg-card">
-    <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[minmax(0,1fr)_220px_180px]">
-      <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Cari nomor dokumen atau referensi" className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm" /></label>
+    <div className="grid gap-2 border-b border-border p-4 md:grid-cols-[minmax(0,1fr)_auto_220px_180px]">
+      <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Cari dokumen, referensi, atau barcode" className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm" /></label>
+      <CameraBarcodeScanner onScan={handleScan} className="h-9 shrink-0" />
       <select value={locationId} onChange={event => setLocationId(Number(event.target.value))} className="h-9 rounded-lg border border-border bg-background px-3 text-sm"><option value={0}>Semua lokasi</option>{locations.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
       <input type="date" value={date} onChange={event => setDate(event.target.value)} className="h-9 rounded-lg border border-border bg-background px-3 text-sm" />
     </div>

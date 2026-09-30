@@ -4,8 +4,10 @@
 import { useState, useRef, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Package, Tag, LayoutDashboard, Image as ImageIcon, ShoppingCart, Settings, FolderOpen, Loader2, TicketPercent } from 'lucide-react';
-import { searchAdmin, type SearchResultItem } from '@/app/actions/search';
+import { findAdminBarcode, searchAdmin, type SearchResultItem } from '@/app/actions/search';
 import { cn } from '@/lib/utils';
+import { useBarcodeScanner } from '@/components/hooks/use-barcode-scanner';
+import { toast } from 'sonner';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',  href: '/dashboard',            icon: LayoutDashboard },
@@ -95,13 +97,29 @@ export function AdminSearchBar() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  function handleNavigate(href: string) {
+  const handleNavigate = useCallback((href: string) => {
     router.push(href);
     setQuery('');
     setOpen(false);
     setDbResults([]);
     inputRef.current?.blur();
-  }
+  }, [router]);
+
+  const handleBarcodeScan = useCallback((code: string) => {
+    setQuery(code);
+    setOpen(true);
+    startTransition(async () => {
+      const result = await findAdminBarcode(code);
+      if (!result) {
+        toast.error(`Barcode ${code} tidak ditemukan`);
+        return;
+      }
+      toast.success(`${result.label} ditemukan`);
+      handleNavigate(result.href);
+    });
+  }, [handleNavigate]);
+
+  useBarcodeScanner(handleBarcodeScan);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!open) return;
@@ -143,7 +161,7 @@ export function AdminSearchBar() {
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Cari menu, produk..."
+          placeholder="Cari menu, produk, barcode..."
           className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
         />
         {/* Shortcut hint */}

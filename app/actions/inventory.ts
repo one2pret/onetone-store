@@ -8,6 +8,7 @@ import {
   inventoryTransfers,
   products,
   productVariants,
+  productBarcodes,
   users,
 } from "@/lib/db/schema";
 import { requirePosAdmin, requirePosOperator } from "@/lib/pos-auth";
@@ -34,12 +35,14 @@ export async function getInventoryAdminData() {
   const auth = await requirePosAdmin();
   if (!auth.ok) return null;
 
-  const [locations, productRows, variantRows, balances, movements] = await Promise.all([
+  const [locations, productRows, variantRows, barcodeRows, balances, movements] = await Promise.all([
     db.select().from(inventoryLocations).orderBy(asc(inventoryLocations.name)),
     db.select({ id: products.id, name: products.name, stock: products.stock })
       .from(products).orderBy(asc(products.name)),
     db.select({ id: productVariants.id, productId: productVariants.productId, size: productVariants.size, color: productVariants.color, sku: productVariants.sku })
       .from(productVariants).orderBy(asc(productVariants.productId)),
+    db.select({ code: productBarcodes.code, productId: productBarcodes.productId, variantId: productBarcodes.variantId })
+      .from(productBarcodes),
     db.select().from(inventoryBalances),
     db.select({
       id: inventoryMovements.id,
@@ -59,7 +62,7 @@ export async function getInventoryAdminData() {
       .orderBy(desc(inventoryMovements.createdAt), desc(inventoryMovements.id))
       .limit(200),
   ]);
-  return { locations, products: productRows, variants: variantRows, balances, movements };
+  return { locations, products: productRows, variants: variantRows, barcodes: barcodeRows, balances, movements };
 }
 
 export async function createInventoryLocation(input: { name: string; code: string; type: "online" | "pos" | "warehouse" }) {

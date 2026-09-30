@@ -3,14 +3,17 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Pencil, ShoppingBag, Search, X, SlidersHorizontal } from 'lucide-react';
+import { Pencil, ShoppingBag, Search, X, SlidersHorizontal, ScanBarcode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah, cn } from '@/lib/utils';
 import { DeleteProductButton } from './DeleteProductButton';
 import { useQueryState } from 'nuqs';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Product, Category } from '@/lib/db/schema';
+import { useBarcodeScanner } from '@/components/hooks/use-barcode-scanner';
+import { toast } from 'sonner';
+import { CameraBarcodeScanner } from '@/components/scanner/CameraBarcodeScanner';
 
 type ProductWithCategory = Product & { category: Category | null };
 
@@ -32,14 +35,60 @@ const STATUS_FILTERS = [
 interface Props {
   data: ProductWithCategory[];
   categories: Category[];
+  searchData: {
+    variants: { id: number; productId: number; size: string; color: string; sku: string | null; posLabel: string | null; isActive: boolean | null }[];
+    barcodes: { code: string; productId: number; variantId: number | null }[];
+  };
 }
 
-export function ProductsTable({ data, categories }: Props) {
+export function ProductsTable({ data, categories, searchData }: Props) {
   const [search, setSearch] = useQueryState('search', { defaultValue: '' });
   const [categoryId, setCategoryId] = useQueryState('category', { defaultValue: '' });
   const [status, setStatus] = useQueryState('status', { defaultValue: '' });
+  const { variants, barcodes } = searchData;
 
   const hasFilter = search !== '' || categoryId !== '' || status !== '';
+
+  const variantsByProduct = useMemo(() => {
+    const grouped = new Map<number, typeof variants>();
+    for (const variant of variants) {
+      const current = grouped.get(variant.productId) ?? [];
+      current.push(variant);
+      grouped.set(variant.productId, current);
+    }
+    return grouped;
+  }, [variants]);
+
+  const barcodesByProduct = useMemo(() => {
+    const grouped = new Map<number, typeof barcodes>();
+    for (const barcode of barcodes) {
+      const current = grouped.get(barcode.productId) ?? [];
+      current.push(barcode);
+      grouped.set(barcode.productId, current);
+    }
+    return grouped;
+  }, [barcodes]);
+
+  const barcodeTargets = useMemo(() => new Map(barcodes.map(barcode => {
+    const product = data.find(item => item.id === barcode.productId);
+    const variant = barcode.variantId ? variants.find(item => item.id === barcode.variantId) : null;
+    return [barcode.code, { product, variant }] as const;
+  })), [barcodes, data, variants]);
+
+  const handleScan = useCallback((code: string) => {
+    const target = barcodeTargets.get(code);
+    setCategoryId(null);
+    setStatus(null);
+    setSearch(code);
+    if (!target?.product) {
+      toast.error(`Barcode ${code} tidak ditemukan`);
+      return;
+    }
+    const variantLabel = target.variant ? ` · ${target.variant.size} / ${target.variant.color}` : '';
+    toast.success(`${target.product.name}${variantLabel} ditemukan`);
+  }, [barcodeTargets, setCategoryId, setSearch, setStatus]);
+
+  useBarcodeScanner(handleScan);
 
   function resetAll() {
     setSearch(null);
@@ -49,7 +98,17 @@ export function ProductsTable({ data, categories }: Props) {
 
   const filtered = useMemo(() => {
     return data.filter(p => {
-      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+      const variants = variantsByProduct.get(p.id) ?? [];
+      const barcodes = barcodesByProduct.get(p.id) ?? [];
+      const haystack = [
+        p.name,
+        p.posName,
+        p.slug,
+        p.category?.name,
+        ...variants.flatMap(variant => [variant.size, variant.color, variant.sku, variant.posLabel]),
+        ...barcodes.map(barcode => barcode.code),
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchSearch = !search || haystack.includes(search.toLowerCase());
       const matchCat = !categoryId || String(p.categoryId) === categoryId;
       const matchStatus =
         !status ? true
@@ -59,7 +118,7 @@ export function ProductsTable({ data, categories }: Props) {
         : true;
       return matchSearch && matchCat && matchStatus;
     });
-  }, [data, search, categoryId, status]);
+  }, [barcodesByProduct, categoryId, data, search, status, variantsByProduct]);
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -75,7 +134,7 @@ export function ProductsTable({ data, categories }: Props) {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value || null)}
-              placeholder="Cari nama produk..."
+              placeholder="Cari nama, SKU, varian, atau barcode..."
               className="w-full pl-9 pr-4 py-2 text-sm bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/20 transition-all"
             />
             {search && (
@@ -87,6 +146,8 @@ export function ProductsTable({ data, categories }: Props) {
               </button>
             )}
           </div>
+
+          <CameraBarcodeScanner onScan={handleScan} className="shrink-0" />
 
           {/* Filter Kategori */}
           <div className="relative">
@@ -115,6 +176,11 @@ export function ProductsTable({ data, categories }: Props) {
               Reset
             </Button>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          <ScanBarcode className="h-4 w-4 shrink-0 text-primary" />
+          <span>Scanner USB/Bluetooth siap. Scan barcode atau QR dari area kosong untuk menemukan produk.</span>
         </div>
 
         {/* Baris 2: filter status + counter */}

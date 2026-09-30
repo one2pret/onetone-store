@@ -6,6 +6,7 @@ import { Minus, PackageCheck, Plus, ScanBarcode, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { lookupInventoryBarcode, receiveInventoryByScan } from "@/app/actions/inventory-scanning";
 import { appendBarcodeCharacter, consumeBarcodeBuffer, EMPTY_BARCODE_BUFFER } from "@/lib/pos-barcode-scanner";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
 
 type Location = { id: number; name: string; code: string };
 type ScanItem = {
@@ -124,6 +125,7 @@ export function InventoryReceiptScanner({ locations }: { locations: Location[] }
             <label htmlFor="manual-barcode" className="text-sm font-medium text-foreground">Barcode / QR</label>
             <div className="flex gap-2">
               <input id="manual-barcode" value={manualCode} onChange={event => setManualCode(event.target.value)} maxLength={100} autoComplete="off" placeholder="Scan atau ketik kode" className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 font-mono text-sm" />
+              <CameraBarcodeScanner onScan={enqueueScan} label="Kamera" className="shrink-0" />
               <button disabled={!manualCode.trim()} className="rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">Tambah</button>
             </div>
           </form>
