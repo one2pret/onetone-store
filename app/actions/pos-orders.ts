@@ -15,6 +15,8 @@ import {
   memberships,
   users,
   productImages,
+  userVouchers,
+  vouchers,
 } from "@/lib/db/schema";
 import { deductLocationStock, getLocationBalanceMap, validateLocationStock } from "@/lib/inventory-stock";
 import { canAccessPosSession, requirePosOperator } from "@/lib/pos-auth";
@@ -23,7 +25,8 @@ import { awardPosOrderPoints } from "@/lib/pos-membership-points";
 import { storage } from "@/lib/storage";
 import { preferredProductImageKey, selectProductImage } from "@/lib/product-image-resolution";
 import { resolveProductPrice } from "@/lib/product-pricing";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { validatePosMemberVoucher } from "@/lib/pos-vouchers";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -51,8 +54,13 @@ const createPosOrderSchema = z.object({
   customerName: z.string().max(255).optional(),
   notes: z.string().max(500).optional(),
   orderDiscount: discountSchema.optional(),
+  userVoucherId: z.number().int().positive().optional(),
 }).refine(data => !(data.customerUserId && data.customerLeadId), {
   message: "Pilih member atau calon member, bukan keduanya",
+}).refine(data => !data.userVoucherId || Boolean(data.customerUserId), {
+  message: "Pilih member sebelum menggunakan voucher",
+}).refine(data => !data.userVoucherId || (!data.orderDiscount && data.items.every(item => !item.discount)), {
+  message: "Voucher tidak dapat digabung dengan diskon manual kasir",
 });
 
 // ─── Helper: order number POS ─────────────────────────────────────────────────
@@ -80,6 +88,7 @@ export async function createPosOrder(input: {
   customerName?: string;
   notes?: string;
   orderDiscount?: PosDiscount;
+  userVoucherId?: number;
 }) {
   const authResult = await requirePosOperator();
   if (!authResult.ok) return { success: false, error: authResult.error };
@@ -211,7 +220,8 @@ export async function createPosOrder(input: {
 
   // 3. Validasi stok — reuse fungsi yang sama dengan checkout online
   if (!session.locationId) return { success: false, error: "Sesi POS belum memiliki lokasi stok" };
-  const stockResult = await validateLocationStock(session.locationId,
+  const locationId = session.locationId;
+  const stockResult = await validateLocationStock(locationId,
     enriched.map((e) => ({
       productId: e.productId,
       variantId: e.variantId,
@@ -242,7 +252,15 @@ export async function createPosOrder(input: {
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Diskon tidak valid" };
   }
-  const { subtotal, discountTotal, total } = pricing;
+  const subtotal = pricing.subtotal;
+  let voucherValidation: Awaited<ReturnType<typeof validatePosMemberVoucher>> | null = null;
+  if (data.userVoucherId && memberCustomer) {
+    voucherValidation = await validatePosMemberVoucher(memberCustomer.id, data.userVoucherId, subtotal);
+    if (!voucherValidation.valid) return { success: false, error: voucherValidation.error };
+  }
+  const voucherDiscountAmount = voucherValidation?.valid ? voucherValidation.discountAmount : 0;
+  const discountTotal = pricing.discountTotal + voucherDiscountAmount;
+  const total = pricing.total - voucherDiscountAmount;
 
   // 5. Validasi pembayaran tunai
   let cashReceived: number | undefined;
@@ -261,40 +279,64 @@ export async function createPosOrder(input: {
   const orderNumber = generatePosOrderNumber();
   const now = new Date();
 
-  // 6. Insert order + items + deduct stock — sequential (mysql2 pool tidak
-  //    handle nested transaction dengan baik untuk semua workload). Karena
-  //    stok validation sudah dijalankan tepat sebelum insert, race condition
-  //    minimal — POS single-kasir per sesi.
+  // 6. Order, klaim voucher, item, dan stok berada dalam satu transaksi.
+  //    Update voucher bersyarat membuat dua kasir tidak dapat menukarkan grant
+  //    yang sama pada waktu bersamaan.
   try {
-    const [orderResult] = await db.insert(orders).values({
-      userId: memberCustomer?.id ?? null,
-      posCustomerLeadId: leadCustomer?.id ?? null,
-      orderNumber,
-      channel: "pos",
-      status: "delivered", // langsung selesai (transaksi tatap muka)
-      subtotal: String(subtotal),
-      discountAmount: String(discountTotal),
-      shippingCost: "0",
-      total: String(total),
-      shippingAddress: null,
-      shippingPhone: null,
-      shippingName: memberCustomer?.name ?? leadCustomer?.name ?? data.customerName ?? null,
-      notes: data.notes || null,
-      posSessionId: data.sessionId,
-      posPaymentMethod: data.paymentMethod,
-      cashReceived: cashReceived !== undefined ? String(cashReceived) : null,
-      cashChange: cashChange !== undefined ? String(cashChange) : null,
-      paidAt: now,
-      deliveredAt: now,
-    });
+    const orderId = await db.transaction(async (tx) => {
+      const [orderResult] = await tx.insert(orders).values({
+        userId: memberCustomer?.id ?? null,
+        posCustomerLeadId: leadCustomer?.id ?? null,
+        voucherId: voucherValidation?.valid ? voucherValidation.voucherId : null,
+        orderNumber,
+        channel: "pos",
+        status: "delivered",
+        subtotal: String(subtotal),
+        discountAmount: String(discountTotal),
+        shippingCost: "0",
+        total: String(total),
+        shippingAddress: null,
+        shippingPhone: null,
+        shippingName: memberCustomer?.name ?? leadCustomer?.name ?? data.customerName ?? null,
+        notes: data.notes || null,
+        posSessionId: data.sessionId,
+        posPaymentMethod: data.paymentMethod,
+        cashReceived: cashReceived !== undefined ? String(cashReceived) : null,
+        cashChange: cashChange !== undefined ? String(cashChange) : null,
+        paidAt: now,
+        deliveredAt: now,
+      });
+      const createdOrderId = Number(orderResult.insertId);
 
-    const orderId = Number(orderResult.insertId);
+      if (voucherValidation?.valid && memberCustomer) {
+        const [claimResult] = await tx.update(userVouchers).set({
+          status: "redeemed",
+          redeemedOrderId: createdOrderId,
+          redeemedAt: now,
+          reservedOrderId: null,
+          reservedAt: null,
+        }).where(and(
+          eq(userVouchers.id, voucherValidation.userVoucherId),
+          eq(userVouchers.userId, memberCustomer.id),
+          eq(userVouchers.status, "available"),
+          or(isNull(userVouchers.expiresAt), sql`${userVouchers.expiresAt} >= ${now}`),
+        ));
+        if (!claimResult || claimResult.affectedRows !== 1) throw new Error("Voucher baru saja digunakan pada transaksi lain");
 
-    await db.insert(orderItems).values(
-      enriched.map((e, index) => {
+        const [quotaResult] = await tx.update(vouchers).set({
+          usedCount: sql`coalesce(${vouchers.usedCount}, 0) + 1`,
+        }).where(and(
+          eq(vouchers.id, voucherValidation.voucherId),
+          eq(vouchers.isActive, true),
+          or(isNull(vouchers.quota), sql`coalesce(${vouchers.usedCount}, 0) < ${vouchers.quota}`),
+        ));
+        if (!quotaResult || quotaResult.affectedRows !== 1) throw new Error("Kuota voucher baru saja habis");
+      }
+
+      await tx.insert(orderItems).values(enriched.map((e, index) => {
         const lineDiscount = pricing.lineDiscounts.get(String(index)) ?? 0;
         return {
-          orderId,
+          orderId: createdOrderId,
           productId: e.productId,
           variantId: e.variantId ?? null,
           productName: e.productName,
@@ -307,21 +349,18 @@ export async function createPosOrder(input: {
           quantity: e.quantity,
           subtotal: String(e.subtotal - lineDiscount),
         };
-      })
-    );
+      }));
 
-    // 7. Deduct stock — reuse helper yang sama dengan checkout online
-    await deductLocationStock(session.locationId,
-      enriched.map((e) => ({
+      await deductLocationStock(locationId, enriched.map((e) => ({
         productId: e.productId,
         variantId: e.variantId,
         quantity: e.quantity,
-      })),
-      { type: "pos_sale", referenceId: orderId, actorUserId: authResult.actor.id }
-    );
+      })), { type: "pos_sale", referenceId: createdOrderId, actorUserId: authResult.actor.id }, tx);
+      return createdOrderId;
+    });
 
     let pointsEarned = 0;
-    if (memberCustomer) {
+    if (memberCustomer && (!voucherValidation?.valid || voucherValidation.allowPoints)) {
       try {
         const reward = await awardPosOrderPoints(orderId, memberCustomer.id);
         pointsEarned = reward.pointsEarned;
@@ -344,6 +383,7 @@ export async function createPosOrder(input: {
       orderNumber,
       total,
       discountAmount: discountTotal,
+      voucherDiscountAmount,
       cashReceived,
       cashChange,
       pointsEarned,
@@ -384,7 +424,11 @@ export async function getPosOrder(orderId: number) {
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
 
-  return { ...order, items };
+  const voucherRows = order.voucherId
+    ? await db.select({ code: vouchers.code }).from(vouchers).where(eq(vouchers.id, order.voucherId)).limit(1)
+    : [];
+
+  return { ...order, voucherCode: voucherRows[0]?.code ?? null, items };
 }
 
 // ─── getPosProducts (katalog kasir) ───────────────────────────────────────────

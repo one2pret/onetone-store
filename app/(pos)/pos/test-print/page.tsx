@@ -13,6 +13,7 @@ export default async function PosPrintTestPage() {
       storeAddress={settings.storeAddress}
       receiptFooter={settings.receiptFooter}
       receiptLogoUrl={settings.receiptLogoUrl}
+      showReturnQr={settings.showReturnQr}
     />
   );
 }

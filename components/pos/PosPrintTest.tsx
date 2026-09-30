@@ -18,9 +18,10 @@ interface Props {
   storeAddress: string | null;
   receiptFooter: string | null;
   receiptLogoUrl: string | null;
+  showReturnQr: boolean;
 }
 
-export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFooter, receiptLogoUrl }: Props) {
+export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFooter, receiptLogoUrl, showReturnQr }: Props) {
   const [capabilities, setCapabilities] = useState<BrowserCapabilities | null>(null);
   const [printedAt, setPrintedAt] = useState("-");
 
@@ -153,6 +154,8 @@ export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFoote
             </div>
 
             <div className="mt-2 space-y-1 border-t border-dashed border-zinc-300 pt-2 text-[11px]">
+              <div className="flex justify-between"><span>Harga normal</span><span>{formatRupiah(45_000)}</span></div>
+              <div className="flex justify-between"><span>Promo produk</span><span>-{formatRupiah(5_000)}</span></div>
               <div className="flex justify-between"><span>Subtotal</span><span>{formatRupiah(40_000)}</span></div>
               <div className="flex justify-between"><span>Diskon</span><span>-{formatRupiah(5_000)}</span></div>
               <div className="flex justify-between text-sm font-bold"><span>TOTAL</span><span>{formatRupiah(35_000)}</span></div>
@@ -164,6 +167,13 @@ export function PosPrintTest({ storeName, storePhone, storeAddress, receiptFoote
             <div className="mt-3 border-t border-dashed border-zinc-300 pt-3 text-center text-[10px] text-zinc-500 whitespace-pre-line">
               {receiptFooter?.trim() || "Terima kasih!\nHasil test harus terbaca dan tidak terpotong."}
             </div>
+            {showReturnQr && (
+              <div className="mt-3 border-t border-dashed border-zinc-300 pt-3 text-center text-[10px] text-zinc-500">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center border-4 border-double border-zinc-800 text-[9px] font-bold text-zinc-800">QR RETUR</div>
+                <p className="mt-1">Scan untuk pencarian transaksi</p>
+                <p className="font-semibold text-zinc-700">POS-TEST-0001</p>
+              </div>
+            )}
           </div>
         </section>
       </div>

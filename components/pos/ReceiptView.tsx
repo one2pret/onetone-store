@@ -22,6 +22,7 @@ type ReceiptData = {
   cashChange: number | null;
   paymentMethod: "cash" | "qris" | "transfer" | null;
   customerName: string | null;
+  voucherCode: string | null;
   pointsEarned: number;
   createdAt: Date | null;
   items: {
@@ -45,6 +46,7 @@ interface Props {
   storeAddress?: string | null;
   receiptLogoUrl?: string | null;
   autoPrint?: boolean;
+  showReturnQr?: boolean;
   onDone: () => void;
 }
 
@@ -55,13 +57,13 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 export function ReceiptView({
-  orderId, footer, cashierName, storeName, storePhone, storeAddress, receiptLogoUrl, autoPrint = false, onDone,
+  orderId, footer, cashierName, storeName, storePhone, storeAddress, receiptLogoUrl, autoPrint = false, showReturnQr = true, onDone,
 }: Props) {
   const [data, setData] = useState<ReceiptData | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoReady, setLogoReady] = useState(!receiptLogoUrl);
   const [orderQrUrl, setOrderQrUrl] = useState("");
-  const [orderQrReady, setOrderQrReady] = useState(false);
+  const [orderQrReady, setOrderQrReady] = useState(!showReturnQr);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +84,7 @@ export function ReceiptView({
         cashChange: order.cashChange ? Number(order.cashChange) : null,
         paymentMethod: order.posPaymentMethod,
         customerName: order.shippingName,
+        voucherCode: order.voucherCode,
         pointsEarned: order.pointsEarned ?? 0,
         createdAt: order.createdAt,
         items: order.items.map((it) => ({
@@ -103,7 +106,7 @@ export function ReceiptView({
   }, [orderId, autoPrint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!data?.orderNumber) return;
+    if (!showReturnQr || !data?.orderNumber) return;
     let cancelled = false;
 
     void QRCode.toDataURL(data.orderNumber, {
@@ -122,7 +125,7 @@ export function ReceiptView({
       });
 
     return () => { cancelled = true; };
-  }, [data?.orderNumber]);
+  }, [data?.orderNumber, showReturnQr]);
 
   useEffect(() => {
     if (!autoPrint || !data || !logoReady || !orderQrReady) return;
@@ -137,6 +140,7 @@ export function ReceiptView({
   function handleShareWA() {
     if (!data) return;
     const receiptName = storeName?.trim() || "ONETONE";
+    const automaticPromoTotal = data.items.reduce((sum, item) => sum + item.automaticDiscountAmount, 0);
     const lines = [
       `*${receiptName}*`,
       storeAddress ? storeAddress : '',
@@ -148,11 +152,13 @@ export function ReceiptView({
       ...data.items.map(
         (it) =>
           `${it.productName}${it.variantLabel ? ` (${it.variantLabel})` : ""}\n` +
-          `  ${it.quantity} × ${formatRupiah(it.unitPrice)}${it.automaticDiscountAmount > 0 ? ` (promo dari ${formatRupiah(it.regularUnitPrice)})` : ""}${it.discountAmount > 0 ? ` - diskon kasir ${formatRupiah(it.discountAmount)}` : ""} = ${formatRupiah(it.subtotal)}`
+          `  ${it.quantity} × ${formatRupiah(it.unitPrice)}${it.discountAmount > 0 ? ` - diskon kasir ${formatRupiah(it.discountAmount)}` : ""} = ${formatRupiah(it.subtotal)}`
       ),
       "",
-      data.discountAmount > 0 ? `Subtotal: ${formatRupiah(data.subtotal)}` : "",
-      data.discountAmount > 0 ? `Diskon: -${formatRupiah(data.discountAmount)}` : "",
+      automaticPromoTotal > 0 ? `Harga normal: ${formatRupiah(data.subtotal + automaticPromoTotal)}` : "",
+      automaticPromoTotal > 0 ? `Promo produk: -${formatRupiah(automaticPromoTotal)}` : "",
+      automaticPromoTotal > 0 || data.discountAmount > 0 ? `Subtotal: ${formatRupiah(data.subtotal)}` : "",
+      data.discountAmount > 0 ? `${data.voucherCode ? `Voucher ${data.voucherCode}` : "Diskon"}: -${formatRupiah(data.discountAmount)}` : "",
       `*TOTAL: ${formatRupiah(data.total)}*`,
       data.paymentMethod ? `Bayar: ${PAYMENT_LABELS[data.paymentMethod]}` : "",
       data.cashReceived !== null ? `Diterima: ${formatRupiah(data.cashReceived)}` : "",
@@ -174,6 +180,7 @@ export function ReceiptView({
   }
 
   const displayName = storeName?.trim() || "ONETONE";
+  const automaticPromoTotal = data.items.reduce((sum, item) => sum + item.automaticDiscountAmount, 0);
 
   return (
     <div className="flex-1 flex flex-col bg-muted/40" id="pos-print-root">
@@ -249,12 +256,6 @@ export function ReceiptView({
                   <span className="text-zinc-600">{it.quantity} × {formatRupiah(it.unitPrice)}</span>
                   <span className="font-semibold">{formatRupiah(it.unitPrice * it.quantity)}</span>
                 </div>
-                {it.automaticDiscountAmount > 0 && (
-                  <div className="flex justify-between text-[10px] text-rose-600">
-                    <span>Promo produk (normal {formatRupiah(it.regularUnitPrice)})</span>
-                    <span>-{formatRupiah(it.automaticDiscountAmount)}</span>
-                  </div>
-                )}
                 {it.discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] text-zinc-500">
                     <span>Diskon kasir</span>
@@ -267,16 +268,30 @@ export function ReceiptView({
 
           {/* Total + pembayaran */}
           <div className="border-t border-dashed border-zinc-300 pt-2 space-y-1 text-[11px]">
-            {data.discountAmount > 0 && (
+            {automaticPromoTotal > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span>Harga normal</span>
+                  <span>{formatRupiah(data.subtotal + automaticPromoTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Promo produk</span>
+                  <span>-{formatRupiah(automaticPromoTotal)}</span>
+                </div>
+              </>
+            )}
+            {(automaticPromoTotal > 0 || data.discountAmount > 0) && (
               <>
                 <div className="flex justify-between">
                   <span>Subtotal</span>
                   <span>{formatRupiah(data.subtotal)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Diskon</span>
-                  <span>-{formatRupiah(data.discountAmount)}</span>
-                </div>
+                {data.discountAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>{data.voucherCode ? `Voucher ${data.voucherCode}` : "Diskon"}</span>
+                    <span>-{formatRupiah(data.discountAmount)}</span>
+                  </div>
+                )}
               </>
             )}
             <div className="flex justify-between font-bold text-sm">
@@ -310,7 +325,7 @@ export function ReceiptView({
           </div>
 
           {/* QR nomor transaksi untuk pencarian retur */}
-          {orderQrUrl && (
+          {showReturnQr && orderQrUrl && (
             <div className="border-t border-dashed border-zinc-300 pt-3 mt-3 text-center">
               <Image
                 src={orderQrUrl}
