@@ -78,6 +78,7 @@ describe("POS receipt settings", () => {
       { key: "pos_receipt_store_name", value: "Nama Struk" },
       { key: "pos_receipt_store_address", value: "Alamat Kasir" },
       { key: "pos_receipt_logo_object_key", value: "pos/receipt-logo/logo.webp" },
+      { key: "pos_receipt_show_return_qr", value: "false" },
     ];
 
     const settings = await getPosSettings();
@@ -87,6 +88,7 @@ describe("POS receipt settings", () => {
       storePhone: "0812000000",
       storeAddress: "Alamat Kasir",
       receiptLogoUrl: "https://cdn.example.com/pos/receipt-logo/logo.webp",
+      showReturnQr: false,
     });
   });
 
@@ -96,6 +98,7 @@ describe("POS receipt settings", () => {
       storePhone: "",
       storeAddress: "",
       receiptFooter: "",
+      showReturnQr: true,
     });
 
     expect(result).toEqual({ success: false, error: "Nama toko pada struk wajib diisi" });
@@ -108,10 +111,11 @@ describe("POS receipt settings", () => {
       storePhone: "081234567890",
       storeAddress: "Jl. Contoh No. 10",
       receiptFooter: "Terima kasih",
+      showReturnQr: false,
     });
 
     expect(result).toEqual({ success: true });
-    expect(mocks.insert).toHaveBeenCalledTimes(4);
+    expect(mocks.insert).toHaveBeenCalledTimes(5);
   });
 
   it("replaces the old receipt logo only after the new upload succeeds", async () => {
@@ -134,6 +138,7 @@ describe("POS receipt settings", () => {
       storePhone: "",
       storeAddress: "",
       receiptFooter: "",
+      showReturnQr: true,
     });
 
     expect(result).toEqual({ success: false, error: "Hanya admin yang dapat mengubah pengaturan" });

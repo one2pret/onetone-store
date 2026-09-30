@@ -61,6 +61,7 @@ export default async function SettingsPage() {
           storeName={posSettings.storeName}
           storePhone={posSettings.storePhone}
           storeAddress={posSettings.storeAddress}
+          showReturnQr={posSettings.showReturnQr}
         />
         <DataToolsCard />
       </div>

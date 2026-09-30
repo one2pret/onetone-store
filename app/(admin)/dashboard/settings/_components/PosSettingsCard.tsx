@@ -25,6 +25,7 @@ interface Props {
   storeName: string | null;
   storePhone: string | null;
   storeAddress: string | null;
+  showReturnQr: boolean;
 }
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -36,6 +37,7 @@ export function PosSettingsCard({
   storeName,
   storePhone,
   storeAddress,
+  showReturnQr,
 }: Props) {
   const router = useRouter();
   const qrisInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +51,7 @@ export function PosSettingsCard({
   const [phone, setPhone] = useState(storePhone ?? "");
   const [address, setAddress] = useState(storeAddress ?? "");
   const [footer, setFooter] = useState(receiptFooter ?? "");
+  const [returnQrEnabled, setReturnQrEnabled] = useState(showReturnQr);
 
   function validateImage(file: File) {
     if (!file.type.startsWith("image/") || file.size > MAX_IMAGE_SIZE) {
@@ -95,6 +98,7 @@ export function PosSettingsCard({
         storePhone: phone,
         storeAddress: address,
         receiptFooter: footer,
+        showReturnQr: returnQrEnabled,
       });
       if (result.success) {
         toast.success("Pengaturan struk berhasil disimpan");
@@ -222,6 +226,23 @@ export function PosSettingsCard({
                   <p className="text-[11px] text-muted-foreground">Baris baru akan dipertahankan saat dicetak.</p>
                   <p className="shrink-0 text-[11px] text-muted-foreground">{footer.length}/500</p>
                 </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="receiptReturnQr" className="flex cursor-pointer items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">Tampilkan QR transaksi untuk retur</span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      QR dicetak di bagian bawah struk agar transaksi dapat dicari cepat pada halaman retur POS.
+                    </span>
+                  </span>
+                  <input
+                    id="receiptReturnQr"
+                    type="checkbox"
+                    checked={returnQrEnabled}
+                    onChange={(event) => setReturnQrEnabled(event.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                  />
+                </label>
               </div>
             </div>
 

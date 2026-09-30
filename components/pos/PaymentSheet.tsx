@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { X, Banknote, QrCode, ArrowRightLeft, ArrowLeft, Tag, Search, UserRoundCheck, UserPlus, Copy, ExternalLink } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { createPosOrder } from "@/app/actions/pos-orders";
+import { getPosMemberVouchers } from "@/app/actions/pos-vouchers";
+import type { PosMemberVoucher } from "@/lib/pos-vouchers";
 import {
   registerPosCustomerLead,
   searchPosMembers,
@@ -61,9 +63,12 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
   const [discountOpen, setDiscountOpen] = useState(false);
   const [lineDiscounts, setLineDiscounts] = useState<Record<string, PosDiscount>>({});
   const [orderDiscount, setOrderDiscount] = useState<PosDiscount>({ type: "percent", value: 0 });
+  const [memberVouchers, setMemberVouchers] = useState<PosMemberVoucher[]>([]);
+  const [selectedVoucher, setSelectedVoucher] = useState<PosMemberVoucher | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSearchingMember, startMemberSearch] = useTransition();
   const [isRegisteringLead, startLeadRegistration] = useTransition();
+  const [isLoadingVouchers, startVoucherLookup] = useTransition();
   const historyExitCallback = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -135,7 +140,9 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
       };
     }
   }, [cart, lineDiscounts, maxDiscountPercent, orderDiscount]);
-  const payableTotal = discountPricing.value?.total ?? total;
+  const manualDiscountActive = (discountPricing.value?.discountTotal ?? 0) > 0;
+  const voucherDiscountAmount = selectedVoucher?.discountAmount ?? 0;
+  const payableTotal = Math.max(0, (discountPricing.value?.total ?? total) - voucherDiscountAmount);
   const cashReceived = Number(cashInput) || 0;
   const change = useMemo(
     () => (method === "cash" ? cashReceived - payableTotal : 0),
@@ -180,6 +187,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
         customerLeadId: selectedLead?.id,
         customerName: selectedMember?.name || selectedLead?.name || customerName || undefined,
         orderDiscount: orderDiscount.value > 0 ? orderDiscount : undefined,
+        userVoucherId: selectedVoucher?.userVoucherId,
       });
 
       if (result.success && result.orderId) {
@@ -218,6 +226,19 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
     setCustomerName(member.name);
     setMemberResults([]);
     setMemberSearchComplete(false);
+    setSelectedVoucher(null);
+    setMemberVouchers([]);
+    startVoucherLookup(async () => {
+      const result = await getPosMemberVouchers({
+        customerUserId: member.id,
+        subtotal: discountPricing.value?.subtotal ?? total,
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      setMemberVouchers(result.data);
+    });
   }
 
   function clearSelectedMember() {
@@ -228,6 +249,18 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
     setMemberQuery("");
     setMemberResults([]);
     setMemberSearchComplete(false);
+    setMemberVouchers([]);
+    setSelectedVoucher(null);
+  }
+
+  function chooseVoucher(voucher: PosMemberVoucher) {
+    if (manualDiscountActive) {
+      toast.error("Hapus diskon manual kasir sebelum menggunakan voucher");
+      return;
+    }
+    setSelectedVoucher(voucher);
+    setDiscountOpen(false);
+    toast.success(`Voucher ${voucher.code} dipilih`);
   }
 
   function handleLeadRegistration(event: React.FormEvent<HTMLFormElement>) {
@@ -312,11 +345,11 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
         <section className="px-4 py-6 bg-slate-900 text-white text-center">
           <p className="text-xs uppercase tracking-wide text-slate-400">Total Belanja</p>
           <p className="text-4xl md:text-5xl font-bold mt-1">{formatRupiah(payableTotal)}</p>
-          {discountPricing.value && (discountPricing.value.automaticDiscountTotal > 0 || discountPricing.value.discountTotal > 0) && (
+          {discountPricing.value && (discountPricing.value.automaticDiscountTotal > 0 || discountPricing.value.discountTotal > 0 || voucherDiscountAmount > 0) && (
             <div className="mt-2 flex items-center justify-center gap-2 text-xs">
               <span className="text-slate-400 line-through">{formatRupiah(discountPricing.value.regularSubtotal)}</span>
               <span className="font-semibold text-emerald-300">
-                Hemat {formatRupiah(discountPricing.value.automaticDiscountTotal + discountPricing.value.discountTotal)}
+                Hemat {formatRupiah(discountPricing.value.automaticDiscountTotal + discountPricing.value.discountTotal + voucherDiscountAmount)}
               </span>
             </div>
           )}
@@ -327,14 +360,17 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
           <button
             type="button"
             onClick={() => setDiscountOpen(value => !value)}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            disabled={Boolean(selectedVoucher)}
+            className="flex w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
             <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <Tag className="h-4 w-4" />
               Diskon POS
             </span>
             <span className="text-xs font-medium text-slate-500">
-              {discountPricing.value?.discountTotal
+              {selectedVoucher
+                ? "Nonaktif saat voucher dipakai"
+                : discountPricing.value?.discountTotal
                 ? `Diskon kasir -${formatRupiah(discountPricing.value.discountTotal)}`
                 : discountOpen ? "Tutup" : "Tambah"}
             </span>
@@ -548,6 +584,49 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
                   Ganti
                 </button>
               </div>
+              {selectedMember && (
+                <div className="mt-3 border-t border-sky-200 pt-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-slate-900">Voucher member</p>
+                    {isLoadingVouchers && <span className="text-[11px] text-slate-500">Memeriksa...</span>}
+                  </div>
+                  {!isLoadingVouchers && memberVouchers.length === 0 && (
+                    <p className="rounded-lg bg-white/70 px-3 py-2 text-[11px] text-slate-500">
+                      Tidak ada voucher yang dapat dipakai untuk nilai transaksi ini.
+                    </p>
+                  )}
+                  {memberVouchers.length > 0 && (
+                    <div className="space-y-2">
+                      {memberVouchers.map(voucher => {
+                        const active = selectedVoucher?.userVoucherId === voucher.userVoucherId;
+                        return (
+                          <button
+                            key={voucher.userVoucherId}
+                            type="button"
+                            onClick={() => active ? setSelectedVoucher(null) : chooseVoucher(voucher)}
+                            className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${active ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white hover:border-sky-300"}`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-bold text-slate-900">{voucher.name || voucher.code}</span>
+                              <span className="block text-[10px] text-slate-500">
+                                {voucher.code}{voucher.expiresAt ? ` · berlaku s.d. ${new Date(voucher.expiresAt).toLocaleDateString("id-ID")}` : ""}
+                              </span>
+                            </span>
+                            <span className={`shrink-0 text-xs font-bold ${active ? "text-emerald-700" : "text-sky-700"}`}>
+                              {active ? "Dipakai" : `-${formatRupiah(voucher.discountAmount)}`}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {selectedVoucher && (
+                    <p className="mt-2 text-[10px] font-medium text-emerald-700">
+                      Voucher tidak dapat digabung dengan diskon manual kasir.
+                    </p>
+                  )}
+                </div>
+              )}
               {selectedLead && leadActivation && (
                 <div className="mt-3 border-t border-sky-200 pt-3">
                   <div className="grid items-center gap-3 sm:grid-cols-[116px_minmax(0,1fr)]">

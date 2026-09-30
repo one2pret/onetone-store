@@ -19,12 +19,14 @@ const KEY_RECEIPT_LOGO = "pos_receipt_logo_object_key";
 const KEY_RECEIPT_NAME = "pos_receipt_store_name";
 const KEY_RECEIPT_PHONE = "pos_receipt_store_phone";
 const KEY_RECEIPT_ADDRESS = "pos_receipt_store_address";
+const KEY_RECEIPT_RETURN_QR = "pos_receipt_show_return_qr";
 
 const receiptSettingsSchema = z.object({
   storeName: z.string().trim().min(1, "Nama toko pada struk wajib diisi").max(80, "Nama toko maksimal 80 karakter"),
   storePhone: z.string().trim().max(50, "Nomor telepon maksimal 50 karakter"),
   storeAddress: z.string().trim().max(300, "Alamat maksimal 300 karakter"),
   receiptFooter: z.string().trim().max(500, "Footer maksimal 500 karakter"),
+  showReturnQr: z.boolean(),
 });
 
 async function requireAdmin() {
@@ -64,6 +66,7 @@ export async function getPosSettings(): Promise<{
   storePhone: string | null;
   storeAddress: string | null;
   receiptLogoUrl: string | null;
+  showReturnQr: boolean;
 }> {
   const rows = await db.select().from(storeSettings);
   const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -78,6 +81,7 @@ export async function getPosSettings(): Promise<{
     storePhone: receiptValue(KEY_RECEIPT_PHONE, "store_phone"),
     storeAddress: receiptValue(KEY_RECEIPT_ADDRESS, "store_address"),
     receiptLogoUrl: receiptLogoKey ? storage.getUrl(receiptLogoKey) : null,
+    showReturnQr: map.get(KEY_RECEIPT_RETURN_QR) !== "false",
   };
 }
 
@@ -160,6 +164,7 @@ export async function updateReceiptSettings(input: {
   storePhone: string;
   storeAddress: string;
   receiptFooter: string;
+  showReturnQr: boolean;
 }) {
   const authResult = await requireAdmin();
   if (!authResult.ok) return { success: false, error: authResult.error };
@@ -175,6 +180,7 @@ export async function updateReceiptSettings(input: {
       upsertSetting(KEY_RECEIPT_PHONE, parsed.data.storePhone),
       upsertSetting(KEY_RECEIPT_ADDRESS, parsed.data.storeAddress),
       upsertSetting(KEY_FOOTER, parsed.data.receiptFooter),
+      upsertSetting(KEY_RECEIPT_RETURN_QR, String(parsed.data.showReturnQr)),
     ]);
     revalidatePosSettings();
     return { success: true };

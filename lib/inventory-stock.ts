@@ -27,22 +27,24 @@ export async function validateLocationStock(locationId: number, items: Inventory
   return { valid: errors.length === 0, errors };
 }
 
-export async function deductLocationStock(locationId: number, items: InventoryStockItem[], options: { type: "pos_sale" | "online_sale"; referenceId?: number; actorUserId?: number } ) {
+type InventoryDatabase = Pick<typeof db, "select" | "update" | "insert">;
+
+export async function deductLocationStock(locationId: number, items: InventoryStockItem[], options: { type: "pos_sale" | "online_sale"; referenceId?: number; actorUserId?: number }, database: InventoryDatabase = db) {
   for (const item of items) {
-    const rows = await db.select().from(inventoryBalances).where(balanceCondition(locationId, item)).limit(1);
+    const rows = await database.select().from(inventoryBalances).where(balanceCondition(locationId, item)).limit(1);
     const balance = rows[0];
     if (!balance || balance.quantity - balance.reserved < item.quantity) throw new Error("Stok berubah atau tidak mencukupi. Muat ulang POS.");
-    const [result] = await db.update(inventoryBalances)
+    const [result] = await database.update(inventoryBalances)
       .set({ quantity: sql`${inventoryBalances.quantity} - ${item.quantity}` })
       .where(and(
         eq(inventoryBalances.id, balance.id),
         sql`${inventoryBalances.quantity} - ${inventoryBalances.reserved} >= ${item.quantity}`,
       ));
     if (!result || result.affectedRows !== 1) throw new Error("Stok baru saja berubah. Muat ulang POS dan coba lagi.");
-    const updated = await db.select({ quantity: inventoryBalances.quantity }).from(inventoryBalances)
+    const updated = await database.select({ quantity: inventoryBalances.quantity }).from(inventoryBalances)
       .where(eq(inventoryBalances.id, balance.id)).limit(1);
     const after = updated[0]?.quantity ?? balance.quantity - item.quantity;
-    await db.insert(inventoryMovements).values({
+    await database.insert(inventoryMovements).values({
       locationId, productId: item.productId, variantId: item.variantId ?? null,
       quantityDelta: -item.quantity, balanceAfter: after, type: options.type,
       referenceType: "order", referenceId: options.referenceId, actorUserId: options.actorUserId,

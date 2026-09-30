@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSelectReturn = vi.fn();
 const mockInsertReturn = vi.fn();
+const mockUpdateReturn = vi.fn();
 const mockRequirePosOperator = vi.fn();
 const mockDeductStock = vi.fn();
 const mockAwardPosOrderPoints = vi.fn();
 const mockProductImages = vi.fn();
 const mockPosProducts = vi.fn();
 const mockGetLocationBalanceMap = vi.fn();
+const mockValidatePosMemberVoucher = vi.fn();
 const mockInsertedValues: unknown[] = [];
+const mockUpdatedValues: unknown[] = [];
 
 function mockChain(returnFn: () => unknown) {
   const chain: Record<string, unknown> = {};
@@ -17,19 +20,26 @@ function mockChain(returnFn: () => unknown) {
   chain.where = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
   chain.values = vi.fn((value: unknown) => { mockInsertedValues.push(value); return chain; });
+  chain.set = vi.fn((value: unknown) => { mockUpdatedValues.push(value); return chain; });
   chain.then = (resolve: (value: unknown) => unknown) => resolve(returnFn());
   return chain;
 }
 
 vi.mock("@/lib/db", () => ({
-  db: {
+  db: (() => {
+    const mockedDb = {
     select: vi.fn(() => mockChain(mockSelectReturn)),
     insert: vi.fn(() => mockChain(mockInsertReturn)),
+    update: vi.fn(() => mockChain(mockUpdateReturn)),
+    transaction: vi.fn(),
     query: {
       products: { findMany: (...args: unknown[]) => mockPosProducts(...args) },
       productImages: { findMany: (...args: unknown[]) => mockProductImages(...args) },
     },
-  },
+    };
+    mockedDb.transaction.mockImplementation(async (callback: (tx: typeof mockedDb) => unknown) => callback(mockedDb));
+    return mockedDb;
+  })(),
 }));
 
 vi.mock("@/lib/pos-auth", () => ({
@@ -52,6 +62,10 @@ vi.mock("@/lib/pos-membership-points", () => ({
   awardPosOrderPoints: (...args: unknown[]) => mockAwardPosOrderPoints(...args),
 }));
 
+vi.mock("@/lib/pos-vouchers", () => ({
+  validatePosMemberVoucher: (...args: unknown[]) => mockValidatePosMemberVoucher(...args),
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { createPosOrder, getPosProducts } from "@/app/actions/pos-orders";
@@ -71,12 +85,22 @@ describe("POS order authorization", () => {
       actor: { id: 2, name: "Kasir A", role: "cashier" },
     });
     mockInsertReturn.mockReturnValue([{ insertId: 99 }]);
+    mockUpdateReturn.mockReturnValue([{ affectedRows: 1 }]);
     mockDeductStock.mockResolvedValue(undefined);
     mockAwardPosOrderPoints.mockResolvedValue({ awarded: true, pointsEarned: 2 });
     mockProductImages.mockResolvedValue([]);
     mockPosProducts.mockResolvedValue([]);
     mockGetLocationBalanceMap.mockResolvedValue(new Map());
+    mockValidatePosMemberVoucher.mockResolvedValue({
+      valid: true,
+      userVoucherId: 81,
+      voucherId: 6,
+      code: "WELCOME5000",
+      discountAmount: 5_000,
+      allowPoints: true,
+    });
     mockInsertedValues.length = 0;
+    mockUpdatedValues.length = 0;
   });
 
   it("snapshots the short POS product and variant labels", async () => {
@@ -233,6 +257,45 @@ describe("POS order authorization", () => {
 
     expect(result).toEqual({ success: false, error: "Calon member tidak ditemukan atau sudah diaktivasi" });
     expect(mockInsertedValues).toHaveLength(0);
+  });
+
+  it("applies an owned member voucher and redeems it inside the checkout transaction", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{ id: 41, name: "Rina Member" }])
+      .mockReturnValueOnce([{ id: 5, name: "Produk Test", price: "15000", image: null }]);
+
+    const result = await createPosOrder({ ...input, customerUserId: 41, userVoucherId: 81 });
+
+    expect(mockValidatePosMemberVoucher).toHaveBeenCalledWith(41, 81, 15_000);
+    expect(result).toMatchObject({ success: true, total: 10_000, voucherDiscountAmount: 5_000 });
+    expect(mockInsertedValues[0]).toMatchObject({ voucherId: 6, discountAmount: "5000", total: "10000" });
+    expect(mockUpdatedValues[0]).toMatchObject({ status: "redeemed", redeemedOrderId: 99 });
+  });
+
+  it("rejects voucher stacking with a manual cashier discount", async () => {
+    const result = await createPosOrder({
+      ...input,
+      customerUserId: 41,
+      userVoucherId: 81,
+      orderDiscount: { type: "fixed", value: 1_000 },
+    });
+
+    expect(result).toEqual({ success: false, error: "Voucher tidak dapat digabung dengan diskon manual kasir" });
+    expect(mockValidatePosMemberVoucher).not.toHaveBeenCalled();
+  });
+
+  it("rolls back when another cashier has already claimed the voucher", async () => {
+    mockSelectReturn
+      .mockReturnValueOnce([{ id: 10, cashierId: 2, locationId: 7, status: "open" }])
+      .mockReturnValueOnce([{ id: 41, name: "Rina Member" }])
+      .mockReturnValueOnce([{ id: 5, name: "Produk Test", price: "15000", image: null }]);
+    mockUpdateReturn.mockReturnValueOnce([{ affectedRows: 0 }]);
+
+    const result = await createPosOrder({ ...input, customerUserId: 41, userVoucherId: 81 });
+
+    expect(result).toEqual({ success: false, error: "Voucher baru saja digunakan pada transaksi lain" });
+    expect(mockDeductStock).not.toHaveBeenCalled();
   });
 
   it("recalculates and snapshots POS discounts on the server", async () => {
