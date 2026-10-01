@@ -12,7 +12,10 @@ import { requirePosOperator } from "@/lib/pos-auth";
 import { normalizeIndonesianPhone } from "@/lib/registration-utils";
 import { issuePosLeadActivationToken } from "@/lib/pos-lead-activation-token";
 import { and, eq, isNull, like, or } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
+const POS_LEAD_REISSUE_COOLDOWN_MS = 60_000;
 
 const searchSchema = z.string().trim().min(2).max(100);
 const registerLeadSchema = z.object({
@@ -204,6 +207,7 @@ export async function registerPosCustomerLead(input: {
       marketingConsentAt: posCustomerLeads.marketingConsentAt,
       claimedUserId: posCustomerLeads.claimedUserId,
       status: posCustomerLeads.status,
+      updatedAt: posCustomerLeads.updatedAt,
     })
     .from(posCustomerLeads)
     .where(eq(posCustomerLeads.phoneNormalized, phoneNormalized))
@@ -215,6 +219,9 @@ export async function registerPosCustomerLead(input: {
   }
 
   const now = new Date();
+  if (existingLead && now.getTime() - existingLead.updatedAt.getTime() < POS_LEAD_REISSUE_COOLDOWN_MS) {
+    return { success: false, error: "QR baru dapat diterbitkan 1 menit setelah perubahan terakhir" };
+  }
   const activation = issuePosLeadActivationToken(now);
   if (existingLead) {
     await db.update(posCustomerLeads).set({
@@ -283,4 +290,125 @@ export async function registerPosCustomerLead(input: {
     }
     throw error;
   }
+}
+
+const leadActionSchema = z.object({
+  leadId: z.number().int().positive(),
+  sessionId: z.number().int().positive().optional(),
+});
+
+type LeadActionResult =
+  | { success: true; activationPath?: string; activationExpiresAt?: string }
+  | { success: false; error: string };
+
+async function canManageLeadAtLocation(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  actor: { id: number; role: "admin" | "cashier" },
+  locationId: number,
+  sessionId?: number,
+) {
+  if (actor.role === "admin") return true;
+  if (!sessionId) return false;
+  const sessions = await tx.select({ id: posSessions.id }).from(posSessions).where(and(
+    eq(posSessions.id, sessionId),
+    eq(posSessions.cashierId, actor.id),
+    eq(posSessions.locationId, locationId),
+    eq(posSessions.status, "open"),
+  )).limit(1);
+  return Boolean(sessions[0]);
+}
+
+export async function reissuePosCustomerLeadActivation(input: {
+  leadId: number;
+  sessionId?: number;
+}): Promise<LeadActionResult> {
+  const authResult = await requirePosOperator();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+  const parsed = leadActionSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Calon member tidak valid" };
+
+  const now = new Date();
+  const result = await db.transaction(async tx => {
+    const rows = await tx.select({
+      id: posCustomerLeads.id,
+      status: posCustomerLeads.status,
+      claimedUserId: posCustomerLeads.claimedUserId,
+      locationId: posCustomerLeads.locationId,
+      updatedAt: posCustomerLeads.updatedAt,
+    }).from(posCustomerLeads)
+      .where(eq(posCustomerLeads.id, parsed.data.leadId))
+      .limit(1)
+      .for("update");
+    const lead = rows[0];
+    if (!lead) return { success: false, error: "Calon member tidak ditemukan" } as const;
+    if (!(await canManageLeadAtLocation(tx, authResult.actor, lead.locationId, parsed.data.sessionId))) {
+      return { success: false, error: "Anda tidak berwenang menangani calon member di lokasi ini" } as const;
+    }
+    if (lead.status === "activated" || lead.claimedUserId) {
+      return { success: false, error: "Member sudah aktif dan tidak memerlukan QR baru" } as const;
+    }
+    if (lead.status === "cancelled") {
+      return { success: false, error: "Calon member sudah dibatalkan. Daftarkan ulang dengan persetujuan pelanggan." } as const;
+    }
+    const retryAfter = POS_LEAD_REISSUE_COOLDOWN_MS - (now.getTime() - lead.updatedAt.getTime());
+    if (retryAfter > 0) {
+      return { success: false, error: `Coba lagi dalam ${Math.ceil(retryAfter / 1000)} detik` } as const;
+    }
+
+    const activation = issuePosLeadActivationToken(now);
+    await tx.update(posCustomerLeads).set({
+      status: "pending",
+      activationTokenHash: activation.tokenHash,
+      activationExpiresAt: activation.expiresAt,
+    }).where(eq(posCustomerLeads.id, lead.id));
+    return {
+      success: true,
+      activationPath: `/member/activate/${activation.token}`,
+      activationExpiresAt: activation.expiresAt.toISOString(),
+    } as const;
+  });
+
+  if (result.success) revalidatePath("/dashboard/members");
+  return result;
+}
+
+export async function cancelPosCustomerLead(input: {
+  leadId: number;
+  sessionId?: number;
+}): Promise<LeadActionResult> {
+  const authResult = await requirePosOperator();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+  const parsed = leadActionSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Calon member tidak valid" };
+
+  const result = await db.transaction(async tx => {
+    const rows = await tx.select({
+      id: posCustomerLeads.id,
+      status: posCustomerLeads.status,
+      claimedUserId: posCustomerLeads.claimedUserId,
+      locationId: posCustomerLeads.locationId,
+    }).from(posCustomerLeads)
+      .where(eq(posCustomerLeads.id, parsed.data.leadId))
+      .limit(1)
+      .for("update");
+    const lead = rows[0];
+    if (!lead) return { success: false, error: "Calon member tidak ditemukan" } as const;
+    if (!(await canManageLeadAtLocation(tx, authResult.actor, lead.locationId, parsed.data.sessionId))) {
+      return { success: false, error: "Anda tidak berwenang menangani calon member di lokasi ini" } as const;
+    }
+    if (lead.status === "activated" || lead.claimedUserId) {
+      return { success: false, error: "Member yang sudah aktif tidak dapat dibatalkan" } as const;
+    }
+    if (lead.status === "cancelled") return { success: true } as const;
+
+    await tx.update(posCustomerLeads).set({
+      status: "cancelled",
+      activationTokenHash: null,
+      activationExpiresAt: null,
+    }).where(eq(posCustomerLeads.id, lead.id));
+    return { success: true } as const;
+  });
+
+  if (result.success) revalidatePath("/dashboard/members");
+  return result;
 }

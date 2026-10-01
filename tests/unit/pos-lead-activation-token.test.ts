@@ -3,7 +3,7 @@ import {
   hashPosLeadActivationToken,
   isValidPosLeadActivationToken,
   issuePosLeadActivationToken,
-  POS_LEAD_ACTIVATION_HOURS,
+  POS_LEAD_ACTIVATION_MINUTES,
 } from '@/lib/pos-lead-activation-token';
 
 describe('POS lead activation token', () => {
@@ -16,7 +16,7 @@ describe('POS lead activation token', () => {
     expect(issued.tokenHash).not.toContain(issued.token);
     expect(issued.tokenHash).toBe(hashPosLeadActivationToken(issued.token));
     expect(issued.expiresAt.getTime()).toBe(
-      now.getTime() + POS_LEAD_ACTIVATION_HOURS * 60 * 60 * 1000,
+      now.getTime() + POS_LEAD_ACTIVATION_MINUTES * 60 * 1000,
     );
   });
 
