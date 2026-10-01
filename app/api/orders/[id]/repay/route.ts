@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 import { validateStock, deductStock } from '@/lib/stock';
 import { createInvoice } from '@/lib/xendit';
+import { createInternalCustomerEmail } from '@/lib/registration-utils';
 
 // POST /api/orders/[id]/repay — repay expired order or retry failed payment
 export async function POST(
@@ -77,7 +78,7 @@ export async function POST(
     const invoice = await createInvoice({
       externalId: order.orderNumber!,
       amount: Number(order.total),
-      payerEmail: user.email,
+      payerEmail: user.email ?? createInternalCustomerEmail(user.phone ?? String(user.id)),
       description: `Pembayaran order ${order.orderNumber}`,
       orderId,
     });

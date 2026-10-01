@@ -10,6 +10,7 @@ import { getApiUser } from '@/lib/api-auth';
 import { generateOrderNumber } from '@/lib/utils';
 import { validateStock, deductStock } from '@/lib/stock';
 import { createInvoice } from '@/lib/xendit';
+import { createInternalCustomerEmail } from '@/lib/registration-utils';
 import { z } from 'zod';
 import { resolveProductPrice } from '@/lib/product-pricing';
 
@@ -226,7 +227,7 @@ export async function POST(request: Request) {
       const invoice = await createInvoice({
         externalId: orderNumber,
         amount: total,
-        payerEmail: user.email,
+        payerEmail: user.email ?? createInternalCustomerEmail(user.phone ?? String(user.id)),
         description: `Pembayaran order ${orderNumber}`,
         orderId,
       });

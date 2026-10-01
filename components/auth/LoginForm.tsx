@@ -25,20 +25,21 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Email */}
+      {/* Email atau nomor HP */}
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="identifier">Email atau nomor HP</Label>
         <Input
-          id="email"
-          name="email"
-          type="email"
-          placeholder="kamu@email.com"
-          autoComplete="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          inputMode="email"
+          placeholder="kamu@email.com atau 08xxxxxxxxxx"
+          autoComplete="username"
           disabled={isPending}
-          className={state?.errors?.email ? 'border-destructive' : ''}
+          className={state?.errors?.identifier ? 'border-destructive' : ''}
         />
-        {state?.errors?.email && (
-          <p className="text-xs text-destructive">{state.errors.email[0]}</p>
+        {state?.errors?.identifier && (
+          <p className="text-xs text-destructive">{state.errors.identifier[0]}</p>
         )}
       </div>
 

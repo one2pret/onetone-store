@@ -5,7 +5,7 @@ import { updateProfile } from '@/app/actions/profile';
 
 interface Props {
   name: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
 }
 
@@ -44,7 +44,7 @@ export function ProfileForm({ name, email, phone }: Props) {
       <div>
         <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
         <input
-          value={email}
+          value={email ?? ''}
           disabled
           className="w-full px-3.5 py-2.5 bg-muted border border-border rounded-lg text-sm text-muted-foreground cursor-not-allowed"
         />

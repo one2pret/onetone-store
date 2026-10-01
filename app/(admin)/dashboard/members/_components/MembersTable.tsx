@@ -8,7 +8,7 @@ import { formatDate, formatRupiah } from '@/lib/utils';
 type Member = {
   id: number;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   createdAt: Date | null;
   points: number | null;
@@ -59,7 +59,7 @@ export function MembersTable({ data }: Props) {
               <p className="font-medium text-foreground text-sm">{m.name}</p>
               {m.phone && <p className="text-xs text-muted-foreground">{m.phone}</p>}
             </div>
-            <span className="text-sm text-muted-foreground truncate">{m.email}</span>
+            <span className="text-sm text-muted-foreground truncate">{m.email ?? '—'}</span>
             <span>
               {m.tierName ? (
                 <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${tierBadge[m.tierName] ?? 'bg-muted text-muted-foreground'}`}>

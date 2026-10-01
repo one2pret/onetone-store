@@ -42,9 +42,9 @@ export function RegisterForm() {
         )}
       </div>
 
-      {/* Email */}
+      {/* Email opsional */}
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">Email <span className="text-muted-foreground">(opsional)</span></Label>
         <Input
           id="email"
           name="email"
@@ -54,22 +54,28 @@ export function RegisterForm() {
           disabled={isPending}
           className={state?.errors?.email ? 'border-destructive' : ''}
         />
+        <p className="text-xs text-muted-foreground">Kosongkan jika ingin masuk menggunakan nomor HP.</p>
         {state?.errors?.email && (
           <p className="text-xs text-destructive">{state.errors.email[0]}</p>
         )}
       </div>
 
-      {/* No. HP (optional) */}
+      {/* No. HP */}
       <div className="space-y-1.5">
-        <Label htmlFor="phone">No. HP <span className="text-muted-foreground">(opsional)</span></Label>
+        <Label htmlFor="phone">No. HP</Label>
         <Input
           id="phone"
           name="phone"
           type="tel"
           placeholder="08xxxxxxxxxx"
           autoComplete="tel"
+          required
           disabled={isPending}
+          aria-invalid={!!state?.errors?.phone}
+          className={state?.errors?.phone ? 'border-destructive' : ''}
         />
+        <p className="text-xs text-muted-foreground">Dipakai untuk identitas member dan pencarian di kasir.</p>
+        {state?.errors?.phone && <p className="text-xs text-destructive">{state.errors.phone[0]}</p>}
       </div>
 
       {/* Password */}
@@ -80,7 +86,8 @@ export function RegisterForm() {
             id="password"
             name="password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Minimal 6 karakter"
+            placeholder="Minimal 8 karakter"
+            minLength={8}
             autoComplete="new-password"
             disabled={isPending}
             className={`pr-10 ${state?.errors?.password ? 'border-destructive' : ''}`}
