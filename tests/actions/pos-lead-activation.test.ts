@@ -39,6 +39,7 @@ describe('POS lead activation action', () => {
     mockActivate.mockResolvedValue({
       success: true,
       email: 'member@example.com',
+      phone: '6281234567890',
       welcomeVoucherCount: 1,
       linkedOrderCount: 2,
       pointsEarned: 12,
@@ -53,10 +54,36 @@ describe('POS lead activation action', () => {
     });
     expect(result).toEqual({
       success: true,
-      email: 'member@example.com',
+      loginIdentifier: 'member@example.com',
       welcomeVoucherCount: 1,
       linkedOrderCount: 2,
       pointsEarned: 12,
+    });
+  });
+
+  it('activates with phone login when email is omitted', async () => {
+    mockActivate.mockResolvedValue({
+      success: true,
+      email: null,
+      phone: '6281234567890',
+      welcomeVoucherCount: 0,
+      linkedOrderCount: 0,
+      pointsEarned: 0,
+    });
+
+    const result = await activatePosLead({ success: false }, activationForm({ email: '' }));
+
+    expect(mockActivate).toHaveBeenCalledWith({
+      token: 'a'.repeat(43),
+      email: undefined,
+      password: 'rahasia123',
+    });
+    expect(result).toEqual({
+      success: true,
+      loginIdentifier: '6281234567890',
+      welcomeVoucherCount: 0,
+      linkedOrderCount: 0,
+      pointsEarned: 0,
     });
   });
 });

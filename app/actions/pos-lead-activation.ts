@@ -5,7 +5,7 @@ import { activatePosCustomerLead as activateLead } from '@/lib/pos-lead-activati
 
 const activationSchema = z.object({
   token: z.string().trim().min(1),
-  email: z.string().trim().email('Email tidak valid').max(255),
+  email: z.union([z.string().trim().email('Email tidak valid').max(255), z.literal('')]).optional(),
   password: z.string().min(8, 'Password minimal 8 karakter').max(72, 'Password maksimal 72 karakter'),
   passwordConfirmation: z.string(),
 }).refine(data => data.password === data.passwordConfirmation, {
@@ -21,7 +21,7 @@ export type PosLeadActivationState = {
     password?: string[];
     passwordConfirmation?: string[];
   };
-  email?: string;
+  loginIdentifier?: string;
   welcomeVoucherCount?: number;
   linkedOrderCount?: number;
   pointsEarned?: number;
@@ -52,7 +52,7 @@ export async function activatePosLead(
 
   const result = await activateLead({
     token: parsed.data.token,
-    email: parsed.data.email,
+    email: parsed.data.email || undefined,
     password: parsed.data.password,
   });
   if (!result.success) {
@@ -63,7 +63,7 @@ export async function activatePosLead(
 
   return {
     success: true,
-    email: result.email,
+    loginIdentifier: result.email ?? result.phone,
     welcomeVoucherCount: result.welcomeVoucherCount,
     linkedOrderCount: result.linkedOrderCount,
     pointsEarned: result.pointsEarned,

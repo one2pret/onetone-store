@@ -33,7 +33,7 @@ export function PosLeadActivationForm({
         <div>
           <h2 className="text-xl font-bold text-foreground">Akun member sudah aktif</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Masuk dengan <span className="font-medium text-foreground">{state.email}</span> untuk melihat benefit member.
+            Masuk dengan <span className="font-medium text-foreground">{state.loginIdentifier ?? maskedPhone}</span> untuk melihat benefit member.
           </p>
         </div>
         <div className="rounded-xl border border-border bg-muted/40 p-4 text-left text-sm">
@@ -84,19 +84,19 @@ export function PosLeadActivationForm({
       )}
 
       <div className="space-y-1.5">
-        <Label htmlFor="activation-email">Email untuk login</Label>
+        <Label htmlFor="activation-email">Email untuk login <span className="font-normal text-muted-foreground">(opsional)</span></Label>
         <Input
           id="activation-email"
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="nama@email.com"
-          required
+          placeholder="Kosongkan jika ingin login dengan nomor HP"
           disabled={pending}
           aria-invalid={!!state.errors?.email}
           className={state.errors?.email ? 'border-destructive' : ''}
         />
         {state.errors?.email && <p className="text-xs text-destructive">{state.errors.email[0]}</p>}
+        {!state.errors?.email && <p className="text-xs text-muted-foreground">Tanpa email, Anda tetap dapat masuk menggunakan nomor HP yang didaftarkan kasir.</p>}
       </div>
 
       <div className="space-y-1.5">
