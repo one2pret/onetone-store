@@ -10,7 +10,9 @@ function mockSelectChain() {
   chain.from = vi.fn().mockReturnValue(chain);
   chain.innerJoin = vi.fn().mockReturnValue(chain);
   chain.where = vi.fn().mockReturnValue(chain);
-  chain.limit = vi.fn().mockImplementation(() => Promise.resolve(mockRows()));
+  chain.limit = vi.fn().mockReturnValue(chain);
+  chain.for = vi.fn().mockImplementation(() => Promise.resolve(mockRows()));
+  chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(mockRows()).then(resolve, reject);
   return chain;
 }
 
@@ -39,14 +41,25 @@ vi.mock("@/lib/db", () => ({
     select: vi.fn(() => mockSelectChain()),
     insert: vi.fn(() => mockInsertChain()),
     update: vi.fn(() => mockUpdateChain()),
+    transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({
+      select: vi.fn(() => mockSelectChain()),
+      update: vi.fn(() => mockUpdateChain()),
+    })),
   },
 }));
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/pos-auth", () => ({
   requirePosOperator: (...args: unknown[]) => mockRequirePosOperator(...args),
 }));
 
-import { registerPosCustomerLead, searchPosMembers } from "@/app/actions/pos-members";
+import {
+  cancelPosCustomerLead,
+  registerPosCustomerLead,
+  reissuePosCustomerLeadActivation,
+  searchPosMembers,
+} from "@/app/actions/pos-members";
 import { hashPosLeadActivationToken } from "@/lib/pos-lead-activation-token";
 
 describe("POS member search", () => {
@@ -172,8 +185,9 @@ describe("POS member search", () => {
         id: 71,
         email: null,
         marketingConsentAt: null,
-        claimedUserId: null,
-        status: "pending",
+      claimedUserId: null,
+      status: "pending",
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
       }]);
 
     const result = await registerPosCustomerLead({
@@ -195,5 +209,94 @@ describe("POS member search", () => {
       activationExpiresAt: expect.any(Date),
     }));
     expect(mockInsertedValue).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin reissue a one-time activation link", async () => {
+    mockRequirePosOperator.mockResolvedValueOnce({
+      ok: true,
+      actor: { id: 1, name: "Admin", role: "admin" },
+    });
+    mockRows.mockReturnValueOnce([{
+      id: 71,
+      status: "pending",
+      claimedUserId: null,
+      locationId: 7,
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    }]);
+
+    const result = await reissuePosCustomerLeadActivation({ leadId: 71 });
+
+    expect(result).toMatchObject({ success: true, activationPath: expect.stringMatching(/^\/member\/activate\/[A-Za-z0-9_-]{43}$/) });
+    expect(mockUpdatedValue).toHaveBeenCalledWith(expect.objectContaining({
+      status: "pending",
+      activationTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      activationExpiresAt: expect.any(Date),
+    }));
+  });
+
+  it("rejects a cashier without an open session at the lead location", async () => {
+    mockRows
+      .mockReturnValueOnce([{
+        id: 71,
+        status: "pending",
+        claimedUserId: null,
+        locationId: 7,
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      }])
+      .mockReturnValueOnce([]);
+
+    await expect(reissuePosCustomerLeadActivation({ leadId: 71, sessionId: 10 })).resolves.toEqual({
+      success: false,
+      error: "Anda tidak berwenang menangani calon member di lokasi ini",
+    });
+    expect(mockUpdatedValue).not.toHaveBeenCalled();
+  });
+
+  it("rate limits rapid activation-link reissues", async () => {
+    mockRequirePosOperator.mockResolvedValueOnce({
+      ok: true,
+      actor: { id: 1, name: "Admin", role: "admin" },
+    });
+    mockRows.mockReturnValueOnce([{
+      id: 71,
+      status: "pending",
+      claimedUserId: null,
+      locationId: 7,
+      updatedAt: new Date(),
+    }]);
+
+    const result = await reissuePosCustomerLeadActivation({ leadId: 71 });
+
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(/^Coba lagi dalam/) });
+    expect(mockUpdatedValue).not.toHaveBeenCalled();
+  });
+
+  it("cancels a pending lead and invalidates its activation token", async () => {
+    mockRequirePosOperator.mockResolvedValueOnce({
+      ok: true,
+      actor: { id: 1, name: "Admin", role: "admin" },
+    });
+    mockRows.mockReturnValueOnce([{ id: 71, status: "pending", claimedUserId: null, locationId: 7 }]);
+
+    await expect(cancelPosCustomerLead({ leadId: 71 })).resolves.toEqual({ success: true });
+    expect(mockUpdatedValue).toHaveBeenCalledWith({
+      status: "cancelled",
+      activationTokenHash: null,
+      activationExpiresAt: null,
+    });
+  });
+
+  it("does not cancel an activated member", async () => {
+    mockRequirePosOperator.mockResolvedValueOnce({
+      ok: true,
+      actor: { id: 1, name: "Admin", role: "admin" },
+    });
+    mockRows.mockReturnValueOnce([{ id: 71, status: "activated", claimedUserId: 41, locationId: 7 }]);
+
+    await expect(cancelPosCustomerLead({ leadId: 71 })).resolves.toEqual({
+      success: false,
+      error: "Member yang sudah aktif tidak dapat dibatalkan",
+    });
+    expect(mockUpdatedValue).not.toHaveBeenCalled();
   });
 });

@@ -103,6 +103,7 @@ export async function getPosCustomerLeads() {
       status: posCustomerLeads.status,
       consentAt: posCustomerLeads.consentAt,
       marketingConsentAt: posCustomerLeads.marketingConsentAt,
+      activationExpiresAt: posCustomerLeads.activationExpiresAt,
       createdAt: posCustomerLeads.createdAt,
       createdByName: users.name,
       locationName: inventoryLocations.name,
