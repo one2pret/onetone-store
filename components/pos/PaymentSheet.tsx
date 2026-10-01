@@ -7,13 +7,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Image from "next/image";
 import QRCode from "qrcode";
 import { toast } from "sonner";
-import { X, Banknote, QrCode, ArrowRightLeft, ArrowLeft, Tag, Search, UserRoundCheck, UserPlus, Copy, ExternalLink } from "lucide-react";
+import { X, Banknote, QrCode, ArrowRightLeft, ArrowLeft, Tag, Search, UserRoundCheck, UserPlus, Copy, ExternalLink, RotateCw, Trash2 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { createPosOrder } from "@/app/actions/pos-orders";
 import { getPosMemberVouchers } from "@/app/actions/pos-vouchers";
 import type { PosMemberVoucher } from "@/lib/pos-vouchers";
 import {
   registerPosCustomerLead,
+  reissuePosCustomerLeadActivation,
+  cancelPosCustomerLead,
   searchPosMembers,
   type PosCustomerLeadResult,
   type PosMemberSearchResult,
@@ -68,6 +70,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
   const [isPending, startTransition] = useTransition();
   const [isSearchingMember, startMemberSearch] = useTransition();
   const [isRegisteringLead, startLeadRegistration] = useTransition();
+  const [isManagingLead, startLeadManagement] = useTransition();
   const [isLoadingVouchers, startVoucherLookup] = useTransition();
   const historyExitCallback = useRef<(() => void) | null>(null);
 
@@ -315,6 +318,43 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
       setLeadEmail("");
       setLeadConsent(false);
       setLeadMarketingConsent(false);
+    });
+  }
+
+  function reissueSelectedLead() {
+    if (!selectedLead) return;
+    startLeadManagement(async () => {
+      const result = await reissuePosCustomerLeadActivation({ leadId: selectedLead.id, sessionId });
+      if (!result.success || !result.activationPath || !result.activationExpiresAt) {
+        toast.error(result.success ? "QR aktivasi tidak tersedia" : result.error);
+        return;
+      }
+      const url = new URL(result.activationPath, window.location.origin).toString();
+      let qrDataUrl: string | null = null;
+      try {
+        qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 1, errorCorrectionLevel: "M", color: { dark: "#0f172a", light: "#ffffff" } });
+      } catch {
+        toast.warning("QR gagal dibuat, tetapi tautan aktivasi tetap tersedia");
+      }
+      setSelectedLead(current => current ? { ...current, activationPath: result.activationPath!, activationExpiresAt: result.activationExpiresAt! } : current);
+      setLeadActivation({ url, qrDataUrl });
+      toast.success("QR baru diterbitkan; QR lama sudah tidak berlaku");
+    });
+  }
+
+  function cancelSelectedLead() {
+    if (!selectedLead || !window.confirm(`Batalkan calon member ${selectedLead.name}?`)) return;
+    startLeadManagement(async () => {
+      const result = await cancelPosCustomerLead({ leadId: selectedLead.id, sessionId });
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      const name = selectedLead.name;
+      setSelectedLead(null);
+      setLeadActivation(null);
+      setCustomerName(name);
+      toast.success("Calon member dibatalkan; transaksi dapat dilanjutkan sebagai pelanggan umum");
     });
   }
 
@@ -645,7 +685,7 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
                     <div className="min-w-0 text-center sm:text-left">
                       <p className="text-xs font-semibold text-slate-900">Scan untuk aktivasi member</p>
                       <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                        QR berlaku 24 jam dan hanya dapat dipakai satu kali. Setelah aktif, akun otomatis mendapat voucher member baru yang sedang aktif.
+                        QR berlaku 30 menit dan hanya dapat dipakai satu kali. Setelah aktif, akun otomatis mendapat voucher member baru yang sedang aktif.
                       </p>
                       <div className="mt-2 flex flex-wrap justify-center gap-2 sm:justify-start">
                         <button
@@ -672,6 +712,24 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                           Buka aktivasi
                         </a>
+                        <button
+                          type="button"
+                          disabled={isManagingLead}
+                          onClick={reissueSelectedLead}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
+                          Terbitkan ulang
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isManagingLead}
+                          onClick={cancelSelectedLead}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          Batalkan
+                        </button>
                       </div>
                     </div>
                   </div>
