@@ -28,7 +28,7 @@ export default async function PosLeadActivationPage({
               <div className="mb-5">
                 <h2 className="text-xl font-bold text-foreground">Lengkapi akun member</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Buat email login dan password. Tautan ini hanya dapat dipakai satu kali.
+                  Buat password untuk login dengan nomor HP. Email dapat ditambahkan bila diinginkan.
                 </p>
               </div>
               <PosLeadActivationForm
@@ -51,7 +51,7 @@ export default async function PosLeadActivationPage({
                   {info.reason === 'expired'
                     ? 'Minta kasir mendaftarkan ulang agar QR aktivasi baru diterbitkan.'
                     : info.reason === 'used'
-                      ? 'Akun member sudah pernah diaktifkan. Silakan masuk memakai email akun tersebut.'
+                      ? 'Akun member sudah pernah diaktifkan. Silakan masuk memakai email atau nomor HP akun tersebut.'
                       : 'Periksa kembali QR atau tautan aktivasi yang diberikan kasir.'}
                 </p>
               </div>

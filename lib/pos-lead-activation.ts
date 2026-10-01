@@ -16,7 +16,7 @@ import {
   hashPosLeadActivationToken,
   isValidPosLeadActivationToken,
 } from '@/lib/pos-lead-activation-token';
-import { calculateGrantExpiry } from '@/lib/registration-utils';
+import { calculateGrantExpiry, createInternalCustomerEmail } from '@/lib/registration-utils';
 import { calculateMembershipOrderReward, calculateReturnSpendTarget } from '@/lib/membership-rewards';
 
 export type PosLeadActivationInfo =
@@ -24,7 +24,7 @@ export type PosLeadActivationInfo =
   | { valid: false; reason: 'invalid' | 'expired' | 'used' };
 
 export type ActivatePosLeadResult =
-  | { success: true; email: string; welcomeVoucherCount: number; linkedOrderCount: number; pointsEarned: number }
+  | { success: true; email: string | null; phone: string; welcomeVoucherCount: number; linkedOrderCount: number; pointsEarned: number }
   | { success: false; field?: 'email' | 'password' | 'passwordConfirmation'; error: string };
 
 function maskEmail(value: string | null) {
@@ -72,14 +72,14 @@ export async function getPosLeadActivationInfo(token: string): Promise<PosLeadAc
 
 export async function activatePosCustomerLead(input: {
   token: string;
-  email: string;
+  email?: string;
   password: string;
 }): Promise<ActivatePosLeadResult> {
   if (!isValidPosLeadActivationToken(input.token)) {
     return { success: false, error: 'Tautan aktivasi tidak valid' };
   }
 
-  const email = input.email.trim().toLowerCase();
+  const suppliedEmail = input.email?.trim().toLowerCase() || null;
   const passwordHash = await bcrypt.hash(input.password, 10);
   const tokenHash = hashPosLeadActivationToken(input.token);
   const activatedAt = new Date();
@@ -90,6 +90,7 @@ export async function activatePosCustomerLead(input: {
         id: posCustomerLeads.id,
         name: posCustomerLeads.name,
         phone: posCustomerLeads.phoneNormalized,
+        email: posCustomerLeads.email,
         status: posCustomerLeads.status,
         claimedUserId: posCustomerLeads.claimedUserId,
         expiresAt: posCustomerLeads.activationExpiresAt,
@@ -112,20 +113,24 @@ export async function activatePosCustomerLead(input: {
         return { success: false, error: 'Tautan aktivasi sudah kedaluwarsa. Minta kasir membuat QR baru.' } as const;
       }
 
+      const email = suppliedEmail ?? lead.email?.trim().toLowerCase() ?? null;
+      const storedEmail = email ?? createInternalCustomerEmail(lead.phone);
+
       const existingUsers = await tx.select({ id: users.id, email: users.email, phone: users.phone })
         .from(users)
         .where(and(
           isNull(users.deletedAt),
-          or(eq(users.email, email), eq(users.phone, lead.phone)),
+          or(email ? eq(users.email, email) : undefined, eq(users.phone, lead.phone)),
         ))
         .limit(1);
       const existingUser = existingUsers[0];
       if (existingUser) {
-        const field = existingUser.email === email ? 'email' as const : undefined;
+        const emailConflict = Boolean(email && existingUser.email.toLowerCase() === email);
+        const field = emailConflict ? 'email' as const : undefined;
         return {
           success: false,
           field,
-          error: existingUser.email === email
+          error: emailConflict
             ? 'Email sudah terdaftar. Silakan masuk dengan akun tersebut.'
             : 'Nomor telepon ini sudah terhubung dengan akun lain. Hubungi admin.',
         } as const;
@@ -139,7 +144,7 @@ export async function activatePosCustomerLead(input: {
 
       const inserted = await tx.insert(users).values({
         name: lead.name,
-        email,
+        email: storedEmail,
         password: passwordHash,
         phone: lead.phone,
         role: 'customer',
@@ -259,6 +264,7 @@ export async function activatePosCustomerLead(input: {
       return {
         success: true,
         email,
+        phone: lead.phone,
         welcomeVoucherCount: campaigns.length,
         linkedOrderCount: linkedOrders.length,
         pointsEarned: totalPointsEarned,
@@ -267,7 +273,7 @@ export async function activatePosCustomerLead(input: {
   } catch (error) {
     const dbError = error as { code?: string; errno?: number };
     if (dbError.code === 'ER_DUP_ENTRY' || dbError.errno === 1062) {
-      return { success: false, field: 'email', error: 'Email atau nomor telepon sudah terdaftar' };
+      return { success: false, error: 'Email atau nomor telepon sudah terdaftar' };
     }
     throw error;
   }
