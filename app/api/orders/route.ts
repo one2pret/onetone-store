@@ -216,6 +216,7 @@ export async function POST(request: Request) {
         variantId: row.cart_items.variantId ?? undefined,
         quantity: row.cart_items.quantity ?? 1,
       })),
+      orderId,
     );
 
     // 9. Clear cart

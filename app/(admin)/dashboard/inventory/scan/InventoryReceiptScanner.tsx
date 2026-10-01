@@ -23,6 +23,9 @@ type ScanItem = {
 
 export function InventoryReceiptScanner({ locations }: { locations: Location[] }) {
   const [locationId, setLocationId] = useState(locations[0]?.id ?? 0);
+  const [sourceType, setSourceType] = useState<"external" | "internal">("external");
+  const [sourceLocationId, setSourceLocationId] = useState(0);
+  const [sourceName, setSourceName] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [items, setItems] = useState<ScanItem[]>([]);
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -91,6 +94,9 @@ export function InventoryReceiptScanner({ locations }: { locations: Location[] }
     startTransition(async () => {
       const result = await receiveInventoryByScan({
         locationId,
+        sourceType,
+        sourceLocationId: sourceType === "internal" ? sourceLocationId : undefined,
+        sourceName: sourceType === "external" ? sourceName : undefined,
         idempotencyKey,
         referenceNumber: referenceNumber || undefined,
         notes: notes || undefined,
@@ -104,6 +110,7 @@ export function InventoryReceiptScanner({ locations }: { locations: Location[] }
       setItems([]);
       setReferenceNumber("");
       setNotes("");
+      setSourceName("");
       setIdempotencyKey(crypto.randomUUID());
     });
   }
@@ -115,9 +122,25 @@ export function InventoryReceiptScanner({ locations }: { locations: Location[] }
   return <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
     <section className="min-w-0 space-y-4">
       <div className="rounded-xl border border-border bg-card p-4">
+        <div className="mb-4 grid gap-3 md:grid-cols-2">
+          <label className="space-y-1.5 text-sm font-medium text-foreground">Asal barang
+            <select value={sourceType} onChange={event => { setSourceType(event.target.value as "external" | "internal"); setItems([]); }} className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm">
+              <option value="external">Dari luar usaha</option>
+              <option value="internal">Dari lokasi lain</option>
+            </select>
+          </label>
+          {sourceType === "internal" ? <label className="space-y-1.5 text-sm font-medium text-foreground">Lokasi asal
+            <select value={sourceLocationId} onChange={event => { setSourceLocationId(Number(event.target.value)); setItems([]); }} className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm">
+              <option value={0}>Pilih lokasi asal</option>
+              {locations.filter(item => item.id !== locationId).map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}
+            </select>
+          </label> : <label className="space-y-1.5 text-sm font-medium text-foreground">Nama sumber / supplier
+            <input value={sourceName} onChange={event => setSourceName(event.target.value)} maxLength={150} placeholder="Contoh: Supplier A" className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm" />
+          </label>}
+        </div>
         <div className="grid gap-3 md:grid-cols-[minmax(200px,320px)_minmax(0,1fr)]">
           <label className="space-y-1.5 text-sm font-medium text-foreground">Lokasi penerimaan
-            <select disabled={locations.length === 1} value={locationId} onChange={event => { setLocationId(Number(event.target.value)); setItems([]); }} className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm disabled:cursor-default disabled:opacity-80">
+            <select disabled={locations.length === 1} value={locationId} onChange={event => { setLocationId(Number(event.target.value)); setSourceLocationId(0); setItems([]); }} className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm disabled:cursor-default disabled:opacity-80">
               {locations.map(location => <option key={location.id} value={location.id}>{location.name} · {location.code}</option>)}
             </select>
           </label>
@@ -151,10 +174,11 @@ export function InventoryReceiptScanner({ locations }: { locations: Location[] }
 
     <aside className="h-fit space-y-4 rounded-xl border border-border bg-card p-4 xl:sticky xl:top-20">
       <div><h2 className="font-semibold text-foreground">Konfirmasi penerimaan</h2><p className="mt-1 text-xs text-muted-foreground">Stok belum berubah sebelum tombol konfirmasi ditekan.</p></div>
+      {sourceType === "internal" && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Konfirmasi langsung mengurangi stok lokasi asal dan menambah stok lokasi penerima. Anda perlu akses ke kedua lokasi.</p>}
       <label className="block space-y-1.5 text-sm font-medium text-foreground">Nomor referensi <span className="font-normal text-muted-foreground">(opsional)</span><input value={referenceNumber} onChange={event => setReferenceNumber(event.target.value)} maxLength={100} placeholder="PO, surat jalan, invoice" className="block h-10 w-full rounded-lg border border-border bg-background px-3 text-sm" /></label>
       <label className="block space-y-1.5 text-sm font-medium text-foreground">Catatan <span className="font-normal text-muted-foreground">(opsional)</span><textarea value={notes} onChange={event => setNotes(event.target.value)} maxLength={500} rows={3} placeholder="Supplier atau kondisi barang" className="block w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
       <div className="rounded-lg bg-muted/50 p-3 text-sm"><div className="flex justify-between text-muted-foreground"><span>Jenis item</span><span>{items.length}</span></div><div className="mt-1 flex justify-between font-semibold text-foreground"><span>Total unit masuk</span><span>{totalQuantity}</span></div></div>
-      <button type="button" disabled={isPending || items.length === 0 || !locationId} onClick={confirmReceipt} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm disabled:cursor-not-allowed disabled:opacity-50">{isPending ? "Menyimpan..." : `Konfirmasi ${totalQuantity} Unit`}</button>
+      <button type="button" disabled={isPending || items.length === 0 || !locationId || (sourceType === "internal" ? !sourceLocationId || sourceLocationId === locationId : !sourceName.trim())} onClick={confirmReceipt} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm disabled:cursor-not-allowed disabled:opacity-50">{isPending ? "Menyimpan..." : `Konfirmasi ${totalQuantity} Unit`}</button>
     </aside>
   </div>;
 }

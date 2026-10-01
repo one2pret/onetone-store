@@ -61,6 +61,7 @@ export async function POST(
 
     const stockItems = items.map(item => ({
       productId: item.productId!,
+      variantId: item.variantId ?? undefined,
       quantity: item.quantity,
       productName: item.productName,
     }));
@@ -102,7 +103,7 @@ export async function POST(
       }).where(eq(orders.id, orderId));
 
       // Deduct stock again
-      await deductStock(stockItems.map(i => ({ productId: i.productId, quantity: i.quantity })));
+      await deductStock(stockItems.map(i => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })), orderId);
 
       // Audit log
       await db.insert(orderStatusLogs).values({

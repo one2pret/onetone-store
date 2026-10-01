@@ -113,6 +113,13 @@
       "when": 1790704800000,
       "tag": "0015_inventory_staff_access",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1790816400000,
+      "tag": "0016_inventory_receipt_sources",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,7 @@ export function InventoryReceiptHistory({ history }: { history: Receipt[] }) {
   const [date, setDate] = useState("");
   const locations = useMemo(() => Array.from(new Map(history.map(item => [item.locationId, item.locationName])).entries()), [history]);
   const filtered = useMemo(() => history.filter(item => {
-    const haystack = `${item.receiptNumber} ${item.referenceNumber ?? ""} ${item.locationName} ${item.notes ?? ""} ${item.barcodeCodes ?? ""}`.toLowerCase();
+    const haystack = `${item.receiptNumber} ${item.referenceNumber ?? ""} ${item.locationName} ${item.sourceLocationName ?? ""} ${item.sourceName ?? ""} ${item.notes ?? ""} ${item.barcodeCodes ?? ""}`.toLowerCase();
     const dateKey = item.createdAt ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt)) : "";
     return (!search || haystack.includes(search.toLowerCase())) && (!locationId || item.locationId === locationId) && (!date || dateKey === date);
   }), [date, history, locationId, search]);
@@ -36,7 +36,7 @@ export function InventoryReceiptHistory({ history }: { history: Receipt[] }) {
     </div>
     {filtered.length === 0 ? <div className="px-4 py-16 text-center"><FileClock className="mx-auto h-10 w-10 text-muted-foreground/40" /><p className="mt-3 text-sm text-muted-foreground">Belum ada riwayat penerimaan yang sesuai.</p></div> : <div className="divide-y divide-border">{filtered.map(item => <Link key={item.id} href={`/dashboard/inventory/history/${item.id}`} className="grid gap-2 p-4 transition hover:bg-accent/50 md:grid-cols-[minmax(180px,1fr)_minmax(160px,1fr)_120px_160px] md:items-center">
       <div><p className="font-mono text-sm font-semibold text-foreground">{item.receiptNumber}</p><p className="text-xs text-muted-foreground">{item.referenceNumber || "Tanpa referensi"}</p></div>
-      <div><p className="text-sm font-medium text-foreground">{item.locationName}</p><p className="text-xs text-muted-foreground">{item.locationCode}</p></div>
+      <div><p className="text-sm font-medium text-foreground">{item.sourceType === "internal" ? `${item.sourceLocationName ?? "Lokasi asal"} → ` : item.sourceType === "external" ? `${item.sourceName ?? "Sumber luar"} → ` : "Asal tidak tercatat → "}{item.locationName}</p><p className="text-xs text-muted-foreground">{item.sourceType === "internal" ? "Transfer internal" : item.sourceType === "external" ? "Penerimaan luar" : "Penerimaan lama"} · {item.locationCode}</p></div>
       <p className="text-sm text-foreground">{item.itemCount} item · <strong>{item.totalQuantity}</strong> unit</p>
       <p className="text-xs text-muted-foreground md:text-right">{item.createdAt ? new Date(item.createdAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }) : "-"}</p>
     </Link>)}</div>}
