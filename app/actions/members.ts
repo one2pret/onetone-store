@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { users, memberships, memberTiers, orders, posCustomerLeads, inventoryLocations } from '@/lib/db/schema';
 import { eq, desc, count, and, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { isInternalCustomerEmail } from '@/lib/registration-utils';
 
 async function isAdmin() {
   const session = await auth();
@@ -38,7 +39,10 @@ export async function getMembers(tierFilter?: number) {
     )
     .orderBy(desc(users.createdAt));
 
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    email: isInternalCustomerEmail(row.email) ? null : row.email,
+  }));
 }
 
 export async function getMember(userId: number) {
@@ -75,7 +79,12 @@ export async function getMember(userId: number) {
     .from(orders)
     .where(eq(orders.userId, userId));
 
-  return { ...rows[0], orderCount: orderRows[0].total, orderValue: orderRows[0].totalValue };
+  return {
+    ...rows[0],
+    email: isInternalCustomerEmail(rows[0].email) ? null : rows[0].email,
+    orderCount: orderRows[0].total,
+    orderValue: orderRows[0].totalValue,
+  };
 }
 
 export async function getMemberTiers() {

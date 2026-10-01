@@ -207,12 +207,14 @@ export const inventoryTransfers = mysqlTable('inventory_transfers', {
   variantId: int('variant_id').references(() => productVariants.id),
   quantity: int('quantity').notNull(),
   actorUserId: int('actor_user_id').references(() => users.id).notNull(),
+  receiptId: int('receipt_id').references(() => inventoryReceipts.id),
   notes: varchar('notes', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => ({
   createdIdx: index('inventory_transfer_created_idx').on(table.createdAt),
   fromLocationIdx: index('inventory_transfer_from_location_idx').on(table.fromLocationId),
   toLocationIdx: index('inventory_transfer_to_location_idx').on(table.toLocationId),
+  receiptIdx: index('inventory_transfers_receipt_idx').on(table.receiptId),
 }));
 
 export const inventoryReceipts = mysqlTable('inventory_receipts', {
@@ -220,12 +222,16 @@ export const inventoryReceipts = mysqlTable('inventory_receipts', {
   receiptNumber: varchar('receipt_number', { length: 50 }).notNull().unique(),
   idempotencyKey: varchar('idempotency_key', { length: 64 }).notNull().unique(),
   locationId: int('location_id').references(() => inventoryLocations.id).notNull(),
+  sourceType: mysqlEnum('source_type', ['external', 'internal']),
+  sourceLocationId: int('source_location_id').references(() => inventoryLocations.id),
+  sourceName: varchar('source_name', { length: 150 }),
   actorUserId: int('actor_user_id').references(() => users.id).notNull(),
   referenceNumber: varchar('reference_number', { length: 100 }),
   notes: varchar('notes', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   locationCreatedIdx: index('inventory_receipts_location_created_idx').on(table.locationId, table.createdAt),
+  sourceLocationIdx: index('inventory_receipts_source_location_idx').on(table.sourceLocationId, table.createdAt),
 }));
 
 export const inventoryMovements = mysqlTable('inventory_movements', {

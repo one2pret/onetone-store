@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 import { validateStock, deductStock } from '@/lib/stock';
 import { createInvoice } from '@/lib/xendit';
+import { createInternalCustomerEmail } from '@/lib/registration-utils';
 
 // POST /api/orders/[id]/repay — repay expired order or retry failed payment
 export async function POST(
@@ -60,6 +61,7 @@ export async function POST(
 
     const stockItems = items.map(item => ({
       productId: item.productId!,
+      variantId: item.variantId ?? undefined,
       quantity: item.quantity,
       productName: item.productName,
     }));
@@ -77,7 +79,7 @@ export async function POST(
     const invoice = await createInvoice({
       externalId: order.orderNumber!,
       amount: Number(order.total),
-      payerEmail: user.email,
+      payerEmail: user.email ?? createInternalCustomerEmail(user.phone ?? String(user.id)),
       description: `Pembayaran order ${order.orderNumber}`,
       orderId,
     });
@@ -101,7 +103,7 @@ export async function POST(
       }).where(eq(orders.id, orderId));
 
       // Deduct stock again
-      await deductStock(stockItems.map(i => ({ productId: i.productId, quantity: i.quantity })));
+      await deductStock(stockItems.map(i => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })), orderId);
 
       // Audit log
       await db.insert(orderStatusLogs).values({

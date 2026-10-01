@@ -5,6 +5,7 @@ import { users } from '@/lib/db/schema';
 import { eq, isNull, and } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
+import { isInternalCustomerEmail, normalizeLoginIdentifier } from '@/lib/registration-utils';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || 'secret');
 const TOKEN_EXPIRY = '30d';
@@ -12,7 +13,7 @@ const TOKEN_EXPIRY = '30d';
 export interface ApiUser {
   id: number;
   name: string;
-  email: string;
+  email: string | null;
   role: string;
   phone: string | null;
 }
@@ -42,7 +43,7 @@ async function verifyBearerToken(token: string): Promise<ApiUser | null> {
     return {
       id: user.id,
       name: user.name,
-      email: user.email,
+      email: isInternalCustomerEmail(user.email) ? null : user.email,
       role: user.role ?? 'customer',
       phone: user.phone,
     };
@@ -67,20 +68,25 @@ export async function getApiUser(request: Request): Promise<ApiUser | null> {
   return {
     id: Number(session.user.id),
     name: session.user.name ?? '',
-    email: session.user.email ?? '',
-    role: (session.user as any).role ?? 'customer',
+    email: session.user.email ?? null,
+    role: (session.user as { role?: string }).role ?? 'customer',
     phone: null,
   };
 }
 
 // Login helper: verify credentials and return user + token
 export async function loginWithCredentials(
-  email: string,
+  identifierInput: string,
   password: string,
 ): Promise<{ user: ApiUser; token: string } | null> {
+  const identifier = normalizeLoginIdentifier(identifierInput);
+  if (!identifier) return null;
   const rows = await db.select()
     .from(users)
-    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .where(and(
+      identifier.type === 'email' ? eq(users.email, identifier.value) : eq(users.phone, identifier.value),
+      isNull(users.deletedAt),
+    ))
     .limit(1);
   if (rows.length === 0) return null;
 
@@ -91,7 +97,7 @@ export async function loginWithCredentials(
   const apiUser: ApiUser = {
     id: user.id,
     name: user.name,
-    email: user.email,
+    email: isInternalCustomerEmail(user.email) ? null : user.email,
     role: user.role ?? 'customer',
     phone: user.phone,
   };

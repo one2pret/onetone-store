@@ -5,9 +5,9 @@ import { createCustomerAccount } from '@/lib/customer-registration';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter'),
-  email: z.string().email('Email tidak valid'),
-  password: z.string().min(6, 'Password minimal 6 karakter'),
-  phone: z.string().optional(),
+  email: z.union([z.string().trim().email('Email tidak valid'), z.literal('')]).optional(),
+  password: z.string().min(8, 'Password minimal 8 karakter'),
+  phone: z.string().trim().min(1, 'Nomor HP wajib diisi'),
 });
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Gagal registrasi' },
       { status: 500 }

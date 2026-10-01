@@ -6,18 +6,21 @@ import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { isInternalCustomerEmail } from '@/lib/registration-utils';
 
 export async function getMyProfile() {
   const session = await auth();
   if (!session?.user) return null;
 
   const userId = Number(session.user.id);
-  return db
+  const profile = await db
     .select({ id: users.id, name: users.name, email: users.email, phone: users.phone })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
     .then((r) => r[0] ?? null);
+  if (!profile) return null;
+  return { ...profile, email: isInternalCustomerEmail(profile.email) ? null : profile.email };
 }
 
 const profileSchema = z.object({

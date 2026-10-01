@@ -6,6 +6,7 @@ import {
   inventoryLocations,
   inventoryMovements,
   inventoryReceipts,
+  inventoryTransfers,
   productBarcodes,
   productImages,
   products,
@@ -14,7 +15,7 @@ import {
 import { requireInventoryAccess } from "@/lib/inventory-auth";
 import { preferredProductImageKey, selectProductImage } from "@/lib/product-image-resolution";
 import { storage } from "@/lib/storage";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -88,10 +89,20 @@ export async function lookupInventoryBarcode(codeInput: string, locationId: numb
 
 const receiptSchema = z.object({
   locationId: z.number().int().positive(),
+  sourceType: z.enum(["external", "internal"]),
+  sourceLocationId: z.number().int().positive().optional(),
+  sourceName: z.string().trim().max(150).optional(),
   idempotencyKey: z.string().uuid(),
   referenceNumber: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(500).optional(),
   items: z.array(z.object({ code: codeSchema, quantity: z.number().int().positive().max(100_000) })).min(1).max(500),
+}).superRefine((data, context) => {
+  if (data.sourceType === "internal" && (!data.sourceLocationId || data.sourceLocationId === data.locationId)) {
+    context.addIssue({ code: "custom", path: ["sourceLocationId"], message: "Pilih lokasi asal yang berbeda dari lokasi penerima" });
+  }
+  if (data.sourceType === "external" && !data.sourceName?.trim()) {
+    context.addIssue({ code: "custom", path: ["sourceName"], message: "Nama sumber barang wajib diisi" });
+  }
 });
 
 function receiptNumber() {
@@ -106,6 +117,10 @@ export async function receiveInventoryByScan(input: z.input<typeof receiptSchema
   const parsed = receiptSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: parsed.error.issues[0]?.message ?? "Penerimaan tidak valid" };
   const data = parsed.data;
+  if (data.sourceType === "internal") {
+    const sourceAccess = await requireInventoryAccess(data.sourceLocationId);
+    if (!sourceAccess.ok) return { success: false as const, error: "Anda tidak memiliki akses ke lokasi asal" };
+  }
 
   const quantities = new Map<string, number>();
   for (const item of data.items) quantities.set(item.code, (quantities.get(item.code) ?? 0) + item.quantity);
@@ -113,18 +128,32 @@ export async function receiveInventoryByScan(input: z.input<typeof receiptSchema
 
   try {
     const result = await db.transaction(async tx => {
-      // Lock lokasi menserialkan penerimaan pada lokasi yang sama dan mencegah
-      // dua operator membaca saldo awal yang sama.
+      // Kunci lokasi dalam urutan tetap agar dua transfer silang tidak deadlock.
       const locations = await tx.select().from(inventoryLocations)
-        .where(and(eq(inventoryLocations.id, data.locationId), eq(inventoryLocations.isActive, true)))
-        .limit(1)
+        .where(and(inArray(inventoryLocations.id, data.sourceType === "internal" ? [data.locationId, data.sourceLocationId!] : [data.locationId]), eq(inventoryLocations.isActive, true)))
+        .orderBy(inventoryLocations.id)
         .for("update");
-      const location = locations[0];
+      const location = locations.find(row => row.id === data.locationId);
       if (!location) throw new Error("Lokasi inventori tidak aktif atau tidak ditemukan");
+      if (data.sourceType === "internal" && locations.length !== 2) throw new Error("Lokasi asal tidak aktif atau tidak ditemukan");
 
-      const existing = await tx.select({ id: inventoryReceipts.id, receiptNumber: inventoryReceipts.receiptNumber })
+      const existing = await tx.select({
+        id: inventoryReceipts.id,
+        receiptNumber: inventoryReceipts.receiptNumber,
+        locationId: inventoryReceipts.locationId,
+        sourceType: inventoryReceipts.sourceType,
+        sourceLocationId: inventoryReceipts.sourceLocationId,
+        sourceName: inventoryReceipts.sourceName,
+      })
         .from(inventoryReceipts).where(eq(inventoryReceipts.idempotencyKey, data.idempotencyKey)).limit(1);
-      if (existing[0]) return { id: existing[0].id, number: existing[0].receiptNumber, reused: true };
+      if (existing[0]) {
+        if (existing[0].locationId !== data.locationId || existing[0].sourceType !== data.sourceType
+          || existing[0].sourceLocationId !== (data.sourceType === "internal" ? data.sourceLocationId : null)
+          || existing[0].sourceName !== (data.sourceType === "external" ? data.sourceName?.trim() : null)) {
+          throw new Error("Permintaan ini sudah digunakan untuk penerimaan dengan asal atau tujuan berbeda. Muat ulang halaman.");
+        }
+        return { id: existing[0].id, number: existing[0].receiptNumber, reused: true };
+      }
 
       const barcodeRows = await tx.select({
         code: productBarcodes.code,
@@ -148,6 +177,9 @@ export async function receiveInventoryByScan(input: z.input<typeof receiptSchema
         receiptNumber: number,
         idempotencyKey: data.idempotencyKey,
         locationId: data.locationId,
+        sourceType: data.sourceType,
+        sourceLocationId: data.sourceType === "internal" ? data.sourceLocationId : null,
+        sourceName: data.sourceType === "external" ? data.sourceName?.trim() : null,
         actorUserId: auth.actor.id,
         referenceNumber: data.referenceNumber || null,
         notes: data.notes || null,
@@ -158,6 +190,48 @@ export async function receiveInventoryByScan(input: z.input<typeof receiptSchema
       for (const code of codes) {
         const item = barcodeMap.get(code)!;
         const quantity = quantities.get(code)!;
+        if (data.sourceType === "internal") {
+          const sourceLocationId = data.sourceLocationId!;
+          const sourceCondition = item.variantId
+            ? and(eq(inventoryBalances.locationId, sourceLocationId), eq(inventoryBalances.productId, item.productId), eq(inventoryBalances.variantId, item.variantId))
+            : and(eq(inventoryBalances.locationId, sourceLocationId), eq(inventoryBalances.productId, item.productId), isNull(inventoryBalances.variantId));
+          const sourceRows = await tx.select().from(inventoryBalances).where(sourceCondition).limit(1).for("update");
+          const source = sourceRows[0];
+          if (!source || source.quantity - source.reserved < quantity) {
+            throw new Error(`Stok ${item.code} di lokasi asal tidak cukup (tersedia ${source ? Math.max(0, source.quantity - source.reserved) : 0})`);
+          }
+          const [decrement] = await tx.update(inventoryBalances)
+            .set({ quantity: sql`${inventoryBalances.quantity} - ${quantity}` })
+            .where(and(eq(inventoryBalances.id, source.id), sql`${inventoryBalances.quantity} - ${inventoryBalances.reserved} >= ${quantity}`));
+          if (!decrement || decrement.affectedRows !== 1) throw new Error(`Stok ${item.code} baru berubah. Ulangi penerimaan.`);
+          const destinationCondition = item.variantId
+            ? and(eq(inventoryBalances.locationId, data.locationId), eq(inventoryBalances.productId, item.productId), eq(inventoryBalances.variantId, item.variantId))
+            : and(eq(inventoryBalances.locationId, data.locationId), eq(inventoryBalances.productId, item.productId), isNull(inventoryBalances.variantId));
+          const destinationRows = await tx.select().from(inventoryBalances).where(destinationCondition).limit(1).for("update");
+          const balanceAfter = (destinationRows[0]?.quantity ?? 0) + quantity;
+          if (destinationRows[0]) {
+            await tx.update(inventoryBalances).set({ quantity: sql`${inventoryBalances.quantity} + ${quantity}` }).where(eq(inventoryBalances.id, destinationRows[0].id));
+          } else {
+            await tx.insert(inventoryBalances).values({ locationId: data.locationId, productId: item.productId, variantId: item.variantId, quantity });
+          }
+          await tx.insert(inventoryTransfers).values({
+            fromLocationId: sourceLocationId, toLocationId: data.locationId,
+            productId: item.productId, variantId: item.variantId,
+            quantity, actorUserId: auth.actor.id, receiptId,
+            notes: data.notes || null,
+          });
+          await tx.insert(inventoryMovements).values([
+            { locationId: sourceLocationId, productId: item.productId, variantId: item.variantId, quantityDelta: -quantity, balanceAfter: source.quantity - quantity, type: "transfer_out", referenceType: "inventory_receipt", referenceId: receiptId, actorUserId: auth.actor.id, notes: data.notes || null },
+            { locationId: data.locationId, productId: item.productId, variantId: item.variantId, quantityDelta: quantity, balanceAfter, type: "transfer_in", referenceType: "inventory_receipt", referenceId: receiptId, actorUserId: auth.actor.id, notes: data.notes || null },
+          ]);
+          const sourceLocation = locations.find(row => row.id === sourceLocationId)!;
+          if (sourceLocation.isOnlineDefault || location.isOnlineDefault) {
+            const onlineQuantity = sourceLocation.isOnlineDefault ? source.quantity - quantity : balanceAfter;
+            if (item.variantId) await tx.update(productVariants).set({ stock: onlineQuantity }).where(eq(productVariants.id, item.variantId));
+            else await tx.update(products).set({ stock: onlineQuantity }).where(eq(products.id, item.productId));
+          }
+          continue;
+        }
         const condition = item.variantId
           ? and(eq(inventoryBalances.locationId, data.locationId), eq(inventoryBalances.productId, item.productId), eq(inventoryBalances.variantId, item.variantId))
           : and(eq(inventoryBalances.locationId, data.locationId), eq(inventoryBalances.productId, item.productId), isNull(inventoryBalances.variantId));
@@ -190,6 +264,8 @@ export async function receiveInventoryByScan(input: z.input<typeof receiptSchema
 
     revalidatePath("/dashboard/inventory");
     revalidatePath("/dashboard/inventory/scan");
+    revalidatePath("/dashboard/inventory/history");
+    revalidatePath("/dashboard/inventory/report");
     revalidatePath("/dashboard/products");
     revalidatePath("/products");
     revalidatePath("/pos");

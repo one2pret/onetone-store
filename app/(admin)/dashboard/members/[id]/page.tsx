@@ -44,7 +44,7 @@ export default async function MemberDetailPage({ params }: Props) {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-foreground">{member.name}</h1>
-          <p className="text-sm text-muted-foreground">{member.email}</p>
+          <p className="text-sm text-muted-foreground">{member.email ?? '—'}</p>
         </div>
         {member.tierName && (
           <span className={`ml-auto px-3 py-1 rounded-full text-xs font-semibold ${tierBadge[member.tierName] ?? 'bg-muted text-muted-foreground'}`}>

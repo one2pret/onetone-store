@@ -272,7 +272,8 @@ export async function createOrder(prevState: any, formData: FormData) {
         productId: row.cart_items.productId,
         variantId: row.cart_items.variantId ?? undefined,
         quantity: row.cart_items.quantity ?? 1,
-      }))
+      })),
+      orderId,
     );
 
     // 9. Clear cart
@@ -459,7 +460,7 @@ export async function repayOrder(orderId: number): Promise<{
         expiredAt: null,
       }).where(eq(orders.id, orderId));
 
-      await deductStock(stockItems.map(i => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })));
+      await deductStock(stockItems.map(i => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })), orderId);
 
       await db.insert(orderStatusLogs).values({
         orderId,

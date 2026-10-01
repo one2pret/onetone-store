@@ -60,6 +60,7 @@ describe('POST /api/auth/register', () => {
           name: 'New User',
           email: 'new@example.com',
           password: 'password123',
+          phone: '081234567890',
         }),
       })
     );
@@ -68,6 +69,27 @@ describe('POST /api/auth/register', () => {
     expect(response.status).toBe(201);
     expect(json.success).toBe(true);
     expect(json.data.email).toBe('new@example.com');
+  });
+
+  it('registers with a phone number when email is omitted', async () => {
+    mockCreateCustomerAccount.mockResolvedValueOnce({
+      success: true,
+      user: { id: 4, name: 'Phone User', email: null, phone: '6281234567890' },
+      welcomeVoucherGranted: false,
+    });
+
+    const response = await POST(
+      new Request('http://localhost/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Phone User', password: 'password123', phone: '081234567890' }),
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(json.data.email).toBeNull();
+    expect(mockCreateCustomerAccount).toHaveBeenCalledWith(expect.objectContaining({ phone: '081234567890' }));
   });
 
   it('rejects duplicate email', async () => {
@@ -85,6 +107,7 @@ describe('POST /api/auth/register', () => {
           name: 'User',
           email: 'existing@example.com',
           password: 'password123',
+          phone: '081234567890',
         }),
       })
     );
@@ -106,5 +129,18 @@ describe('POST /api/auth/register', () => {
 
     expect(response.status).toBe(400);
     expect(json.success).toBe(false);
+  });
+
+  it('requires a phone number for new registrations', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New User', email: 'new@example.com', password: 'password123' }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreateCustomerAccount).not.toHaveBeenCalled();
   });
 });

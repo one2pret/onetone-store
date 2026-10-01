@@ -31,10 +31,11 @@ async function applyOnlineInventoryDelta(item: { productId: number; variantId?: 
 
 /** Kurangi stok. Jika variantId ada → kurangi stok varian; jika tidak → kurangi stok produk. */
 export async function deductStock(
-  items: { productId: number; variantId?: number; quantity: number }[]
+  items: { productId: number; variantId?: number; quantity: number }[],
+  orderId?: number,
 ) {
   for (const item of items) {
-    await applyOnlineInventoryDelta(item, -1);
+    await applyOnlineInventoryDelta(item, -1, orderId);
     if (item.variantId) {
       await db
         .update(productVariants)

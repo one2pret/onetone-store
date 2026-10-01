@@ -6,6 +6,33 @@ export function normalizeIndonesianPhone(value?: string): string | null {
   return digits.length >= 10 && digits.length <= 15 ? digits : null;
 }
 
+export type LoginIdentifier =
+  | { type: 'email'; value: string }
+  | { type: 'phone'; value: string };
+
+const INTERNAL_CUSTOMER_EMAIL_DOMAIN = 'noemail.onetone.invalid';
+
+export function createInternalCustomerEmail(phone: string): string {
+  return `customer.${phone}@${INTERNAL_CUSTOMER_EMAIL_DOMAIN}`;
+}
+
+export function isInternalCustomerEmail(email?: string | null): boolean {
+  return email?.endsWith(`@${INTERNAL_CUSTOMER_EMAIL_DOMAIN}`) ?? false;
+}
+
+export function normalizeLoginIdentifier(value?: string): LoginIdentifier | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) {
+    const email = trimmed.toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ? { type: 'email', value: email }
+      : null;
+  }
+  const phone = normalizeIndonesianPhone(trimmed);
+  return phone ? { type: 'phone', value: phone } : null;
+}
+
 export function calculateGrantExpiry(
   grantedAt: Date,
   validDays: number | null,

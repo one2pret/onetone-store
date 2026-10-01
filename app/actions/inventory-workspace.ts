@@ -32,13 +32,17 @@ export async function getMyInventoryReceiptHistory() {
     id: inventoryReceipts.id,
     receiptNumber: inventoryReceipts.receiptNumber,
     referenceNumber: inventoryReceipts.referenceNumber,
+    sourceType: inventoryReceipts.sourceType,
+    sourceName: inventoryReceipts.sourceName,
+    sourceLocationId: inventoryReceipts.sourceLocationId,
+    sourceLocationName: sql<string | null>`(select name from inventory_locations where id = ${inventoryReceipts.sourceLocationId})`,
     notes: inventoryReceipts.notes,
     createdAt: inventoryReceipts.createdAt,
     locationId: inventoryLocations.id,
     locationName: inventoryLocations.name,
     locationCode: inventoryLocations.code,
-    itemCount: sql<number>`(select count(*) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id})`.mapWith(Number),
-    totalQuantity: sql<number>`(select coalesce(sum(${inventoryMovements.quantityDelta}), 0) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id})`.mapWith(Number),
+    itemCount: sql<number>`(select count(*) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id} and ${inventoryMovements.locationId} = ${inventoryReceipts.locationId})`.mapWith(Number),
+    totalQuantity: sql<number>`(select coalesce(sum(${inventoryMovements.quantityDelta}), 0) from ${inventoryMovements} where ${inventoryMovements.referenceType} = 'inventory_receipt' and ${inventoryMovements.referenceId} = ${inventoryReceipts.id} and ${inventoryMovements.locationId} = ${inventoryReceipts.locationId})`.mapWith(Number),
     barcodeCodes: sql<string>`(select coalesce(group_concat(distinct pb.code separator ' '), '') from inventory_movements im left join product_barcodes pb on pb.product_id = im.product_id and (pb.variant_id = im.variant_id or (pb.variant_id is null and im.variant_id is null)) where im.reference_type = 'inventory_receipt' and im.reference_id = ${inventoryReceipts.id})`,
   }).from(inventoryReceipts)
     .innerJoin(inventoryLocations, eq(inventoryReceipts.locationId, inventoryLocations.id))
@@ -62,9 +66,14 @@ export async function getInventoryReceiptDetail(receiptId: number) {
     id: inventoryReceipts.id,
     receiptNumber: inventoryReceipts.receiptNumber,
     referenceNumber: inventoryReceipts.referenceNumber,
+    sourceType: inventoryReceipts.sourceType,
+    sourceName: inventoryReceipts.sourceName,
+    sourceLocationId: inventoryReceipts.sourceLocationId,
+    sourceLocationName: sql<string | null>`(select name from inventory_locations where id = ${inventoryReceipts.sourceLocationId})`,
     notes: inventoryReceipts.notes,
     createdAt: inventoryReceipts.createdAt,
     locationName: inventoryLocations.name,
+    locationId: inventoryLocations.id,
     locationCode: inventoryLocations.code,
     actorName: users.name,
   }).from(inventoryReceipts)
@@ -94,7 +103,7 @@ export async function getInventoryReceiptDetail(receiptId: number) {
         eq(productBarcodes.variantId, inventoryMovements.variantId),
       ),
     ))
-    .where(and(eq(inventoryMovements.referenceType, "inventory_receipt"), eq(inventoryMovements.referenceId, receiptId)))
+    .where(and(eq(inventoryMovements.referenceType, "inventory_receipt"), eq(inventoryMovements.referenceId, receiptId), eq(inventoryMovements.locationId, headers[0].locationId)))
     .orderBy(inventoryMovements.id);
   return { ...headers[0], items };
 }

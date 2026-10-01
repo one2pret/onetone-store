@@ -59,7 +59,25 @@ describe('Auth API', () => {
       expect(response.status).toBe(401);
     });
 
-    it('returns 400 on invalid email format', async () => {
+    it('accepts a phone number as the login identifier', async () => {
+      mockLoginResult.mockResolvedValue({
+        user: { id: 2, name: 'John', email: 'john@example.com', role: 'customer', phone: '628123456789' },
+        token: 'phone-token',
+      });
+
+      const response = await login(
+        makeRequest('http://localhost/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: '08123456789', password: 'password123' }),
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockLoginResult).toHaveBeenCalledWith('08123456789', 'password123');
+    });
+
+    it('returns 400 on an invalid email or phone format', async () => {
       const response = await login(
         makeRequest('http://localhost/api/auth/login', {
           method: 'POST',
