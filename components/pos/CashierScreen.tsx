@@ -19,6 +19,7 @@ import {
 } from "@/lib/pos-barcode-scanner";
 import { PaymentSheet } from "./PaymentSheet";
 import { ReceiptView } from "./ReceiptView";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
 import type { PosSession } from "@/lib/db/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -197,6 +198,20 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
 
   const barcodeBuffer = useRef(EMPTY_BARCODE_BUFFER);
 
+  const handleProductBarcodeScan = useCallback((rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
+
+    const target = barcodeTargets.get(code);
+    setSearch("");
+    if (!target) {
+      toast.error(`Barcode ${code} tidak ditemukan atau tidak aktif`);
+      return;
+    }
+
+    addToCart(target.product, target.variant);
+  }, [addToCart, barcodeTargets]);
+
   useEffect(() => {
     if (paymentOpen || receiptOrderId !== null) {
       barcodeBuffer.current = EMPTY_BARCODE_BUFFER;
@@ -220,14 +235,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
         if (!code) return;
 
         event.preventDefault();
-        const target = barcodeTargets.get(code);
-        setSearch("");
-        if (!target) {
-          toast.error(`Barcode ${code} tidak ditemukan atau tidak aktif`);
-          return;
-        }
-
-        addToCart(target.product, target.variant);
+        handleProductBarcodeScan(code);
         return;
       }
 
@@ -238,7 +246,7 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
 
     window.addEventListener("keydown", handleScannerKey, true);
     return () => window.removeEventListener("keydown", handleScannerKey, true);
-  }, [addToCart, barcodeTargets, paymentOpen, receiptOrderId]);
+  }, [handleProductBarcodeScan, paymentOpen, receiptOrderId]);
 
   function updateQty(key: string, delta: number) {
     setCart((prev) => {
@@ -374,14 +382,21 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
           </div>
 
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nama, SKU, atau barcode"
-              className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-lg outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari nama, SKU, atau barcode"
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-lg outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              />
+            </div>
+            <CameraBarcodeScanner
+              onScan={handleProductBarcodeScan}
+              label="Kamera"
+              className="shrink-0 border-slate-200 bg-white text-slate-800 hover:bg-slate-100"
             />
           </div>
           <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">

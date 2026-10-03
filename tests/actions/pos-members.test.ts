@@ -4,6 +4,7 @@ const mockRows = vi.fn();
 const mockRequirePosOperator = vi.fn();
 const mockInsertedValue = vi.fn();
 const mockUpdatedValue = vi.fn();
+const mockVerifyMemberQrCode = vi.fn();
 
 function mockSelectChain() {
   const chain: Record<string, unknown> = {};
@@ -54,8 +55,13 @@ vi.mock("@/lib/pos-auth", () => ({
   requirePosOperator: (...args: unknown[]) => mockRequirePosOperator(...args),
 }));
 
+vi.mock("@/lib/member-qr", () => ({
+  verifyMemberQrCode: (...args: unknown[]) => mockVerifyMemberQrCode(...args),
+}));
+
 import {
   cancelPosCustomerLead,
+  findPosMemberByQr,
   registerPosCustomerLead,
   reissuePosCustomerLeadActivation,
   searchPosMembers,
@@ -70,6 +76,7 @@ describe("POS member search", () => {
       actor: { id: 2, name: "Kasir A", role: "cashier" },
     });
     mockRows.mockReturnValue([]);
+    mockVerifyMemberQrCode.mockReturnValue(null);
   });
 
   it("requires an authenticated POS operator", async () => {
@@ -113,6 +120,35 @@ describe("POS member search", () => {
         points: 1250,
       }],
     });
+  });
+
+  it("finds an active member from a verified QR", async () => {
+    mockVerifyMemberQrCode.mockReturnValueOnce(41);
+    mockRows.mockReturnValueOnce([{
+      id: 41,
+      name: "Rina Member",
+      email: "customer.6281234567890@noemail.onetone.invalid",
+      phone: "6281234567890",
+      tierName: "Gold",
+      points: 1250,
+    }]);
+
+    await expect(findPosMemberByQr("signed-code")).resolves.toEqual({
+      success: true,
+      member: {
+        id: 41,
+        name: "Rina Member",
+        maskedEmail: "",
+        maskedPhone: "•••• 7890",
+        tierName: "Gold",
+        points: 1250,
+      },
+    });
+  });
+
+  it("rejects invalid member QR before querying the database", async () => {
+    await expect(findPosMemberByQr("invalid-code")).resolves.toEqual({ success: false, error: "QR member tidak valid" });
+    expect(mockRows).not.toHaveBeenCalled();
   });
 
   it("registers a normalized pending lead with cashier and location audit", async () => {

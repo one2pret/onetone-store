@@ -1,6 +1,9 @@
 // app/(marketplace)/account/membership/page.tsx
 import { getMyMembership } from '@/app/actions/membership';
-import { Star, Check } from 'lucide-react';
+import Image from 'next/image';
+import QRCode from 'qrcode';
+import { Star, Check, QrCode } from 'lucide-react';
+import { issueMemberQrCode } from '@/lib/member-qr';
 
 const TIER_STYLE: Record<string, { badge: string; bar: string }> = {
   Silver: { badge: 'bg-muted text-foreground border border-border', bar: 'bg-muted-foreground' },
@@ -39,6 +42,17 @@ export default async function MembershipPage() {
 
   const { tier, nextTier, progressPct, allTiers, totalSpend } = membership;
   const style = TIER_STYLE[tier.name] ?? TIER_STYLE.Silver;
+  let memberQrDataUrl: string | null = null;
+  try {
+    memberQrDataUrl = await QRCode.toDataURL(issueMemberQrCode(membership.userId), {
+      width: 360,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0f172a', light: '#ffffff' },
+    });
+  } catch {
+    // Membership details remain available if QR configuration is unavailable.
+  }
 
   const benefits = [
     (tier.discountPct ?? 0) > 0 && `Diskon ${tier.discountPct}% untuk setiap pembelian`,
@@ -87,6 +101,40 @@ export default async function MembershipPage() {
             <p className="text-sm text-muted-foreground">Upgrade tier untuk mendapat benefit.</p>
           )}
         </div>
+      </div>
+
+      {/* Member identifier for POS */}
+      <div className="bg-card rounded-xl border border-border p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface">
+            <QrCode className="h-5 w-5 text-foreground" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">QR Member</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tunjukkan QR ini ke kamera kasir agar akun member dapat dipilih tanpa mengetik nomor HP.
+            </p>
+          </div>
+        </div>
+        {memberQrDataUrl ? (
+          <div className="mt-4 flex flex-col items-center rounded-xl border border-border bg-white p-4">
+            <Image
+              src={memberQrDataUrl}
+              alt="QR member untuk dipindai kasir"
+              width={220}
+              height={220}
+              unoptimized
+              className="h-auto w-full max-w-[220px]"
+            />
+            <p className="mt-3 max-w-sm text-center text-[11px] text-slate-500">
+              QR hanya berisi identitas member yang ditandatangani sistem. Nomor HP dan email tidak disimpan di dalam QR.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-4 rounded-lg bg-surface px-3 py-2 text-xs text-muted-foreground">
+            QR member sedang tidak tersedia. Kasir tetap dapat mencari akun melalui nama atau nomor HP.
+          </p>
+        )}
       </div>
 
       {/* Progress to next tier */}
