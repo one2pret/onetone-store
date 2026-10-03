@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   ShoppingCart, User, Search, Menu, X, LogOut,
   Heart, ShoppingBag, ChevronDown,
-  LayoutDashboard, AlertTriangle, MapPin,
+  LayoutDashboard, AlertTriangle, MapPin, QrCode,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { logout } from '@/app/actions/auth';
@@ -203,6 +203,15 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                   <User className="w-4 h-4 text-muted-foreground" />
                   Akun Saya
                 </Link>
+                {user.role === 'customer' && (
+                  <Link
+                    href="/account/membership"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
+                  >
+                    <QrCode className="w-4 h-4 text-muted-foreground" />
+                    QR Member
+                  </Link>
+                )}
                 <Link
                   href="/orders"
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition"
@@ -467,6 +476,12 @@ export function Navbar({ user, cartCount, categories = [] }: NavbarProps) {
                       <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm text-primary font-medium hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
                         <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
                         Dashboard
+                      </Link>
+                    )}
+                    {user.role === 'customer' && (
+                      <Link href="/account/membership" className="flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
+                        <QrCode className="w-4 h-4 text-muted-foreground" />
+                        QR Member
                       </Link>
                     )}
                     <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-accent" onClick={() => setMobileMenuOpen(false)}>
