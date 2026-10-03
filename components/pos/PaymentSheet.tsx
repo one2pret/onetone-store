@@ -16,10 +16,12 @@ import {
   registerPosCustomerLead,
   reissuePosCustomerLeadActivation,
   cancelPosCustomerLead,
+  findPosMemberByQr,
   searchPosMembers,
   type PosCustomerLeadResult,
   type PosMemberSearchResult,
 } from "@/app/actions/pos-members";
+import { CameraBarcodeScanner } from "@/components/scanner/CameraBarcodeScanner";
 import { calculatePosDiscountPricing, type PosDiscount } from "@/lib/pos-discounts";
 import type { CartLine } from "./CashierScreen";
 
@@ -241,6 +243,19 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
         return;
       }
       setMemberVouchers(result.data);
+    });
+  }
+
+  function handleMemberQrScan(code: string) {
+    startMemberSearch(async () => {
+      const result = await findPosMemberByQr(code);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      selectMember(result.member);
+      setMemberQuery("");
+      toast.success(`${result.member.name} dipilih sebagai member`);
     });
   }
 
@@ -760,6 +775,11 @@ export function PaymentSheet({ sessionId, cart, total, maxDiscountPercent, qrisU
                 >
                   {isSearchingMember ? "Mencari..." : "Cari"}
                 </button>
+                <CameraBarcodeScanner
+                  onScan={handleMemberQrScan}
+                  label="QR"
+                  className="shrink-0 border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                />
               </form>
 
               {memberResults.length > 0 && (

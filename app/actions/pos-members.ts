@@ -9,7 +9,8 @@ import {
   users,
 } from "@/lib/db/schema";
 import { requirePosOperator } from "@/lib/pos-auth";
-import { normalizeIndonesianPhone } from "@/lib/registration-utils";
+import { isInternalCustomerEmail, normalizeIndonesianPhone } from "@/lib/registration-utils";
+import { verifyMemberQrCode } from "@/lib/member-qr";
 import { issuePosLeadActivationToken } from "@/lib/pos-lead-activation-token";
 import { and, eq, isNull, like, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -64,6 +65,24 @@ function maskPhone(value: string | null) {
   return `•••• ${digits.slice(-4)}`;
 }
 
+function toMemberSearchResult(row: {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  tierName: string;
+  points: number | null;
+}): PosMemberSearchResult {
+  return {
+    id: row.id,
+    name: row.name,
+    maskedEmail: isInternalCustomerEmail(row.email) ? "" : maskEmail(row.email),
+    maskedPhone: maskPhone(row.phone),
+    tierName: row.tierName,
+    points: row.points ?? 0,
+  };
+}
+
 export async function searchPosMembers(query: string): Promise<
   | { success: true; data: PosMemberSearchResult[] }
   | { success: false; error: string }
@@ -113,15 +132,40 @@ export async function searchPosMembers(query: string): Promise<
 
   return {
     success: true,
-    data: rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      maskedEmail: maskEmail(row.email),
-      maskedPhone: maskPhone(row.phone),
-      tierName: row.tierName,
-      points: row.points ?? 0,
-    })),
+    data: rows.map(toMemberSearchResult),
   };
+}
+
+export async function findPosMemberByQr(code: string): Promise<
+  | { success: true; member: PosMemberSearchResult }
+  | { success: false; error: string }
+> {
+  const authResult = await requirePosOperator();
+  if (!authResult.ok) return { success: false, error: authResult.error };
+
+  let userId: number | null = null;
+  try {
+    userId = verifyMemberQrCode(code);
+  } catch {
+    return { success: false, error: "Konfigurasi QR member tidak tersedia" };
+  }
+  if (!userId) return { success: false, error: "QR member tidak valid" };
+
+  const rows = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    phone: users.phone,
+    tierName: memberTiers.name,
+    points: memberships.points,
+  }).from(users)
+    .innerJoin(memberships, eq(memberships.userId, users.id))
+    .innerJoin(memberTiers, eq(memberTiers.id, memberships.tierId))
+    .where(and(eq(users.id, userId), eq(users.role, "customer"), isNull(users.deletedAt)))
+    .limit(1);
+  const member = rows[0];
+  if (!member) return { success: false, error: "Member tidak aktif atau tidak ditemukan" };
+  return { success: true, member: toMemberSearchResult(member) };
 }
 
 export async function registerPosCustomerLead(input: {
