@@ -1,5 +1,9 @@
 import { sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
+import { orders } from "@/lib/db/schema";
 import { CASHIER_METRICS, CASHIER_REPORT_PAGE_SIZE, type CashierReportFilters } from "@/lib/pos-reporting";
+
+const orderAlias = alias(orders, "o");
 
 function sessionFilter(filters: CashierReportFilters) {
   return sql`1 = 1
@@ -18,7 +22,7 @@ export function buildCashierReportQuery(filters: CashierReportFilters) {
     SELECT s.* FROM pos_sessions s WHERE ${sessionFilter(filters)}
   ), filtered_orders AS (
     SELECT o.* FROM orders o INNER JOIN filtered_sessions s ON s.id = o.pos_session_id
-    WHERE o.channel = 'pos' AND o.status = 'delivered'
+    WHERE ${orderAlias.channel} = 'pos' AND o.status = 'delivered'
       AND o.paid_at >= ${filters.start} AND o.paid_at < ${end}
   ), item_totals AS (
     SELECT i.order_id, SUM(i.quantity) AS units,
@@ -110,7 +114,7 @@ export function buildCashierReportQualityQuery(filters: CashierReportFilters) {
     COALESCE(SUM(CASE WHEN o.paid_at IS NULL THEN 1 ELSE 0 END), 0) AS missingPaymentDateOrders,
     COALESCE(SUM(CASE WHEN o.paid_at IS NOT NULL AND (o.status IS NULL OR o.status <> 'delivered') THEN 1 ELSE 0 END), 0) AS unexpectedStatusOrders
     FROM orders o LEFT JOIN pos_sessions s ON s.id = o.pos_session_id
-    WHERE o.channel = 'pos' AND ${sessionFilter(filters)}
+    WHERE ${orderAlias.channel} = 'pos' AND ${sessionFilter(filters)}
       AND ((o.paid_at >= ${filters.start} AND o.paid_at < ${end})
         OR (o.paid_at IS NULL AND o.created_at >= ${filters.start} AND o.created_at < ${end}))`;
 }

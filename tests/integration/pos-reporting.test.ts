@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mysql, { type Connection, type RowDataPacket } from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
+import { getTableColumns, getTableName } from "drizzle-orm";
+import { users, posSessions, orders, orderItems, posReturns, posReturnItems } from "@/lib/db/schema";
 import { buildCashierReportQualityQuery, buildCashierReportQuery } from "@/lib/pos-reporting-queries";
 import { parseCashierReportFilters } from "@/lib/pos-reporting";
 
@@ -26,12 +28,23 @@ describe.skipIf(!databaseUrl)("POS report SQL on MySQL", () => {
     const definitions = [
       "users (id INT PRIMARY KEY, name VARCHAR(255), deleted_at TIMESTAMP NULL)",
       "pos_sessions (id INT PRIMARY KEY, cashier_id INT, location_id INT, opened_at TIMESTAMP NULL, closed_at TIMESTAMP NULL, pos_session_status VARCHAR(20), cash_difference DECIMAL(12,2))",
-      "orders (id INT PRIMARY KEY, pos_session_id INT, channel VARCHAR(20), status VARCHAR(20), paid_at TIMESTAMP NULL, created_at TIMESTAMP NULL, subtotal DECIMAL(12,2), discount_amount DECIMAL(12,2), total DECIMAL(12,2), pos_payment_method VARCHAR(20))",
+      `orders (id INT PRIMARY KEY, pos_session_id INT, ${connection.escapeId(orders.channel.name)} ${orders.channel.getSQLType()}, status VARCHAR(20), paid_at TIMESTAMP NULL, created_at TIMESTAMP NULL, subtotal DECIMAL(12,2), discount_amount DECIMAL(12,2), total DECIMAL(12,2), pos_payment_method VARCHAR(20))`,
       "order_items (id INT PRIMARY KEY, order_id INT, quantity INT, price DECIMAL(12,2), regular_price DECIMAL(12,2))",
       "pos_returns (id INT PRIMARY KEY, order_id INT, pos_session_id INT, actor_user_id INT, created_at TIMESTAMP NULL, refund_method VARCHAR(20), refund_amount DECIMAL(12,2))",
       "pos_return_items (id INT PRIMARY KEY, return_id INT, quantity INT, restocked BOOLEAN)",
     ];
     for (const definition of definitions) await connection.query(`CREATE TABLE ${definition}`);
+  });
+
+  it("uses only physical column names declared in the application schema", async () => {
+    for (const table of [users, posSessions, orders, orderItems, posReturns, posReturnItems]) {
+      const [columns] = await connection.query<RowDataPacket[]>("SHOW COLUMNS FROM ??", [getTableName(table)]);
+      const schemaColumns = new Set(Object.values(getTableColumns(table)).map(column => column.name));
+      for (const column of columns) expect(schemaColumns.has(String(column.Field)), `${getTableName(table)}.${column.Field}`).toBe(true);
+    }
+    const [columns] = await connection.query<RowDataPacket[]>("SHOW COLUMNS FROM orders");
+    expect(columns.map(column => column.Field)).toContain("order_channel");
+    expect(columns.map(column => column.Field)).not.toContain("channel");
   });
 
   afterAll(async () => {
