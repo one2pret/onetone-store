@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Package, Tag, LayoutDashboard, Image as ImageIcon, ShoppingCart, Settings, FolderOpen, Loader2, TicketPercent } from 'lucide-react';
+import { Search, Package, Tag, LayoutDashboard, Image as ImageIcon, ShoppingCart, Settings, FolderOpen, Loader2, TicketPercent, BarChart3 } from 'lucide-react';
 import { findAdminBarcode, searchAdmin, type SearchResultItem } from '@/app/actions/search';
 import { cn } from '@/lib/utils';
 import { useBarcodeScanner } from '@/components/hooks/use-barcode-scanner';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 const NAV_ITEMS = [
   { label: 'Dashboard',  href: '/dashboard',            icon: LayoutDashboard },
+  { label: 'Laporan Kasir', href: '/dashboard/reports/cashiers', icon: BarChart3 },
   { label: 'Banner',     href: '/dashboard/banners',    icon: ImageIcon },
   { label: 'Produk',     href: '/dashboard/products',   icon: Package },
   { label: 'Kategori',   href: '/dashboard/categories', icon: FolderOpen },

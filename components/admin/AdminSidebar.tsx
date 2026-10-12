@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Package, ShoppingCart,
   FolderOpen, Image as ImageIcon, Settings, Warehouse,
-  ExternalLink, X, Menu, Store, Calculator, Receipt, Users, Handshake, TicketPercent, RotateCcw,
+  ExternalLink, X, Menu, Store, Calculator, Receipt, Users, Handshake, TicketPercent, RotateCcw, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createContext, useContext, useState, useCallback } from 'react';
@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Kasir (POS)', href: '/pos',                  icon: Calculator },
   { name: 'Sesi POS',    href: '/dashboard/pos/sessions', icon: Receipt },
   { name: 'Retur POS',   href: '/dashboard/pos/returns',  icon: RotateCcw },
+  { name: 'Laporan',     href: '/dashboard/reports',      icon: BarChart3 },
   { name: 'Banner',      href: '/dashboard/banners',    icon: ImageIcon },
   { name: 'Produk',      href: '/dashboard/products',   icon: Package },
   { name: 'Inventori',   href: '/dashboard/inventory',  icon: Warehouse },
