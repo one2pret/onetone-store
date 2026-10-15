@@ -70,6 +70,9 @@ export default async function PosSessionDetailPage({ params }: Props) {
           Dibuka {openedAt?.toLocaleString("id-ID") ?? "-"}
           {closedAt && ` → Ditutup ${closedAt.toLocaleString("id-ID")}`}
         </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Event: {detail.salesEvent ? <Link href="/dashboard/reports/events" className="text-foreground underline underline-offset-4">{detail.salesEvent.name} · {detail.salesEvent.code}</Link> : "Penjualan reguler"}
+        </p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">

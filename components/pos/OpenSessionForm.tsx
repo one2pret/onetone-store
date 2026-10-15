@@ -17,14 +17,16 @@ const QUICK_AMOUNTS = [0, 50000, 100000, 200000, 500000, 1000000];
 interface Props {
   cashierName?: string;
   locations: { id: number; name: string; code: string }[];
+  salesEvents?: { id: number; code: string; name: string; venueName: string | null; inventoryLocationId: number | null }[];
 }
 
-export function OpenSessionForm({ cashierName, locations }: Props) {
+export function OpenSessionForm({ cashierName, locations, salesEvents = [] }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openingCash, setOpeningCash] = useState<string>("0");
   const [notes, setNotes] = useState("");
   const [locationId, setLocationId] = useState(locations[0]?.id ?? 0);
+  const [salesEventId, setSalesEventId] = useState(0);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +39,7 @@ export function OpenSessionForm({ cashierName, locations }: Props) {
     startTransition(async () => {
       const result = await openSession({
         locationId,
+        salesEventId: salesEventId || undefined,
         openingCash: amount,
         notes: notes || undefined,
       });
@@ -72,11 +75,28 @@ export function OpenSessionForm({ cashierName, locations }: Props) {
           </div>
 
           <div>
+            <label htmlFor="salesEventId" className="mb-2 block text-sm font-medium text-slate-700">Sales Event / Bazaar</label>
+            <select id="salesEventId" value={salesEventId} onChange={event => {
+              const selectedId = Number(event.target.value);
+              setSalesEventId(selectedId);
+              const defaultLocationId = salesEvents.find(item => item.id === selectedId)?.inventoryLocationId;
+              if (defaultLocationId && locations.some(location => location.id === defaultLocationId)) setLocationId(defaultLocationId);
+            }} className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <option value={0}>Penjualan reguler (tanpa event)</option>
+              {salesEvents.map(event => <option key={event.id} value={event.id}>{event.name} · {event.code}</option>)}
+            </select>
+            <p className="mt-1.5 text-xs text-slate-600">
+              {salesEvents.length ? "Hanya event aktif dalam periode yang bisa dipilih. Event sesi tidak dapat diganti; tutup sesi dan buka sesi baru untuk berpindah event." : "Belum ada event aktif dalam periode ini. Sesi reguler tetap dapat dibuka."}
+            </p>
+          </div>
+
+          <div>
             <label htmlFor="locationId" className="mb-2 block text-sm font-medium text-slate-700">Lokasi stok POS</label>
             <select id="locationId" value={locationId} onChange={e => setLocationId(Number(e.target.value))} required className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-primary">
               {locations.length === 0 && <option value={0}>Belum ada lokasi POS aktif</option>}
               {locations.map(location => <option key={location.id} value={location.id}>{location.name} · {location.code}</option>)}
             </select>
+            <p className="mt-1.5 text-xs text-slate-600">Lokasi sumber stok sesi. Lokasi default event dapat disesuaikan dengan stok yang digunakan.</p>
           </div>
 
           {/* Modal awal */}

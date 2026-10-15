@@ -265,6 +265,24 @@ export const cartItems = mysqlTable('cart_items', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+// ============ SALES EVENTS ============
+export const salesEvents = mysqlTable('sales_events', {
+  id: int('id').primaryKey().autoincrement(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 150 }).notNull(),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  status: mysqlEnum('status', ['draft', 'active', 'closed', 'cancelled']).default('draft').notNull(),
+  venueName: varchar('venue_name', { length: 150 }),
+  inventoryLocationId: int('inventory_location_id').references(() => inventoryLocations.id),
+  notes: varchar('notes', { length: 500 }),
+  createdByUserId: int('created_by_user_id').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  statusStartsIdx: index('sales_events_status_starts_idx').on(table.status, table.startsAt),
+}));
+
 // ============ POS SESSIONS ============
 // Konsep Odoo POS: kasir buka sesi (opening cash), transaksi terjadi selama sesi
 // aktif, kasir tutup sesi (closing cash) → Z-report hitung selisih.
@@ -272,6 +290,7 @@ export const posSessions = mysqlTable('pos_sessions', {
   id: int('id').primaryKey().autoincrement(),
   cashierId: int('cashier_id').references(() => users.id).notNull(),
   locationId: int('location_id').references(() => inventoryLocations.id),
+  salesEventId: int('sales_event_id').references(() => salesEvents.id),
   openedAt: timestamp('opened_at').defaultNow(),
   closedAt: timestamp('closed_at'),
   openingCash: decimal('opening_cash', { precision: 12, scale: 2 }).notNull(),
@@ -281,7 +300,9 @@ export const posSessions = mysqlTable('pos_sessions', {
   status: mysqlEnum('pos_session_status', ['open', 'closed']).default('open'),
   assignedCashierName: varchar('assigned_cashier_name', { length: 255 }), // nama kasir bertugas (display only)
   notes: text('notes'),
-});
+}, (table) => ({
+  salesEventIdx: index('pos_sessions_sales_event_idx').on(table.salesEventId),
+}));
 
 // ============ POS CUSTOMER LEADS ============
 // Identitas pelanggan yang didaftarkan kasir tetapi belum mengaktifkan akun.
@@ -811,12 +832,20 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   createdPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadCreator' }),
   claimedPosCustomerLeads: many(posCustomerLeads, { relationName: 'posCustomerLeadClaimedUser' }),
   inventoryLocations: many(userInventoryLocations, { relationName: 'inventoryStaffAssignments' }),
+  createdSalesEvents: many(salesEvents, { relationName: 'salesEventCreator' }),
 }));
 
 export const posSessionsRelations = relations(posSessions, ({ one, many }) => ({
   cashier: one(users, { fields: [posSessions.cashierId], references: [users.id] }),
   location: one(inventoryLocations, { fields: [posSessions.locationId], references: [inventoryLocations.id] }),
+  salesEvent: one(salesEvents, { fields: [posSessions.salesEventId], references: [salesEvents.id] }),
   orders: many(orders),
+}));
+
+export const salesEventsRelations = relations(salesEvents, ({ one, many }) => ({
+  createdBy: one(users, { fields: [salesEvents.createdByUserId], references: [users.id], relationName: 'salesEventCreator' }),
+  defaultLocation: one(inventoryLocations, { fields: [salesEvents.inventoryLocationId], references: [inventoryLocations.id] }),
+  sessions: many(posSessions),
 }));
 
 export const inventoryLocationsRelations = relations(inventoryLocations, ({ one, many }) => ({
@@ -829,6 +858,7 @@ export const inventoryLocationsRelations = relations(inventoryLocations, ({ one,
   assignedUsers: many(userInventoryLocations),
   posSessions: many(posSessions),
   posCustomerLeads: many(posCustomerLeads),
+  salesEvents: many(salesEvents),
 }));
 
 export const userInventoryLocationsRelations = relations(userInventoryLocations, ({ one }) => ({

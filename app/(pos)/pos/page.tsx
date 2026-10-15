@@ -9,6 +9,7 @@ import { OpenSessionForm } from "@/components/pos/OpenSessionForm";
 import { CashierScreen } from "@/components/pos/CashierScreen";
 import { auth } from "@/lib/auth";
 import { getActivePosLocations } from "@/app/actions/inventory";
+import { getActiveSalesEvents } from "@/app/actions/sales-events";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,12 @@ export default async function PosPage() {
   ]);
 
   if (!session) {
+    const salesEvents = await getActiveSalesEvents();
     return (
       <OpenSessionForm
         cashierName={authSession?.user?.name ?? ''}
         locations={locations}
+        salesEvents={salesEvents}
       />
     );
   }
@@ -48,6 +51,7 @@ export default async function PosPage() {
       receiptFooter={posSettings.receiptFooter}
       cashierName={cashierName}
       locationName={locationName}
+      salesEventName={session.salesEvent?.name ?? null}
       maxDiscountPercent={(authSession?.user as { role?: string } | undefined)?.role === "admin" ? 100 : 20}
       storeName={posSettings.storeName}
       storePhone={posSettings.storePhone}

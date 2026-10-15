@@ -8,10 +8,11 @@ vi.mock("@/lib/db", () => ({ db: { transaction: mocks.transaction } }));
 import { getCashierSalesReport } from "@/app/actions/pos-reports";
 
 function selectChain(rows: unknown[]) {
-  const query = { from: vi.fn(), where: vi.fn(), orderBy: vi.fn() };
+  const query = { from: vi.fn(), where: vi.fn(), orderBy: vi.fn(), limit: vi.fn() };
   query.from.mockReturnValue(query);
   query.where.mockReturnValue(query);
   query.orderBy.mockResolvedValue(rows);
+  query.limit.mockResolvedValue(rows);
   return query;
 }
 
@@ -56,6 +57,18 @@ describe("cashier sales report action", () => {
 
   it("rejects an unknown location instead of silently broadening the filter", async () => {
     expect(await getCashierSalesReport({ locationId: 99 })).toMatchObject({ success: false, error: "Lokasi pada filter tidak ditemukan" });
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("preserves a validated event filter for cashier drill-down and pagination", async () => {
+    mocks.select.mockReturnValueOnce(selectChain([{ id: 5 }]));
+    expect(await getCashierSalesReport({ eventId: 5 })).toMatchObject({ success: true, data: { filters: { eventId: 5 } } });
+    expect(mocks.execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects an unknown event instead of returning all cashiers", async () => {
+    mocks.select.mockReturnValueOnce(selectChain([]));
+    expect(await getCashierSalesReport({ eventId: 99 })).toMatchObject({ success: false, error: "Event pada filter tidak ditemukan" });
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

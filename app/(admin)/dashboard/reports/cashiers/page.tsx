@@ -13,10 +13,10 @@ const linkClass = "inline-flex min-h-11 items-center rounded-lg border border-bo
 export default async function CashierReportPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
-  const duplicatedFilter = ["from", "to", "cashierId", "locationId", "page"].some(key => Array.isArray(params[key]));
+  const duplicatedFilter = ["from", "to", "cashierId", "locationId", "eventId", "page"].some(key => Array.isArray(params[key]));
   const result = duplicatedFilter
     ? { success: false, error: "Gunakan satu nilai untuk setiap filter laporan" } as const
-    : await getCashierSalesReport({ from: value("from"), to: value("to"), cashierId: value("cashierId"), locationId: value("locationId"), page: value("page") });
+    : await getCashierSalesReport({ from: value("from"), to: value("to"), cashierId: value("cashierId"), locationId: value("locationId"), eventId: value("eventId"), page: value("page") });
 
   if (!result.success) {
     return <div role="alert" className="max-w-xl space-y-4 rounded-xl border border-border bg-card p-5">
@@ -32,6 +32,7 @@ export default async function CashierReportPage({ searchParams }: { searchParams
     const query = new URLSearchParams({ from: filters.from, to: filters.to, page: String(overrides.page ?? filters.page) });
     if (overrides.cashierId ?? filters.cashierId) query.set("cashierId", String(overrides.cashierId ?? filters.cashierId));
     if (filters.locationId) query.set("locationId", String(filters.locationId));
+    if (filters.eventId) query.set("eventId", String(filters.eventId));
     return `/dashboard/reports/cashiers?${query}`;
   };
   const issues = [
@@ -50,9 +51,11 @@ export default async function CashierReportPage({ searchParams }: { searchParams
         <Link href="/dashboard/reports" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Kembali ke laporan</Link>
         <h1 className="text-balance text-xl font-bold text-foreground md:text-2xl">Penjualan Kasir</h1>
         <p className="mt-1 text-sm text-muted-foreground">Berdasarkan ID pemilik sesi POS. Akun admin yang dipakai bersama belum menunjukkan kasir bertugas sebenarnya.</p>
+        {filters.eventId && <Link href={`/dashboard/reports/events/sales?eventId=${filters.eventId}&from=${filters.from}&to=${filters.to}`} className={linkClass}>Kembali ke omzet event #{filters.eventId}</Link>}
       </header>
 
       <form action="/dashboard/reports/cashiers" method="get" className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-5">
+        {filters.eventId && <input type="hidden" name="eventId" value={filters.eventId} />}
         <label className="text-sm font-medium text-foreground">Mulai (WIB)<input type="date" name="from" required defaultValue={filters.from} className={fieldClass} /></label>
         <label className="text-sm font-medium text-foreground">Sampai (WIB)<input type="date" name="to" required defaultValue={filters.to} className={fieldClass} /></label>
         <label className="text-sm font-medium text-foreground">Pemilik sesi<select name="cashierId" defaultValue={filters.cashierId ?? ""} className={fieldClass}>

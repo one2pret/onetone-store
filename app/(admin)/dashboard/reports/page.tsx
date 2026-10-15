@@ -12,6 +12,11 @@ export default function ReportsPage() {
         <p className="mt-2 text-sm text-muted-foreground">Bandingkan penjualan, diskon, retur, pembayaran, dan selisih kas per pemilik sesi POS.</p>
         <span className="mt-4 inline-block text-sm font-medium text-foreground underline underline-offset-4">Buka laporan kasir</span>
       </Link>
+      <Link href="/dashboard/reports/events" className="block rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <h2 className="text-lg font-semibold text-foreground">Sales Event / Bazaar</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Kelola acara dan buka laporan omzet, refund, kasir, serta penjualan harian event.</p>
+        <span className="mt-4 inline-block text-sm font-medium text-foreground underline underline-offset-4">Kelola event</span>
+      </Link>
     </div>
   );
 }

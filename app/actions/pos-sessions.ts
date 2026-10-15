@@ -5,9 +5,10 @@
 // Filosofi Odoo POS: satu session = satu shift kasir, semua transaksi di-track ke session.
 
 import { db } from "@/lib/db";
-import { inventoryLocations, posSessions, orders, users, orderItems, posReturns } from "@/lib/db/schema";
+import { inventoryLocations, posSessions, orders, users, orderItems, posReturns, salesEvents } from "@/lib/db/schema";
 import { canAccessPosSession, requirePosAdmin, requirePosOperator } from "@/lib/pos-auth";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { salesEventIsSelectable } from "@/lib/sales-events";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -15,7 +16,8 @@ import { z } from "zod";
 
 const openSessionSchema = z.object({
   locationId: z.number().int().positive("Pilih lokasi POS"),
-  openingCash: z.number().min(0, "Modal awal tidak boleh negatif"),
+  salesEventId: z.number().int().positive().nullable().optional(),
+  openingCash: z.number().finite().min(0, "Modal awal tidak boleh negatif").max(9_999_999_999.99),
   notes: z.string().max(500).optional(),
 });
 
@@ -29,6 +31,13 @@ const closeSessionSchema = z.object({
 
 // ─── Get active session ───────────────────────────────────────────────────────
 
+async function getSessionEvent(salesEventId: number | null | undefined) {
+  if (!salesEventId) return null;
+  const events = await db.select({ id: salesEvents.id, code: salesEvents.code, name: salesEvents.name, status: salesEvents.status })
+    .from(salesEvents).where(eq(salesEvents.id, salesEventId)).limit(1);
+  return events[0] ?? null;
+}
+
 export async function getActiveSession() {
   const auth = await requirePosOperator();
   if (!auth.ok) return null;
@@ -39,7 +48,8 @@ export async function getActiveSession() {
     .where(and(eq(posSessions.cashierId, auth.actor.id), eq(posSessions.status, "open")))
     .limit(1);
 
-  return rows[0] ?? null;
+  const session = rows[0];
+  return session ? { ...session, salesEvent: await getSessionEvent(session.salesEventId) } : null;
 }
 
 // ─── Open session ─────────────────────────────────────────────────────────────
@@ -57,7 +67,9 @@ export async function getCashierUsers() {
     .orderBy(users.name);
 }
 
-export async function openSession(input: { locationId: number; openingCash: number; notes?: string }) {
+class SessionValidationError extends Error {}
+
+export async function openSession(input: { locationId: number; salesEventId?: number | null; openingCash: number; notes?: string }) {
   const authResult = await requirePosOperator();
   if (!authResult.ok) return { success: false, error: authResult.error };
 
@@ -66,35 +78,36 @@ export async function openSession(input: { locationId: number; openingCash: numb
     return { success: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   }
 
-  const locations = await db.select({ id: inventoryLocations.id }).from(inventoryLocations)
-    .where(and(eq(inventoryLocations.id, parsed.data.locationId), eq(inventoryLocations.type, "pos"), eq(inventoryLocations.isActive, true))).limit(1);
-  if (!locations[0]) return { success: false, error: "Lokasi POS tidak aktif atau tidak ditemukan" };
-
-  // cashierId selalu = user yang login. Nama kasir bertugas disimpan terpisah.
-  const existing = await db
-    .select({ id: posSessions.id })
-    .from(posSessions)
-    .where(and(eq(posSessions.cashierId, authResult.actor.id), eq(posSessions.status, "open")))
-    .limit(1);
-
-  if (existing.length > 0) {
-    return {
-      success: false,
-      error: "Masih ada sesi kasir aktif. Tutup dulu sebelum buka yang baru.",
-    };
+  try {
+    const sessionId = await db.transaction(async tx => {
+      // Serialize openings for one owner; an event lock also coordinates admin changes with new sessions.
+      const [operator] = await tx.select({ id: users.id, name: users.name }).from(users)
+        .where(and(eq(users.id, authResult.actor.id), isNull(users.deletedAt), sql`${users.role} IN ('admin', 'cashier')`))
+        .limit(1).for("update");
+      if (!operator) throw new SessionValidationError("Akses POS ditolak");
+      if (parsed.data.salesEventId) {
+        const [event] = await tx.select().from(salesEvents).where(eq(salesEvents.id, parsed.data.salesEventId)).limit(1).for("update");
+        if (!event || !salesEventIsSelectable(event)) throw new SessionValidationError("Event tidak aktif atau berada di luar periode. Pilih event lain atau penjualan reguler.");
+      }
+      const locations = await tx.select({ id: inventoryLocations.id }).from(inventoryLocations)
+        .where(and(eq(inventoryLocations.id, parsed.data.locationId), eq(inventoryLocations.type, "pos"), eq(inventoryLocations.isActive, true))).limit(1);
+      if (!locations[0]) throw new SessionValidationError("Lokasi POS tidak aktif atau tidak ditemukan");
+      const existing = await tx.select({ id: posSessions.id }).from(posSessions)
+        .where(and(eq(posSessions.cashierId, operator.id), eq(posSessions.status, "open"))).limit(1);
+      if (existing.length) throw new SessionValidationError("Masih ada sesi kasir aktif. Tutup dulu sebelum buka yang baru.");
+      const [result] = await tx.insert(posSessions).values({
+        cashierId: operator.id, locationId: parsed.data.locationId, salesEventId: parsed.data.salesEventId ?? null,
+        openingCash: String(parsed.data.openingCash), status: "open", assignedCashierName: operator.name, notes: parsed.data.notes || null,
+      });
+      return Number(result.insertId);
+    });
+    revalidatePath("/pos");
+    revalidatePath("/dashboard/pos/sessions");
+    revalidatePath("/dashboard/reports/events");
+    return { success: true, sessionId };
+  } catch (error) {
+    return { success: false, error: error instanceof SessionValidationError ? error.message : "Sesi kasir belum dapat dibuka. Coba lagi." };
   }
-
-  const [result] = await db.insert(posSessions).values({
-    cashierId: authResult.actor.id,
-    locationId: parsed.data.locationId,
-    openingCash: String(parsed.data.openingCash),
-    status: "open",
-    assignedCashierName: authResult.actor.name,
-    notes: parsed.data.notes || null,
-  });
-
-  revalidatePath("/pos");
-  return { success: true, sessionId: Number(result.insertId) };
 }
 
 // ─── Session summary (Z-report data) ──────────────────────────────────────────
@@ -167,6 +180,7 @@ export async function getSessionSummary(sessionId: number) {
 
   return {
     session,
+    salesEvent: await getSessionEvent(session.salesEventId),
     breakdown,
     totalSales,
     totalDiscounts,
@@ -231,6 +245,7 @@ export async function closeSession(input: {
 
   revalidatePath("/pos");
   revalidatePath("/dashboard/pos/sessions");
+  revalidatePath("/dashboard/reports/events");
 
   return {
     success: true,
@@ -258,9 +273,12 @@ export async function getAllPosSessions() {
       cashDifference: posSessions.cashDifference,
       status: posSessions.status,
       notes: posSessions.notes,
+      salesEventId: posSessions.salesEventId,
+      salesEventName: salesEvents.name,
     })
     .from(posSessions)
     .leftJoin(users, eq(posSessions.cashierId, users.id))
+    .leftJoin(salesEvents, eq(posSessions.salesEventId, salesEvents.id))
     .orderBy(desc(posSessions.openedAt));
 
   if (sessions.length === 0) return [];
