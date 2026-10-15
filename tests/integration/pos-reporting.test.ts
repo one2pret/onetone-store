@@ -7,6 +7,7 @@ import { getTableColumns, getTableName } from "drizzle-orm";
 import { users, posSessions, orders, orderItems, posReturns, posReturnItems } from "@/lib/db/schema";
 import { buildCashierReportQualityQuery, buildCashierReportQuery } from "@/lib/pos-reporting-queries";
 import { parseCashierReportFilters } from "@/lib/pos-reporting";
+import { buildEventReportQualityQuery, buildEventSalesReportQuery } from "@/lib/pos-event-reporting";
 
 const databaseUrl = process.env.POS_REPORT_TEST_DATABASE_URL;
 let connection: Connection;
@@ -60,7 +61,7 @@ describe.skipIf(!databaseUrl)("POS report SQL on MySQL", () => {
       await connection.query(`DELETE FROM ${table}`);
     }
     await connection.query("INSERT INTO users VALUES (1,'Admin',NULL),(2,'Kasir A',NULL),(3,'Kasir B',NULL)");
-    await connection.query(`INSERT INTO pos_sessions VALUES
+    await connection.query(`INSERT INTO pos_sessions (id,cashier_id,location_id,opened_at,closed_at,pos_session_status,cash_difference) VALUES
       (20,2,7,'2026-09-29 01:00:00','2026-10-01 10:00:00','closed',5000),
       (21,3,7,'2026-10-01 01:00:00','2026-10-02 10:00:00','closed',-7000),
       (22,2,7,'2026-10-02 01:00:00','2026-10-03 10:00:00','closed',5000)`);
@@ -95,7 +96,7 @@ describe.skipIf(!databaseUrl)("POS report SQL on MySQL", () => {
   });
 
   it("counts same-valued cash differences once per closed session and excludes active sessions", async () => {
-    await connection.query("INSERT INTO pos_sessions VALUES (23,2,7,'2026-10-01 01:00:00',NULL,'open',123456)");
+    await connection.query("INSERT INTO pos_sessions (id,cashier_id,location_id,opened_at,closed_at,pos_session_status,cash_difference) VALUES (23,2,7,'2026-10-01 01:00:00',NULL,'open',123456)");
     const result = await report();
     expect(Number(result.a!.cashDifference)).toBe(10000);
     expect(Number(result.a!.closedSessionCount)).toBe(2);
@@ -173,7 +174,7 @@ describe.skipIf(!databaseUrl)("POS report SQL on MySQL", () => {
   it("paginates cashier rows in SQL while retaining a summary of every matching cashier", async () => {
     for (let index = 0; index < 27; index++) {
       await connection.execute("INSERT INTO users VALUES (?, ?, NULL)", [100 + index, `Kasir ${index}`]);
-      await connection.execute("INSERT INTO pos_sessions VALUES (?,?,7,'2026-10-01 01:00:00','2026-10-02 10:00:00','closed',100)", [100 + index, 100 + index]);
+      await connection.execute("INSERT INTO pos_sessions (id,cashier_id,location_id,opened_at,closed_at,pos_session_status,cash_difference) VALUES (?,?,7,'2026-10-01 01:00:00','2026-10-02 10:00:00','closed',100)", [100 + index, 100 + index]);
     }
     const first = await report({ page: 1 });
     const second = await report({ page: 2 });
@@ -183,5 +184,91 @@ describe.skipIf(!databaseUrl)("POS report SQL on MySQL", () => {
     expect(Number(second.summary.netSales)).toBe(Number(first.summary.netSales));
     expect(Number(second.summary.cashDifference)).toBe(5700);
     expect(Number((await report({ page: 99 })).summary.totalCashiers)).toBe(29);
+  });
+
+  describe("event revenue on the migrated session relationship", () => {
+    beforeAll(async () => {
+      await connection.query("ALTER TABLE pos_sessions ADD COLUMN sales_event_id INT NULL");
+    });
+
+    async function eventReport(input: Parameters<typeof parseCashierReportFilters>[0] = {}, dimension: "event" | "day" = "event", asOf = new Date("2026-11-02T00:00:00Z")) {
+      const parsed = parseCashierReportFilters({ from: "2026-10-01", to: "2026-10-31", ...input }, asOf);
+      if (!parsed.success) throw new Error(parsed.error);
+      const [result] = await drizzle(connection).execute(buildEventSalesReportQuery(parsed.filters, dimension));
+      const rows = result as RowDataPacket[];
+      return { summary: rows.find(row => row.rowKind === "summary")!, rows: rows.filter(row => row.rowKind === "detail") };
+    }
+
+    beforeEach(async () => {
+      await connection.query("UPDATE pos_sessions SET sales_event_id = CASE WHEN id=20 THEN 5 ELSE 6 END");
+    });
+
+    it("attributes a refund processed in another event to the original event and original cashier", async () => {
+      const result = await eventReport();
+      expect(result.rows).toHaveLength(1);
+      expect(Number(result.rows[0].groupId)).toBe(5);
+      expect(Number(result.rows[0].netSales)).toBe(400000);
+      expect(Number(result.rows[0].transferRefunds)).toBe(100000);
+      const cashier = await report({ eventId: 5 });
+      expect(Number(cashier.a!.netSales)).toBe(400000);
+      expect(cashier.b).toBeUndefined();
+      expect(Number((await eventReport({ eventId: 6 })).summary.netSales)).toBe(0);
+    });
+
+    it("excludes regular sessions, online orders and orders without sessions", async () => {
+      await connection.query("UPDATE pos_sessions SET sales_event_id=NULL WHERE id=20");
+      expect(Number((await eventReport()).summary.transactions)).toBe(0);
+      await connection.query("INSERT INTO orders VALUES (101,NULL,'pos','delivered','2026-10-02 01:00:00','2026-10-02 01:00:00',10000,0,10000,'cash')");
+      expect(Number((await eventReport()).summary.transactions)).toBe(0);
+    });
+
+    it("keeps multi-item and multi-refund totals independent and computes discounts from snapshots", async () => {
+      await connection.query("UPDATE order_items SET regular_price=120000 WHERE id=1");
+      await connection.query("UPDATE orders SET discount_amount=5000,total=495000 WHERE id=100");
+      await connection.query("INSERT INTO pos_returns VALUES (11,100,NULL,1,'2026-11-01 02:00:00','qris',50000)");
+      await connection.query("INSERT INTO pos_return_items VALUES (2,11,1,true)");
+      const { summary } = await eventReport();
+      expect(Number(summary.transactions)).toBe(1);
+      expect(Number(summary.grossSales)).toBe(540000);
+      expect(Number(summary.totalDiscounts)).toBe(45000);
+      expect(Number(summary.refunds)).toBe(150000);
+      expect(Number(summary.netSales)).toBe(345000);
+      expect(Number(summary.itemsSold)).toBe(5);
+      expect(Number(summary.returnedItems)).toBe(2);
+      expect(Number(summary.salesSessionCount)).toBe(1);
+    });
+
+    it("uses WIB sale days, includes later refunds and respects the as-of cutoff", async () => {
+      const result = await eventReport({}, "day");
+      expect(String(result.rows[0].groupId)).toBe("2026-10-01");
+      expect(Number(result.rows[0].refunds)).toBe(100000);
+      expect(Number((await eventReport({}, "event", new Date("2026-10-31T00:00:00Z"))).summary.refunds)).toBe(0);
+      expect(Number((await eventReport({ cashierId: 3 })).summary.transactions)).toBe(0);
+      expect(Number((await eventReport({ locationId: 8 })).summary.transactions)).toBe(0);
+    });
+
+    it("flags excluded paid-status/date records and preserves legacy completeness signals", async () => {
+      await connection.query("UPDATE order_items SET regular_price=NULL WHERE id=1");
+      await connection.query("INSERT INTO orders VALUES (101,20,'pos','delivered',NULL,'2026-10-02 01:00:00',10000,0,10000,'cash'),(102,20,'pos','cancelled','2026-10-02 01:00:00','2026-10-02 01:00:00',10000,0,10000,'cash')");
+      const parsed = parseCashierReportFilters({ from: "2026-10-01", to: "2026-10-31" }, new Date("2026-11-02T00:00:00Z"));
+      if (!parsed.success) throw new Error(parsed.error);
+      const [quality] = await drizzle(connection).execute(buildEventReportQualityQuery(parsed.filters));
+      expect(Number((quality as RowDataPacket[])[0].excludedOrders)).toBe(2);
+      expect(Number((await eventReport()).summary.legacyPriceOrders)).toBe(1);
+    });
+
+    it("paginates events in SQL without limiting the summary", async () => {
+      for (let index=0; index<27; index++) {
+        await connection.query("INSERT INTO pos_sessions (id,cashier_id,location_id,pos_session_status,sales_event_id) VALUES (?,2,7,'open',?)",[100+index,100+index]);
+        await connection.query("INSERT INTO orders VALUES (?,?,'pos','delivered','2026-10-02 01:00:00','2026-10-02 01:00:00',10000,0,10000,'cash')",[200+index,100+index]);
+      }
+      const first=await eventReport();
+      const second=await eventReport({ page: 2 });
+      expect(first.rows).toHaveLength(25);
+      expect(second.rows).toHaveLength(3);
+      expect(Number(second.summary.totalGroups)).toBe(28);
+      expect(Number(second.summary.netSales)).toBe(Number(first.summary.netSales));
+      expect((await eventReport({ page: 999 })).rows).toHaveLength(0);
+    });
   });
 });

@@ -8,18 +8,15 @@ const orderAlias = alias(orders, "o");
 function sessionFilter(filters: CashierReportFilters) {
   return sql`1 = 1
     ${filters.cashierId ? sql`AND s.cashier_id = ${filters.cashierId}` : sql``}
-    ${filters.locationId ? sql`AND s.location_id = ${filters.locationId}` : sql``}`;
+    ${filters.locationId ? sql`AND s.location_id = ${filters.locationId}` : sql``}
+    ${filters.eventId ? sql`AND s.sales_event_id = ${filters.eventId}` : sql``}`;
 }
 
-export function buildCashierReportQuery(filters: CashierReportFilters) {
+export function buildPosSalesLedger(filters: CashierReportFilters, eventOnly = false) {
   const end = new Date(Math.min(filters.end.getTime(), filters.asOf.getTime()));
-  const summaryMetrics = sql.join(CASHIER_METRICS.map(key =>
-    sql`COALESCE(SUM(${sql.identifier(key)}), 0) AS ${sql.identifier(key)}`), sql`, `);
-  const rowMetrics = sql.join(CASHIER_METRICS.map(key => sql.identifier(key)), sql`, `);
-
   // Each ledger is aggregated before joining: two items and two refunds must not multiply the sale.
   return sql`WITH filtered_sessions AS (
-    SELECT s.* FROM pos_sessions s WHERE ${sessionFilter(filters)}
+    SELECT s.* FROM pos_sessions s WHERE ${sessionFilter(filters)} ${eventOnly ? sql`AND s.sales_event_id IS NOT NULL` : sql``}
   ), filtered_orders AS (
     SELECT o.* FROM orders o INNER JOIN filtered_sessions s ON s.id = o.pos_session_id
     WHERE ${orderAlias.channel} = 'pos' AND o.status = 'delivered'
@@ -44,7 +41,15 @@ export function buildCashierReportQuery(filters: CashierReportFilters) {
       INNER JOIN filtered_orders o ON o.id = r.order_id
     WHERE r.created_at <= ${filters.asOf}
     GROUP BY r.order_id
-  ), sales_totals AS (
+  )`;
+}
+
+export function buildCashierReportQuery(filters: CashierReportFilters) {
+  const end = new Date(Math.min(filters.end.getTime(), filters.asOf.getTime()));
+  const summaryMetrics = sql.join(CASHIER_METRICS.map(key =>
+    sql`COALESCE(SUM(${sql.identifier(key)}), 0) AS ${sql.identifier(key)}`), sql`, `);
+  const rowMetrics = sql.join(CASHIER_METRICS.map(key => sql.identifier(key)), sql`, `);
+  return sql`${buildPosSalesLedger(filters)}, sales_totals AS (
     SELECT s.cashier_id, COUNT(*) AS transactions, SUM(o.subtotal) AS subtotal,
       SUM(COALESCE(i.automatic_discount, 0)) AS automaticDiscounts,
       SUM(COALESCE(o.discount_amount, 0)) AS additionalDiscounts,

@@ -25,6 +25,7 @@ export type CashierReportInput = {
   to?: string;
   cashierId?: string | number;
   locationId?: string | number;
+  eventId?: string | number;
   page?: string | number;
 };
 
@@ -34,6 +35,7 @@ export function parseCashierReportFilters(input: CashierReportInput, now = new D
     to: reportDate.default(jakartaDateKey(now)),
     cashierId: optionalId,
     locationId: optionalId,
+    eventId: optionalId,
     page: z.preprocess(value => value === "" || value === undefined ? 1 : value,
       z.coerce.number().int().min(1).max(10_000)),
   }).safeParse(input);

@@ -18,6 +18,7 @@ import type { PosSession } from "@/lib/db/schema";
 
 interface Summary {
   session: PosSession;
+  salesEvent?: { name: string } | null;
   breakdown: {
     cash: { total: number; count: number };
     qris: { total: number; count: number };
@@ -82,6 +83,7 @@ export function CloseSessionForm({ summary }: Props) {
         </button>
         <div className="flex-1">
           <h1 className="font-bold text-slate-900">Tutup Sesi Kasir</h1>
+          <p className="mt-1 text-xs text-slate-600">Event: {summary.salesEvent?.name ?? "Penjualan reguler"}</p>
           <p className="text-xs text-slate-500">
             Sesi #{summary.session.id}
             {openedAt && ` • Dibuka ${openedAt.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}`}

@@ -89,6 +89,7 @@ interface Props {
   receiptFooter: string | null;
   cashierName?: string;
   locationName?: string;
+  salesEventName?: string | null;
   maxDiscountPercent: number;
   storeName?: string | null;
   storePhone?: string | null;
@@ -99,7 +100,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, locationName, maxDiscountPercent, storeName, storePhone, storeAddress, receiptLogoUrl, showReturnQr = true }: Props) {
+export function CashierScreen({ session, products, recentOrders, qrisUrl, receiptFooter, cashierName, locationName, salesEventName, maxDiscountPercent, storeName, storePhone, storeAddress, receiptLogoUrl, showReturnQr = true }: Props) {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
@@ -347,6 +348,9 @@ export function CashierScreen({ session, products, recentOrders, qrisUrl, receip
                   Sesi #{session.id}
                   <span className="mx-1.5 text-slate-300" aria-hidden="true">•</span>
                   Modal {formatRupiah(Number(session.openingCash))}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-600" title={salesEventName ?? "Penjualan reguler"}>
+                  Event: <span className="font-semibold text-slate-900">{salesEventName ?? "Penjualan reguler"}</span>
                 </p>
               </div>
             </div>

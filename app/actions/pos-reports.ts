@@ -2,7 +2,7 @@
 
 import { asc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { inventoryLocations, users } from "@/lib/db/schema";
+import { inventoryLocations, salesEvents, users } from "@/lib/db/schema";
 import { requirePosAdmin } from "@/lib/pos-auth";
 import { buildCashierReportQuery, buildCashierReportQualityQuery } from "@/lib/pos-reporting-queries";
 import { CASHIER_REPORT_PAGE_SIZE, parseCashierReportFilters, readCashierMetrics, type CashierReportInput, type CashierReportRow } from "@/lib/pos-reporting";
@@ -29,6 +29,10 @@ export async function getCashierSalesReport(input: CashierReportInput = {}) {
     if (filters.locationId && !locations.some(row => row.id === filters.locationId)) {
       return { success: false, error: "Lokasi pada filter tidak ditemukan" } as const;
     }
+    if (filters.eventId) {
+      const event = await tx.select({ id: salesEvents.id }).from(salesEvents).where(eq(salesEvents.id, filters.eventId)).limit(1);
+      if (!event.length) return { success: false, error: "Event pada filter tidak ditemukan" } as const;
+    }
 
     const [rawRows] = await tx.execute(buildCashierReportQuery(filters));
     const [qualityRows] = await tx.execute(buildCashierReportQualityQuery(filters));
@@ -42,7 +46,7 @@ export async function getCashierSalesReport(input: CashierReportInput = {}) {
     return {
       success: true,
       data: {
-        filters: { from: filters.from, to: filters.to, cashierId: filters.cashierId, locationId: filters.locationId, page: filters.page },
+        filters: { from: filters.from, to: filters.to, cashierId: filters.cashierId, locationId: filters.locationId, eventId: filters.eventId, page: filters.page },
         asOf: filters.asOf.toISOString(), pageSize: CASHIER_REPORT_PAGE_SIZE, totalCashiers: Number(summaryRow.totalCashiers ?? 0),
         summary: readCashierMetrics(summaryRow), rows: cashiersRows,
         cashiers: cashiers.map(row => ({ id: row.id, name: row.name, inactive: row.deletedAt !== null })), locations,

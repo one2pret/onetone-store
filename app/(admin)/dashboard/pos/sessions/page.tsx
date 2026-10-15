@@ -82,6 +82,7 @@ export default async function PosSessionsPage() {
                     {/* Sesi */}
                     <div>
                       <p className="font-semibold text-foreground text-sm">Sesi #{s.id}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground" title={s.salesEventName ?? "Penjualan reguler"}>{s.salesEventName ?? "Penjualan reguler"}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {opened && opened.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                         {closed && ` → ${closed.toLocaleString("id-ID", { timeStyle: "short" })}`}
