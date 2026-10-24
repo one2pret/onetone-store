@@ -11,8 +11,10 @@ export async function GET(request: Request) {
     const category = searchParams.get('category');
     const featured = searchParams.get('featured');
     const search = searchParams.get('search');
-    const page = Math.max(1, Number(searchParams.get('page') || 1));
-    const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 20)));
+    const rawPage = Number(searchParams.get('page') || 1);
+    const rawLimit = Number(searchParams.get('limit') || 20);
+    const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit > 0 ? Math.min(100, rawLimit) : 20;
     const offset = (page - 1) * limit;
 
     // Build conditions
@@ -24,6 +26,9 @@ export async function GET(request: Request) {
 
     if (search) {
       conditions.push(like(products.name, `%${search}%`));
+    }
+    if (category) {
+      conditions.push(eq(categories.slug, category));
     }
 
     // Base query with category join
@@ -37,19 +42,15 @@ export async function GET(request: Request) {
       .limit(limit)
       .offset(offset);
 
-    let allProducts = rows.map(row => ({
+    const allProducts = rows.map(row => ({
       ...row.product,
       category: row.category,
     }));
 
-    // Filter by category slug (post-join filter since slug is on categories table)
-    if (category) {
-      allProducts = allProducts.filter(p => p.category?.slug === category);
-    }
-
     // Get total count for pagination
     const [countResult] = await db.select({ count: sql<number>`COUNT(*)` })
       .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(and(...conditions));
 
     const total = Number(countResult.count);
