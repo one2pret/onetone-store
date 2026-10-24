@@ -4,6 +4,12 @@ import { db } from '@/lib/db';
 import { cartItems, products } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
+import { z } from 'zod';
+
+const addCartSchema = z.object({
+  productId: z.number().int().positive(),
+  quantity: z.number().int().positive().default(1),
+});
 
 // GET /api/cart
 export async function GET(request: Request) {
@@ -40,14 +46,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { productId, quantity = 1 } = await request.json();
-
-    if (!productId) {
+    const parsed = addCartSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'productId wajib diisi' },
+        { success: false, error: 'productId dan quantity harus bilangan bulat positif', errors: parsed.error.flatten().fieldErrors },
         { status: 400 },
       );
     }
+    const { productId, quantity } = parsed.data;
 
     // Check product exists & active
     const productRows = await db.select()
