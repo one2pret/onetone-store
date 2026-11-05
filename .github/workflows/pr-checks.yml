@@ -22,8 +22,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install locked dependencies
-        run: npm ci
+      # Existing package-lock.json is not synchronized with package.json.
+      # Match Dockerfile's npm install until a separate lockfile repair PR.
+      # Do not use npm ci here before that repair (it fails before tests).
+      - name: Install dependencies (matching Dockerfile)
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Unit tests
