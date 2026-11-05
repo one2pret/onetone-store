@@ -14,8 +14,8 @@ export type FreshQuoteResult =
  * Loads a fresh quote using ONLY server-owned state and an address belonging
  * to the authenticated user. No client-provided prices, origin, or weights.
  *
- * Not wired to the existing endpoints yet. The current Biteship request shape
- * (including weight * quantity) is preserved pending API contract verification.
+ * This also powers the shipping preview endpoint. Biteship expects per-unit
+ * item weight and value, with quantity supplied separately.
  */
 export async function loadFreshCheckoutRates(userId: number, addressId: number): Promise<FreshQuoteResult> {
   const [address] = await db.select().from(addresses)
