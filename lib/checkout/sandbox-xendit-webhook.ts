@@ -69,8 +69,13 @@ export function sandboxPaymentDecision(
   invoiceStatus: InvoiceStatus,
   orderStatus: OrderStatus,
 ): PaymentDecision {
-  if (event === 'PAID' && invoiceStatus === 'paid') return 'duplicate';
-  if (event === 'EXPIRED' && invoiceStatus === 'expired') return 'duplicate';
+  if (event === 'PAID' && invoiceStatus === 'paid') {
+    return ['packing', 'shipping', 'delivered'].includes(orderStatus ?? '')
+      ? 'duplicate' : 'conflict';
+  }
+  if (event === 'EXPIRED' && invoiceStatus === 'expired') {
+    return orderStatus === 'expired' ? 'duplicate' : 'conflict';
+  }
   if (invoiceStatus !== 'pending' || orderStatus !== 'waiting_payment') {
     return 'conflict';
   }
