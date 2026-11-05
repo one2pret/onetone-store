@@ -47,9 +47,9 @@ export function buildShippingQuoteInput(input: {
     couriers: couriers.join(','),
     items: input.cart.map(item => ({
       name: item.name,
-      weight: item.unitWeight * item.quantity,
+      weight: item.unitWeight, // Biteship applies quantity separately; grams per unit
       quantity: item.quantity,
-      value: item.unitPrice * item.quantity,
+      value: item.unitPrice, // declared item value per unit
     })),
   };
 }
