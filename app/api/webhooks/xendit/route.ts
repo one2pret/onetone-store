@@ -50,6 +50,17 @@ export async function POST(request: Request) {
 
     const order = orderRows[0];
 
+    // Sandbox invoices must be handled exclusively by the separately gated
+    // /api/checkout/sandbox-xendit-webhook endpoint. Fail closed so legacy
+    // non-atomic stock handling cannot process sandbox orders.
+    if (order.orderNumber.startsWith('SBX-')) {
+      console.error('Sandbox callback reached legacy Xendit webhook', { orderId: order.id });
+      return NextResponse.json(
+        { success: false, error: 'Wrong callback URL for sandbox invoice' },
+        { status: 409 },
+      );
+    }
+
     if (status === 'PAID') {
       // Idempotent: skip if already paid
       if (invoice.status === 'paid') {
