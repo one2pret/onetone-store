@@ -4,10 +4,11 @@ import { addresses, cartItems, couriers, products, productVariants, storeSetting
 import { getShippingRates, type BitshipRate } from '@/lib/bitship';
 import { getEffectiveUnitPrice } from '@/lib/cart-pricing';
 import { buildShippingQuoteInput } from './shipping-quote-input';
+import { checkoutSnapshotDigest } from './order-snapshot';
 import { resolveTrustedShippingQuote, type CheckoutCourierRequest } from './trusted-shipping-quote';
 
 export type FreshQuoteResult =
-  | { ok: true; rates: BitshipRate[] }
+  | { ok: true; rates: BitshipRate[]; snapshot: string }
   | { ok: false; reason: 'address' | 'origin' | 'couriers' | 'cart' | 'invalid_weight_or_coordinates' };
 
 /**
@@ -60,7 +61,36 @@ export async function loadFreshCheckoutRates(userId: number, addressId: number):
     })),
   });
   if (!input) return { ok: false, reason: 'invalid_weight_or_coordinates' };
-  return { ok: true, rates: await getShippingRates(input) };
+  const snapshot = checkoutSnapshotDigest({
+    address: {
+      id: address.id,
+      userId: address.userId,
+      recipientName: address.recipientName,
+      phone: address.phone,
+      address: address.address,
+      detail: address.detail,
+      latitude: address.latitude,
+      longitude: address.longitude,
+    },
+    items: cart.map(row => ({
+      productId: row.cart_items.productId,
+      variantId: row.cart_items.variantId,
+      quantity: row.cart_items.quantity ?? 1,
+      unitWeight: row.products!.weight ?? 0,
+      unitPrice: getEffectiveUnitPrice(
+        row.products!.price,
+        row.product_variants?.priceModifier,
+        {
+          salePrice: row.products!.salePrice,
+          saleStartsAt: row.products!.saleStartsAt,
+          saleEndsAt: row.products!.saleEndsAt,
+          saleChannel: row.products!.saleChannel,
+          variantSalePriceOverride: row.product_variants?.salePriceOverride,
+        },
+      ),
+    })),
+  });
+  return { ok: true, rates: await getShippingRates(input), snapshot };
 }
 
 export async function loadTrustedCheckoutSelection(
@@ -72,5 +102,5 @@ export async function loadTrustedCheckoutSelection(
   if (!quote.ok) return { ok: false as const, reason: quote.reason };
   const selected = resolveTrustedShippingQuote(selection, quote.rates);
   if (!selected) return { ok: false as const, reason: 'rate_changed' as const };
-  return { ok: true as const, selected };
+  return { ok: true as const, selected, snapshot: quote.snapshot };
 }
