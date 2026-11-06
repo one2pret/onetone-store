@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseSandboxInvoiceEvent,
+  isSandboxInvoiceCallback,
   sandboxPaymentDecision,
   validCallbackToken,
 } from './sandbox-xendit-webhook';
@@ -14,6 +15,24 @@ const base = {
   paid_amount: 65300,
   payment_method: 'BANK_TRANSFER',
 };
+
+describe('single Xendit Invoice callback dispatcher', () => {
+  const sandboxId = 'SBX-' + 'a'.repeat(36);
+  it('routes legitimate and malformed SBX prefixes to strict sandbox parsing', () => {
+    expect(isSandboxInvoiceCallback({ external_id: sandboxId, status: 'PAID' })).toBe(true);
+    expect(isSandboxInvoiceCallback({ external_id: 'SBX-malformed' })).toBe(true);
+  });
+  it('keeps regular web invoice callbacks on the legacy route', () => {
+    expect(isSandboxInvoiceCallback({ external_id: 'ORD-2026-100', status: 'PAID' })).toBe(false);
+    expect(isSandboxInvoiceCallback({ external_id: 'SBX-test' })).toBe(true);
+  });
+  it('does not treat missing/non-string external IDs as sandbox by assumption', () => {
+    expect(isSandboxInvoiceCallback({ id: '123' })).toBe(false);
+    expect(isSandboxInvoiceCallback({ external_id: 123 })).toBe(false);
+    expect(isSandboxInvoiceCallback(null)).toBe(false);
+    expect(isSandboxInvoiceCallback([])).toBe(false);
+  });
+});
 
 describe('Xendit sandbox webhook authentication', () => {
   it('requires a configured secret and an exact callback token', () => {
