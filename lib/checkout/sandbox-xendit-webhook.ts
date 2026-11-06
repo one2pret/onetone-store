@@ -1,6 +1,16 @@
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
+/** Dispatch hint only: actual sandbox invoice identity is rechecked under
+ * transaction using Xendit ID, SBX order number and amount. This function
+ * never authorizes a payment or determines its state transition.
+ */
+export function isSandboxInvoiceCallback(input: unknown): boolean {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const externalId = (input as Record<string, unknown>).external_id;
+  return typeof externalId === 'string' && externalId.startsWith('SBX-');
+}
+
 export function validCallbackToken(received: string | null, configured?: string): boolean {
   if (!received || !configured) return false;
   const first = Buffer.from(received, 'utf8');
