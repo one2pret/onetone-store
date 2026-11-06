@@ -10,18 +10,50 @@ import { restoreStock } from '@/lib/stock';
 import { calculatePointsEarned } from '@/lib/membership-utils';
 import { createCommissionsForOrder, rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle';
 import { redeemVoucherReservation, releaseVoucherReservation } from '@/lib/user-vouchers';
+import { sandboxOrderEnabled } from '@/lib/checkout/sandbox-order-policy';
+import {
+  isSandboxInvoiceCallback,
+  validCallbackToken,
+} from '@/lib/checkout/sandbox-xendit-webhook';
+import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
+
+function dispatchValidatedSandboxCallback(body: unknown) {
+  // Do not let SBX invoices fall through to legacy non-atomic stock logic.
+  // A temporary failure prompts Xendit to retry when staging is re-enabled.
+  if (!sandboxOrderEnabled(
+    process.env.CHECKOUT_SANDBOX_ORDER_ENABLED,
+    process.env.XENDIT_SECRET_KEY,
+  )) {
+    console.error('Sandbox Xendit callback received while sandbox checkout disabled');
+    return NextResponse.json({
+      success: false, error: 'Sandbox callback temporarily unavailable',
+    }, { status: 503 });
+  }
+  return handleSandboxInvoiceCallback(body);
+}
+
 
 export async function POST(request: Request) {
   // Verify callback token
   const callbackToken = request.headers.get('x-callback-token');
   const expectedToken = process.env.XENDIT_WEBHOOK_TOKEN;
 
-  if (!callbackToken || callbackToken !== expectedToken) {
+  if (!validCallbackToken(callbackToken, expectedToken)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
   try {
     const body = await request.json();
+
+    // Xendit Test Mode has one Invoice callback URL. Dispatch sandbox
+    // invoices before legacy lookups so callbacks arriving before the local
+    // invoice row is saved return 503 (retry) instead of being lost as 200.
+    // This is only a routing hint; the sandbox processor validates the
+    // stored Xendit ID, order number and amount under database locks.
+    if (isSandboxInvoiceCallback(body)) {
+      return dispatchValidatedSandboxCallback(body);
+    }
+
     const { id: xenditId, status, payment_method, payment_channel, paid_at } = body;
 
     if (!xenditId || !status) {
@@ -50,15 +82,10 @@ export async function POST(request: Request) {
 
     const order = orderRows[0];
 
-    // Sandbox invoices must be handled exclusively by the separately gated
-    // /api/checkout/sandbox-xendit-webhook endpoint. Fail closed so legacy
-    // non-atomic stock handling cannot process sandbox orders.
+    // Defense in depth: a callback with a missing/mismatched external_id
+    // must still never route a known SBX invoice through legacy payment code.
     if (order.orderNumber.startsWith('SBX-')) {
-      console.error('Sandbox callback reached legacy Xendit webhook', { orderId: order.id });
-      return NextResponse.json(
-        { success: false, error: 'Wrong callback URL for sandbox invoice' },
-        { status: 409 },
-      );
+      return dispatchValidatedSandboxCallback(body);
     }
 
     if (status === 'PAID') {

@@ -8,7 +8,7 @@ The existing legacy `POST /api/webhooks/xendit` continues to handle ordinary web
 1. Confirm PR CI passes (TypeScript and unit tests) and automatic staging deploy from `main` completes.
 2. Prepare a **test-mode** Xendit account. The sandbox order route and this webhook are gated by both `CHECKOUT_SANDBOX_ORDER_ENABLED=true` and a development-mode Xendit key (`xnd_development_...`). Leave this flag **false in production**.
 3. Staging backend must have `XENDIT_WEBHOOK_TOKEN` set to the token configured for **test-mode** invoice callbacks. Never paste the value into GitHub PRs, chats, screenshots, or app logs.
-4. In Xendit dashboard **Test Mode**, configure the **legacy Invoice callback** to `https://onetone.kanuraga.web.id/api/checkout/sandbox-xendit-webhook`. This project uses the legacy Invoice API wrapper (`lib/xendit.ts`), not the newer Payment Request `payment.capture` payload.
+4. In Xendit dashboard **Test Mode**, retain the existing **legacy Invoice callback** URL `https://onetone.kanuraga.web.id/api/webhooks/xendit`. This endpoint now dispatches `SBX-` callbacks to the sandbox handler and normal website orders to the existing handler. The direct `/api/checkout/sandbox-xendit-webhook` route remains available but is **not** the dashboard URL. See `docs/uat/xendit-single-invoice-callback-20261106.md`. This project uses the legacy Invoice API wrapper (`lib/xendit.ts`), not the newer Payment Request `payment.capture` payload.
 5. Enable **expired invoice** callbacks in Xendit dashboard if this option is presented. Carefully verify the live-mode callback URL remains unchanged.
 6. `.github/workflows/deploy.yml` overwrites staging `.env.app` from GitHub Actions secret `ENV_TEST` on every `main` deploy. Update approved staging secret source to persist flags. **Never replace `ENV_TEST` without a complete safe copy**, because secrets cannot be read back from GitHub.
 7. Do not enable the sandbox order endpoint until this callback route and test-mode callback configuration are both ready.
@@ -39,7 +39,7 @@ Use only disposable staging customers/products and test-mode Xendit keys. Record
 | Duplicate EXPIRED | 200, no second restore/log |
 | EXPIRED after PAID, PAID after EXPIRED | 200 `manual_reconciliation_required`, no stock/status reversal; operator review |
 | DB error during restore | 503 and **complete transaction rollback** |
-| Callback accidentally sent to legacy path | 409 for SBX order; correct test-mode callback URL |
+| SBX callback sent to shared legacy URL | Routed safely to atomic sandbox handler when test-mode gate enabled |
 | Callback for ordinary web order at sandbox path | rejected, never changes web order |
 
 ## Reconciliation and operational review
@@ -51,7 +51,7 @@ Use only disposable staging customers/products and test-mode Xendit keys. Record
 
 ## Rollback
 
-Disable the staging `CHECKOUT_SANDBOX_ORDER_ENABLED` flag and redeploy, confirm endpoint returns 404. Correct the Xendit **test-mode** callback URL separately as needed. Do not alter the live callback. Never run `docker compose down -v`. Existing paid/unpaid sandbox orders need explicit reconciliation even after rollback.
+Disable the staging `CHECKOUT_SANDBOX_ORDER_ENABLED` flag and redeploy, confirm endpoint returns 404. Leave the shared Xendit **Test Mode** callback URL unchanged; reconcile outstanding SBX invoices before disabling the gate. Do not alter the live callback. Never run `docker compose down -v`. Existing paid/unpaid sandbox orders need explicit reconciliation even after rollback.
 
 ## Blockers before full commerce launch
 
