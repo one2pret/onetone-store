@@ -129,7 +129,7 @@ describe('Order Server Actions', () => {
       mockSelectReturn
         .mockReturnValueOnce([
           {
-            orders: { id: 1, orderNumber: 'ORD001', status: 'pending', total: '100000' },
+            orders: { id: 1, userId: 2, orderNumber: 'ORD001', status: 'pending', total: '100000' },
             users: { id: 2, name: 'John' },
           },
         ])
@@ -141,6 +141,18 @@ describe('Order Server Actions', () => {
       expect(result).toBeDefined();
       expect(result?.items).toHaveLength(1);
       expect(result?.user).toBeDefined();
+    });
+
+    it('does not disclose another customer order via getOrder', async () => {
+      mockSelectReturn.mockReturnValueOnce([
+        {
+          orders: { id: 5, userId: 99, orderNumber: 'ORD-OTHER', status: 'packing', total: '99000' },
+          users: { id: 99, name: 'Other' },
+        },
+      ]);
+      const result = await getOrder(5);
+      expect(result).toBeNull();
+      expect(mockDbSelect).toHaveBeenCalledTimes(1);
     });
 
     it('returns null for nonexistent order', async () => {
