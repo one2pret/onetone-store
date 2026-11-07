@@ -2,7 +2,7 @@
 
 **Tanggal:** 7 November 2026  
 **Lingkungan:** Kanuraga staging only  
-**Status:** Order + pengurangan stok **terkonfirmasi dari UAT pengguna**; simulasi pembayaran, callback PAID/EXPIRED, serta regressions **belum terkonfirmasi**.  
+**Status:** Order + pengurangan stok **terkonfirmasi dari UAT pengguna**; simulasi pembayaran di Xendit TEST diikuti tampilan order **Dikemas**. Sumber status (webhook vs fallback) dan callback EXPIRED/regresi **belum terverifikasi**.  
 **Kode:** Backend `one2pret/onetone-store`; Flutter `one2pret/onetone-mobile`.  
 **Bukan:** Persetujuan go-live production / pembayaran nyata.
 
@@ -89,7 +89,7 @@ flowchart TD
 
 **Mengapa stok sudah berkurang sebelum PAID?** Jalur sandbox saat ini mengurangi stok saat order dibuat dan mengembalikannya melalui callback invoice EXPIRED. Ini **perilaku saat ini**, bukan keputusan final untuk pengelolaan reservasi stok production.
 
-## UAT tahap 1 — Lanjutkan dengan invoice yang sudah dibuat
+## UAT tahap 1 — Verifikasi invoice yang sudah disimulasikan (jangan bayar ulang)
 
 **Jangan membuat order baru** hanya karena ingin membuktikan pembayaran. Buka invoice TEST yang **sudah ditampilkan** oleh APK Android.
 
