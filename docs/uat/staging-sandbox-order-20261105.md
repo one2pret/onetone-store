@@ -1,6 +1,8 @@
 # Stage: atomic sandbox checkout order (NOT a production release)
 
 Date: 2026-11-05. Repository: `one2pret/onetone-store`.
+
+> **Progress update — 2026-11-07:** the user has now completed a staging Android order and observed the expected stock reduction and Xendit Test invoice URL. This document is retained as the original implementation/risks checklist; follow **[`ANDROID_ORDER_TO_XENDIT_MILESTONE_20261107.md`](./ANDROID_ORDER_TO_XENDIT_MILESTONE_20261107.md)** for current UAT status and the next PAID/EXPIRED verification steps. The original "Flutter disabled" statement below describes the earlier stage, not the latest milestone.
 This branch adds a **separate staging-only** `POST /api/checkout/sandbox-order`.
 The existing storefront `POST /api/orders` is unchanged (and still requires its own hardening).
 Flutter `Buat Pesanan` remains disabled until staged order UAT is complete.
