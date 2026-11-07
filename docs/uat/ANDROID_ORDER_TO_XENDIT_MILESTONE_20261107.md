@@ -58,6 +58,10 @@ Interpretasi `order_status_logs.changed_by`:
 
 Halaman order yang menampilkan `Pembayaran 19:56` dan `Dikemas 20:15` menggunakan `createdAt` untuk langkah awal dan `paidAt` untuk langkah kedua. Waktu pada tahap pertama **bukan** timestamp pembayaran selesai.
 
+### Pengiriman belum otomatis
+
+Status `packing` **bukan** bukti bahwa pengiriman sudah dipesan ke Biteship. Endpoint sandbox membuat baris `shippings` yang menyimpan pilihan kurir dan ongkir, tetapi **belum terlihat pembuatan shipment Biteship / AWB/resi** pada alur tersebut. Setelah pembayaran dan webhook PAID/EXPIRED lolos, buat UAT fulfillment terpisah: pembuatan shipment server-side dengan alamat dan paket tervalidasi, simpan nomor resi/tracking, hindari pemesanan kurir duplikat, lalu tampilkan status `shipping` ketika paket benar-benar diserahkan. Jangan memanggil API shipment live sebelum konfigurasi ongkir/sandbox Biteship dipastikan.
+
 ### Acceptance baru untuk milestone ini
 
 - [x] Invoice Xendit Test Mode dapat digunakan untuk simulasi pembayaran; pengguna melihat order website berubah menjadi `packing`.
