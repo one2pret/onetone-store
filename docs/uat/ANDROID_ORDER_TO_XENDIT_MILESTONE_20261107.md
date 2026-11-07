@@ -2,7 +2,7 @@
 
 **Tanggal:** 7 November 2026  
 **Lingkungan:** Kanuraga staging only  
-**Status:** Order + pengurangan stok **terkonfirmasi dari UAT pengguna**; simulasi pembayaran, callback PAID/EXPIRED, serta regressions **belum terkonfirmasi**.  
+**Status:** Order + pengurangan stok **terkonfirmasi dari UAT pengguna**; simulasi pembayaran di Xendit TEST diikuti tampilan order **Dikemas**. Sumber status (webhook vs fallback) dan callback EXPIRED/regresi **belum terverifikasi**.  
 **Kode:** Backend `one2pret/onetone-store`; Flutter `one2pret/onetone-mobile`.  
 **Bukan:** Persetujuan go-live production / pembayaran nyata.
 
@@ -16,6 +16,60 @@ UAT pada APK Android testing menunjukkan:
 - Penguji memeriksa backend dan melaporkan **stok staging berkurang** setelah pesanan dibuat.
 
 **Belum ada bukti bahwa invoice telah PAID, webhook berhasil diterima, atau stok telah dipulihkan pada EXPIRED.** Jangan menyatakan checkout end-to-end/production lulus sebelum ketiganya diuji. Jangan masukkan URL invoice utuh, secret, customer PII atau token ke Git.
+
+## Pembaruan UAT — 7 November 2026 malam
+
+**Bukti baru dari screenshot pengguna:** setelah melakukan simulasi pembayaran Xendit Test Mode dan membuka order yang sama di website Kanuraga, halaman detail menunjukkan status **Dikemas / `packing`**. Total tetap Rp19.509.000 dan detail pengiriman tersedia.
+
+**Batas bukti:** screenshot **belum membuktikan** apakah transisi ke `packing` diproses oleh callback `webhook:xendit:sandbox` atau oleh mekanisme fallback halaman `syncOrderPayment`. Audit `app/(checkout)/orders/[id]/page.tsx` dan `app/actions/orders.ts` menemukan bahwa halaman menghubungi Xendit langsung saat order masih `waiting_payment` dan kemudian dapat memperbarui invoice/order tanpa transaksi stok yang sama. Saat EXPIRED, fallback lama memanggil `restoreStock` yang bukan jalur `SBX-` atomik. **Jangan melakukan UAT EXPIRED/duplikasi sebelum perbaikan sinkronisasi ini diterapkan.**
+
+PR terpisah terkait milestone ini menonaktifkan fallback legacy khusus `SBX-`, mewajibkan akses pemilik/admin untuk detail order, dan membungkus nomor order panjang pada layar mobile.
+
+### Verifikasi sumber status (read-only)
+
+Lakukan pada **database staging** dengan akses admin. Jangan unggah nomor order penuh, Xendit ID, token, alamat, nomor telepon, atau isi baris sensitif ke issue/chat.
+
+```sql
+-- Pada sesi SQL staging. Isi SBX hanya secara lokal.
+SET @uat_order_number = 'SBX-ISI-NOMOR-DARI-APK';
+
+SELECT o.id, o.status AS order_status, o.paid_at AS order_paid_at,
+       i.status AS invoice_status, i.paid_at AS invoice_paid_at
+FROM orders o LEFT JOIN invoices i ON i.order_id = o.id
+WHERE o.order_number = @uat_order_number;
+
+SELECT l.from_status, l.to_status, l.changed_by, l.created_at
+FROM order_status_logs l
+JOIN orders o ON o.id = l.order_id
+WHERE o.order_number = @uat_order_number
+ORDER BY l.id;
+
+SELECT m.type, m.quantity_delta, m.balance_after, m.created_at
+FROM inventory_movements m JOIN orders o ON o.id = m.reference_id
+WHERE m.reference_type = 'order' AND o.order_number = @uat_order_number
+ORDER BY m.id;
+```
+
+Interpretasi `order_status_logs.changed_by`:
+- `webhook:xendit:sandbox` = status `packing` berasal dari handler webhook sandbox yang menggunakan transaksi database.
+- `sync:xendit` = status datang dari fallback sinkronisasi website, **belum membuktikan webhook**.
+- `admin:...` atau nilai lain = perlu audit aktivitas manual.
+- **Tidak ada log** = status belum dapat diterima sebagai bukti integritas event; periksa data Xendit Test Mode dan backend.
+
+Halaman order yang menampilkan `Pembayaran 19:56` dan `Dikemas 20:15` menggunakan `createdAt` untuk langkah awal dan `paidAt` untuk langkah kedua. Waktu pada tahap pertama **bukan** timestamp pembayaran selesai.
+
+### Pengiriman belum otomatis
+
+Status `packing` **bukan** bukti bahwa pengiriman sudah dipesan ke Biteship. Endpoint sandbox membuat baris `shippings` yang menyimpan pilihan kurir dan ongkir, tetapi **belum terlihat pembuatan shipment Biteship / AWB/resi** pada alur tersebut. Setelah pembayaran dan webhook PAID/EXPIRED lolos, buat UAT fulfillment terpisah: pembuatan shipment server-side dengan alamat dan paket tervalidasi, simpan nomor resi/tracking, hindari pemesanan kurir duplikat, lalu tampilkan status `shipping` ketika paket benar-benar diserahkan. Jangan memanggil API shipment live sebelum konfigurasi ongkir/sandbox Biteship dipastikan.
+
+### Acceptance baru untuk milestone ini
+
+- [x] Invoice Xendit Test Mode dapat digunakan untuk simulasi pembayaran; pengguna melihat order website berubah menjadi `packing`.
+- [ ] `invoices.status='paid'` dan `orders.status='packing'` dikonfirmasi dengan DB read-only.
+- [ ] `order_status_logs.changed_by='webhook:xendit:sandbox'` untuk transisi ini, atau temuan `sync:xendit` didokumentasikan dan callback diuji ulang setelah patch.
+- [ ] Webhook Logs Xendit Test Mode menunjukkan HTTP 200 untuk `PAID` pada shared callback.
+- [ ] Tidak ada pengurangan stok kedua / duplicate status history.
+- [ ] Patch pengamanan legacy `syncOrderPayment` dan detail order lolos CI dan UAT.
 
 ## Gambaran arsitektur
 
@@ -39,7 +93,7 @@ flowchart TD
 
 **Mengapa stok sudah berkurang sebelum PAID?** Jalur sandbox saat ini mengurangi stok saat order dibuat dan mengembalikannya melalui callback invoice EXPIRED. Ini **perilaku saat ini**, bukan keputusan final untuk pengelolaan reservasi stok production.
 
-## UAT tahap 1 — Lanjutkan dengan invoice yang sudah dibuat
+## UAT tahap 1 — Verifikasi invoice yang sudah disimulasikan (jangan bayar ulang)
 
 **Jangan membuat order baru** hanya karena ingin membuktikan pembayaran. Buka invoice TEST yang **sudah ditampilkan** oleh APK Android.
 
