@@ -21,6 +21,7 @@ import { resolveProductPrice } from '@/lib/product-pricing';
 import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { validateVoucher } from '@/app/actions/voucher';
 import { canReadOrderDetail, canUseLegacyXenditOrderSync } from '@/lib/checkout/order-detail-policy';
+import { isSandboxOrder, SANDBOX_LEGACY_BLOCKED_MESSAGE } from '@/lib/checkout/sandbox-legacy-guard';
 
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
@@ -340,6 +341,9 @@ export async function cancelOrderByCustomer(orderId: number) {
     }
 
     const order = orderRows[0];
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
 
     if (order.status !== 'waiting_payment') {
       return { success: false, error: 'Hanya order berstatus waiting_payment yang dapat dibatalkan' };
@@ -403,6 +407,9 @@ export async function repayOrder(orderId: number): Promise<{
     }
 
     const order = orderRows[0];
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
     const isExpired = order.status === 'expired';
     const isWaitingNoInvoice = order.status === 'waiting_payment';
 
@@ -498,6 +505,9 @@ export async function cancelOrderByAdmin(orderId: number) {
     }
 
     const order = orderRows[0];
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
     const allowedStatuses = ['waiting_payment', 'packing'];
 
     if (!allowedStatuses.includes(order.status!)) {
@@ -754,6 +764,9 @@ export async function changeOrderStatus(
     }
 
     const order = orderRows[0];
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
     const currentStatus = order.status!;
 
     if (!validateStatusTransition(currentStatus, newStatus)) {
@@ -809,6 +822,9 @@ export async function rollbackOrderStatus(
     if (orderRows.length === 0) return { success: false, error: 'Order tidak ditemukan' };
 
     const order = orderRows[0];
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
     const currentStatus = order.status!;
 
     const { ROLLBACK_TRANSITIONS } = await import('@/lib/order-status');
