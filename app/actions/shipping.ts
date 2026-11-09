@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { getShippingRates as fetchBitshipRates, createShipment } from '@/lib/bitship';
 import type { BitshipRate } from '@/lib/bitship';
 import { getEffectiveUnitPrice } from '@/lib/cart-pricing';
+import { isSandboxOrder, SANDBOX_LEGACY_BLOCKED_MESSAGE } from '@/lib/checkout/sandbox-legacy-guard';
 
 interface GroupedRates {
   express: BitshipRate[];
@@ -138,6 +139,12 @@ export async function sendOrderToBitship(orderId: number): Promise<{
       return { success: false, error: 'Order tidak ditemukan' };
     }
     const order = orderRows[0];
+
+    // A sandbox checkout invoice does not authorize creating a real Biteship
+    // shipment; an explicitly isolated UAT shipment flow is required.
+    if (isSandboxOrder(order.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
 
     if (order.status !== 'packing') {
       return { success: false, error: 'Order harus berstatus packing untuk dikirim' };
