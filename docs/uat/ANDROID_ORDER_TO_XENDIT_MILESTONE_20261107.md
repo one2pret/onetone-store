@@ -2,9 +2,40 @@
 
 **Tanggal:** 7 November 2026  
 **Lingkungan:** Kanuraga staging only  
-**Status:** Order + pengurangan stok **terkonfirmasi dari UAT pengguna**; simulasi pembayaran di Xendit TEST diikuti tampilan order **Dikemas**. Sumber status (webhook vs fallback) dan callback EXPIRED/regresi **belum terverifikasi**.  
+**Status:** Order + stok + Xendit TEST PAID callback HTTP 200 + status `packing` dari `webhook:xendit:sandbox` **terkonfirmasi**. UAT duplikasi, EXPIRED, shipment dan regresi **belum terverifikasi**.  
 **Kode:** Backend `one2pret/onetone-store`; Flutter `one2pret/onetone-mobile`.  
 **Bukan:** Persetujuan go-live production / pembayaran nyata.
+
+## Acceptance update — 9 November 2026: webhook PAID verified
+
+**Milestone PAYMENT PAID is confirmed by screenshots from Xendit Test Mode and OneTone staging admin.** This supersedes earlier notes saying webhook status is unknown.
+
+Observed evidence for the original SBX order:
+- Xendit **Test Mode** → Webhook Details → event **Invoices paid**, status **Completed**.
+- Event body: `status=PAID`, amount `19509000` (Rp19.509.000), paid at **7 Nov 2026 20:15 WIB**.
+- Delivery endpoint: `https://onetone.kanuraga.web.id/api/webhooks/xendit`.
+- Webhook delivery: **HTTP 200**, response `{"success":true,"result":"paid","orderId":31}`; received at 20:15:41 WIB.
+- OneTone staging admin: invoice **Paid**, order **Dikemas / packing**; history `waiting_payment → packing` explicitly attributed to **`webhook:xendit:sandbox`**.
+
+**Conclusion:** The new sandbox webhook — not the legacy website fallback — performed this payment transition. Order/stock commit was previously observed by the user. **This does NOT prove** duplicate callback replay, EXPIRED stock restoration, no double stock mutation under concurrency, or external Biteship shipment creation. Do not count this Test Mode amount as real revenue.
+
+**Safe next tests:**
+1. After preserving a before-snapshot of `order_status_logs` and `inventory_movements`, use Xendit Test Mode **Resend** once on this already-paid event. Confirm response `200` with `result=duplicate`, and no new status log/movement. Do not re-simulate payment or create another order.
+2. **Do not test EXPIRED yet** until sandbox protection against the legacy cron/admin/cancel/repay/shipping actions has passed CI and deployed to staging.
+3. Then create **one separate cheap dummy pending TEST order**, let the Xendit invoice expire, and verify `EXPIRED` is handled once by `webhook:xendit:sandbox` with one corresponding stock restoration in the original warehouse.
+4. Test proper handling of conflicting/late events and ambiguous invoice creation separately before a production release.
+
+### Newly identified operational risks
+
+Code audit shows several **legacy paths** still need to exclude `SBX-` orders:
+- `app/api/cron/check-expired-orders/route.ts` previously expired `waiting_payment` orders using non-atomic legacy `restoreStock`.
+- `cancelOrderByAdmin` could cancel a **paid** sandbox order and restore stock without completing a real refund.
+- `cancelOrderByCustomer`, `repayOrder` and manual status changes can bypass the sandbox stock/payment state machine.
+- Admin **Kirim Order ke Kurir** calls `sendOrderToBitship`, which invokes **`createShipment`**. This may create an actual external shipment depending on Biteship credentials; it is NOT a harmless preview.
+
+**Do not press** Kirim Order ke Kurir, Batalkan Pesanan or Ubah Status on this paid SBX test order. A separate sandbox-safe fulfillment/cancellation/refund workflow is required before those features are enabled. The accompanying protection PR prevents known legacy calls for SBX orders and leaves normal web orders unchanged.
+
+Also note the uploaded admin screenshots contain recipient personal information. Redact phone, email, full address and long invoice/order identifiers before putting screenshots in shared documents or GitHub issues.
 
 ## Mulai dari sini (ringkasan 60 detik)
 

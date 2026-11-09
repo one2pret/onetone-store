@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { orders, invoices, orderStatusLogs } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, notLike } from 'drizzle-orm';
+import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 import { restoreStock } from '@/lib/stock';
 import { expireInvoice } from '@/lib/xendit';
 
@@ -21,6 +22,9 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(orders.status, 'waiting_payment'),
+          // Never expire SBX via non-atomic legacy stock restoration.
+          // Xendit Test Invoice EXPIRED callbacks own the sandbox lifecycle.
+          notLike(orders.orderNumber, 'SBX-%'),
           sql`${orders.willExpiredAt} < NOW()`,
         ),
       );
@@ -28,6 +32,8 @@ export async function GET(request: Request) {
     let count = 0;
 
     for (const order of expiredOrders) {
+      // Defense in depth for future query changes/mocked DB rows.
+      if (isSandboxOrder(order.orderNumber)) continue;
       // Try to expire Xendit invoice
       const invoiceRows = await db.select().from(invoices)
         .where(eq(invoices.orderId, order.id))
