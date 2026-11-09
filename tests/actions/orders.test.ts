@@ -179,9 +179,17 @@ describe('Order Server Actions', () => {
   });
 
   describe('updateOrderStatus', () => {
-    it('updates status and returns success', async () => {
+    it('updates an ordinary web order', async () => {
+      mockSelectReturn.mockReturnValueOnce([{ orderNumber: 'ORD-2026-1' }]);
       const result = await updateOrderStatus(1, 'confirmed');
       expect(result.success).toBe(true);
+    });
+    it('rejects a sandbox order before any status mutation', async () => {
+      mockSelectReturn.mockReturnValueOnce([{ orderNumber: 'SBX-' + 'a'.repeat(36) }]);
+      const result = await updateOrderStatus(31, 'shipping');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('sandbox TEST');
+      expect(db.update).not.toHaveBeenCalled();
     });
   });
 
