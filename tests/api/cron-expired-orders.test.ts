@@ -95,6 +95,23 @@ describe('Cron: Check Expired Orders', () => {
     expect(expireInvoice).toHaveBeenCalledWith(sampleInvoice.xenditId);
   });
 
+  it('never restores a sandbox order even if included by a future query regression', async () => {
+    const sandbox = {
+      ...sampleOrder,
+      id: 31,
+      orderNumber: 'SBX-' + 'a'.repeat(36),
+      status: 'waiting_payment',
+      willExpiredAt: new Date('2025-01-01T00:00:00Z'),
+    };
+    mockSelectReturn.mockReturnValueOnce([sandbox]);
+    const res = await GET(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.expired).toBe(0);
+    expect(restoreStock).not.toHaveBeenCalled();
+    expect(expireInvoice).not.toHaveBeenCalled();
+  });
+
   it('returns 0 when no expired orders', async () => {
     mockSelectReturn.mockReturnValueOnce([]);
 
