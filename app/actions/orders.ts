@@ -20,6 +20,7 @@ import { rejectCommissionsForOrder } from '@/lib/affiliate/commission-lifecycle'
 import { resolveProductPrice } from '@/lib/product-pricing';
 import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { validateVoucher } from '@/app/actions/voucher';
+import { canReadOrderDetail, canUseLegacyXenditOrderSync } from '@/lib/checkout/order-detail-policy';
 
 // Helper: get orders with items
 async function queryOrdersWithItems(orderRows: any[]) {
@@ -604,6 +605,10 @@ const _syncCache = new Map<number, number>();
 
 export async function syncOrderPayment(orderId: number): Promise<{ synced: boolean; status?: string }> {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return { synced: false };
+    const requesterId = Number(session.user.id);
+    const requesterRole = (session.user as { role?: string }).role;
     const lastSync = _syncCache.get(orderId) ?? 0;
     if (Date.now() - lastSync < SYNC_THROTTLE_MS) {
       return { synced: false };
@@ -613,6 +618,15 @@ export async function syncOrderPayment(orderId: number): Promise<{ synced: boole
     const orderRows = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
     if (orderRows.length === 0) return { synced: false };
     const order = orderRows[0];
+    if (!canReadOrderDetail({ requesterId, requesterRole, orderUserId: order.userId })) {
+      return { synced: false };
+    }
+    // A sandbox order MUST be reconciled exclusively through the authenticated,
+    // transactional Xendit SBX webhook. The old page-load sync can restore
+    // stock non-atomically and is not safe for sandbox order state.
+    if (!canUseLegacyXenditOrderSync(order.orderNumber)) {
+      return { synced: false, status: order.status ?? undefined };
+    }
     if (order.status !== 'waiting_payment') return { synced: false, status: order.status ?? undefined };
 
     const invRows = await db.select().from(invoices).where(eq(invoices.orderId, orderId)).limit(1);
@@ -672,6 +686,16 @@ export async function getOrder(id: number) {
     .limit(1);
 
   if (rows.length === 0) return null;
+
+  // Customer order pages display recipient phone/address and invoice info.
+  // A logged-in user must never be able to read another user's order by ID.
+  if (!canReadOrderDetail({
+    requesterId: Number(session.user.id),
+    requesterRole: (session.user as { role?: string }).role,
+    orderUserId: rows[0].orders.userId,
+  })) {
+    return null;
+  }
 
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
 

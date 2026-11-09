@@ -96,7 +96,7 @@ export default async function OrderDetailPage({ params }: Props) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">No. Pesanan</p>
-            <p className="text-xl font-mono font-bold text-foreground">{order.orderNumber}</p>
+            <p className="text-base sm:text-xl font-mono font-bold text-foreground break-all">{order.orderNumber}</p>
             <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
               <Clock className="w-4 h-4" />
               {order.createdAt && formatDate(order.createdAt)}
