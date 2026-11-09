@@ -741,6 +741,13 @@ export async function getAllOrders() {
 // Update order status (admin legacy)
 export async function updateOrderStatus(orderId: number, status: string) {
   try {
+    // Legacy unvalidated status writer must never mutate a sandbox order.
+    const [existing] = await db.select({ orderNumber: orders.orderNumber }).from(orders)
+      .where(eq(orders.id, orderId)).limit(1);
+    if (!existing) return { success: false, error: 'Order tidak ditemukan' };
+    if (isSandboxOrder(existing.orderNumber)) {
+      return { success: false, error: SANDBOX_LEGACY_BLOCKED_MESSAGE };
+    }
     await db.update(orders).set({ status: status as any }).where(eq(orders.id, orderId));
     revalidatePath('/dashboard/orders');
     revalidatePath('/orders');
