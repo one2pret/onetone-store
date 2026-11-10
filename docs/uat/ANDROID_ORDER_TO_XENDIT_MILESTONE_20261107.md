@@ -185,6 +185,27 @@ Bila memakai mysql CLI dan bukan parameterized SQL client, **jangan** menyalin s
 
 **Catatan:** baris EXPIRED perlu **order pengujian terpisah** dan UAT tidak boleh dimulai sebelum order pertama selesai direkonsiliasi. Gunakan produk dummy harga kecil untuk pengujian lanjutan.
 
+## Panduan admin tanpa SQL — Verifikasi EXPIRED & Resend (10 November 2026)
+
+Untuk satu order **SBX unpaid** yang dibuat pada 9 Nov ~14:42 WIB (nilai Rp19.000; pengguna melaporkan stok Charger Anker Nano 65W turun menjadi 59), **jangan** mencampurnya dengan order SBX pertama yang sudah `PAID`. Data produksi dan Xendit Live Mode tidak boleh digunakan.
+
+**Persyaratan sebelum Resend:**
+
+1. Dashboard Xendit **Test Mode → Webhook Logs**: temukan event **Invoices expired** untuk invoice/order yang **baru**. Buka Event History → **See Response Payload**. Pengiriman pertama seharusnya HTTP **200**, `result: expired`, `success: true`. Jika belum ada, cek expiryDate aktual invoice di Xendit. Tidak ada event `PENDING` yang harus ditunggu saat baru membuat invoice.
+2. Admin staging **Pesanan → pilih order SBX unpaid**: status **Expired**, histori transisi `Menunggu Pembayaran → Expired` oleh `webhook:xendit:sandbox` tepat sekali. Jika status masih menunggu atau diubah oleh cron/admin, hentikan UAT; jangan memaksakan lewat tombol admin.
+3. Admin staging **Inventori → Laporan Inventory** atau buka `https://onetone.kanuraga.web.id/dashboard/inventory/report`. Pilih tanggal **09/11/2026–10/11/2026**, lokasi **Gudang Online** (jika cocok), pencarian `anker`, jenis mutasi **Semua jenis**. Gulir ke **Riwayat mutasi**. Cocokkan **Order #ID yang sama** dan lokasi yang sama untuk:
+   - **Penjualan online** (`online_sale`) = `−1` setelah checkout
+   - **Retur** (`return`), catatan `sandbox invoice expired` = `+1` setelah webhook EXPIRED
+   - Jika saldo awal benar 60 dan tidak ada aktivitas lain: urutan saldo menjadi **59 → 60**. Stok master maupun saldo per lokasi harus konsisten.
+   - Laporan Inventory memfilter nama produk/jenis/tanggal, **bukan** order number di kotak pencarian; cocokkan tautan **Order #ID** di kolom referensi. Untuk ringkasan 200 mutasi terbaru tersedia juga di **Inventori → Histori mutasi**.
+4. Catat jumlah baris mutasi `return` dan riwayat status order sebelum melakukan Resend. Untuk satu produk satu unit, harapkan **masing-masing satu baris** `online_sale −1` dan `return +1` untuk order tersebut.
+
+**Resend satu kali, setelah semua syarat di atas cocok:** di Xendit **Test Mode → Webhook Logs**, buka event **Invoices expired** yang sama, klik **Resend** sekali. Tunggu status event delivery menjadi **Completed**, buka Event History yang terbaru → **See Response Payload**. Target HTTP **200**, `{"success":true,"result":"duplicate","orderId":<id aktual>}`. Jangan kirim ulang event **PAID** dari order lain untuk pengujian ini.
+
+**Verifikasi pasca-Resend:** status order masih `expired`, jumlah histori transisi masih satu, jumlah `return` masih satu, dan saldo stok **tidak bertambah lagi**. Jika respons bukan `duplicate`, muncul pemulihan stok kedua, atau event masih Pending/Failed, **jangan** menekan Resend lagi; audit `process-sandbox-webhook.ts` dan backend logs dengan penyamaran data pribadi.
+
+**Batas bukti:** screenshot status produk 59 dan order menunggu pembayaran pada 9 Nov hanya membuktikan **order dibuat serta stok berkurang**. Tanpa event EXPIRED dan laporan mutasi, **belum bisa menyatakan UAT EXPIRED lulus**.
+
 ## UAT tahap 3 — Pemeriksaan webhook + backend
 
 Callback invoice Xendit Test Mode tetap di:
