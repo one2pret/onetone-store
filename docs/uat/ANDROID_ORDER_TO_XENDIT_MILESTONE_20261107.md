@@ -2,9 +2,30 @@
 
 **Tanggal:** 7 November 2026  
 **Lingkungan:** Kanuraga staging only  
-**Status:** Order + stok + Xendit TEST PAID callback HTTP 200 + status `packing` dari `webhook:xendit:sandbox` **terkonfirmasi**. UAT duplikasi, EXPIRED, shipment dan regresi **belum terverifikasi**.  
+**Status:** PAID, duplicate PAID, EXPIRED restore, dan duplicate EXPIRED **terbukti pada staging**. Web regression, shipment/refund, concurrency, dan production release **belum terverifikasi**.  
 **Kode:** Backend `one2pret/onetone-store`; Flutter `one2pret/onetone-mobile`.  
 **Bukan:** Persetujuan go-live production / pembayaran nyata.
+
+## Milestone update — 10 November 2026: EXPIRED + duplicate confirmed
+
+**Status: PASS untuk satu skenario EXPIRED dan satu pengiriman ulang EXPIRED pada staging.** Bukti berasal dari screenshot Xendit Test Mode Event History dan halaman Admin → Inventori → Laporan Inventory, bukan akses database langsung oleh AI.
+
+- Test **Order #32**, created 9 Nov 2026 ~14:42 WIB, one Charger Anker Nano 65W from Gudang Online, order TEST Rp19.000.
+- Inventory `online_sale` **−1** on **9 Nov 2026 14:42 WIB**, balance **59**.
+- Inventory `return` **+1** on **10 Nov 2026 14:43 WIB**, balance **60**, note `sandbox invoice expired`, reference **Order #32**. Both movements are in Gudang Online.
+- Xendit Test Mode original event row is marked **Completed** at **10 Nov 2026 14:43:15 WIB**. Its *Response Payload* was not expanded in the supplied screenshot, so do not invent the original HTTP body; the completed event plus matching inventory return supports successful expiry processing.
+- Resend of same EXPIRED event on **10 Nov 2026 17:07:09 WIB**: **HTTP 200 Success**, **788 ms**, body `{"result":"duplicate","orderId":32,"success":true}`.
+- Post-resend inventory report shows exactly two movements for this test product/order in the selected date/location filter: the original `−1` and exactly one `+1`. Ending balance stays **60**. No double return is visible.
+
+**Acceptance for this scenario:** inventory restoration once and idempotent webhook resend are verified. Still outstanding: inspect `order_status_logs` for `waiting_payment → expired` by `webhook:xendit:sandbox`, concurrency/late-conflict tests, transaction rollback and failures, legacy website checkout security, Biteship shipment/refund UAT.
+
+**Do not repeat the EXPIRED resend** or press admin Cancel/Send to Courier on these SBX orders. No live payment or shipment was made.
+
+### Next work
+
+1. Review/merge mobile **PR #33** (receipt, secure Xendit TEST browser link, manual server status refresh). GitHub Actions latest PR run `42584041354` succeeded (analyze/tests/debug build); signed physical-device APK UAT still pending.
+2. After merge, build **one** signed APK using manual `Android signed testing APK` workflow (`apk_delivery=draft_release`, `enable_sandbox_checkout=true` only after staging configuration verification). Confirm install/update, payment flow and status refresh. Use a fresh cheap disposable order only for that later UAT.
+3. Separately audit cancellation/refund and Biteship shipment lifecycle, retry/idempotency/concurrency, legacy web checkout; production branch remains gated.
 
 ## Acceptance update — 9 November 2026: webhook PAID verified
 
