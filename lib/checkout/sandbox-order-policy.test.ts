@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sandboxOrderEnabled, sandboxOrderNumber } from './sandbox-order-policy';
+import { sandboxOrderEnabled, sandboxOrderNumber, sandboxPaymentReturnUrl } from './sandbox-order-policy';
 import { checkoutSnapshotDigest } from './order-snapshot';
 
 const address = {
@@ -16,6 +16,17 @@ describe('gated staging checkout order', () => {
     expect(sandboxOrderEnabled('true', 'xnd_production_live')).toBe(false);
     expect(sandboxOrderEnabled('true', undefined)).toBe(false);
   });
+  it('uses a neutral, non-identifying Xendit TEST browser return URL', () => {
+    const url = new URL(sandboxPaymentReturnUrl());
+    expect(url.protocol).toBe('https:');
+    expect(url.host).toBe('onetone.kanuraga.web.id');
+    expect(url.pathname).toBe('/payment/sandbox-return');
+    expect(url.search).toBe('');
+    expect(url.hash).toBe('');
+    expect(sandboxPaymentReturnUrl()).not.toContain('/orders/');
+    expect(sandboxPaymentReturnUrl()).not.toContain('SBX-');
+  });
+
   it('keeps order idempotent for same user/request UUID', () => {
     const key = 'dab0a14f-9135-4fda-8484-e4189c642086';
     const first = sandboxOrderNumber(42, key);
