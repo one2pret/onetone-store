@@ -14,8 +14,10 @@ import { SendOrderButton } from './SendOrderButton';
 import { CancelOrderButton } from './CancelOrderButton';
 import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
 import { db } from '@/lib/db';
-import { invoices, shippings, shippingHistories, orderStatusLogs } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, products } from '@/lib/db/schema';
+import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
+import { evaluateSandboxShipmentReadiness } from '@/lib/checkout/sandbox-shipment-readiness';
+import { eq, desc, inArray } from 'drizzle-orm';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -70,6 +72,54 @@ export default async function AdminOrderDetailPage({ params }: Props) {
   const statusLogs = await db.select().from(orderStatusLogs)
     .where(eq(orderStatusLogs.orderId, order.id))
     .orderBy(desc(orderStatusLogs.createdAt));
+  const sandboxOrder = isSandboxOrder(order.orderNumber);
+  let sandboxReadiness: ReturnType<typeof evaluateSandboxShipmentReadiness> | null = null;
+
+  // Strictly read-only diagnostics. Never call Biteship or change order/stock.
+  // Only compute for a packing SBX order in an admin session.
+  if (sandboxOrder && order.status === 'packing' &&
+      (session?.user as { role?: string } | undefined)?.role === 'admin') {
+    const settings = await db.select().from(storeSettings);
+    const config = Object.fromEntries(settings.map(row => [row.key, row.value]));
+    const productIds = [...new Set(order.items
+      .map(item => item.productId)
+      .filter((id): id is number => typeof id === 'number' && id > 0))];
+    const productRows = productIds.length > 0
+      ? await db.select({ id: products.id, weight: products.weight })
+          .from(products).where(inArray(products.id, productIds))
+      : [];
+    const weightByProduct = new Map(productRows.map(row => [row.id, row.weight]));
+    sandboxReadiness = evaluateSandboxShipmentReadiness({
+      orderStatus: order.status,
+      invoiceStatus: invoice?.status,
+      hasSandboxBiteshipKey: (process.env.BITSHIP_API_KEY ?? '').startsWith('biteship_test.') &&
+        (process.env.BITSHIP_API_KEY ?? '').length > 'biteship_test.'.length,
+      hasTracking: !!shipping?.trackingId || !!shipping?.waybillId,
+      origin: {
+        contactName: config['store_name'],
+        contactPhone: config['store_phone'],
+        address: config['store_address'],
+        latitude: config['store_latitude'],
+        longitude: config['store_longitude'],
+      },
+      shipping: shipping ? {
+        recipientName: shipping.recipientName,
+        phone: shipping.phone,
+        address: shipping.address,
+        latitude: shipping.latitude,
+        longitude: shipping.longitude,
+        courierCompany: shipping.courierCompany,
+        courierType: shipping.courierType,
+      } : null,
+      items: order.items.map(item => ({
+        name: item.productName,
+        quantity: item.quantity,
+        unitPrice: Number(item.price),
+        weightGrams: item.productId ? weightByProduct.get(item.productId) ?? null : null,
+      })),
+    });
+  }
+
 
   return (
     <div className="space-y-6">
@@ -266,7 +316,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           )}
 
           {/* Send Order */}
-          {order.status === 'packing' && (
+          {!sandboxOrder && order.status === 'packing' && (
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Kirim Pesanan</h3>
@@ -278,7 +328,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           )}
 
           {/* Cancel Order */}
-          {(order.status === 'waiting_payment' || order.status === 'packing') && (
+          {!sandboxOrder && (order.status === 'waiting_payment' || order.status === 'packing') && (
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h3 className="text-sm font-semibold text-foreground">Batalkan Pesanan</h3>
@@ -292,7 +342,56 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             </div>
           )}
 
+          {/* SBX checkout is managed only by Xendit sandbox webhooks. */}
+          {sandboxOrder && (
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-foreground">Persiapan Pengiriman — TESTING</h3>
+              </div>
+              <div className="p-5 space-y-3 text-sm">
+                <p className="text-amber-600 font-medium">
+                  Hanya pemeriksaan kesiapan. Tidak membuat pengiriman, tidak menghubungi Biteship,
+                  tidak menghasilkan resi, dan tidak mengubah stok atau status.
+                </p>
+                {sandboxReadiness ? (
+                  <>
+                    <ul className="space-y-2">
+                      {sandboxReadiness.checks.map(check => (
+                        <li key={check.id} className="flex items-start gap-2">
+                          <span aria-hidden="true" className={check.ok ? 'text-green-600' : 'text-amber-600'}>
+                            {check.ok ? '✓' : '✕'}
+                          </span>
+                          <span>{check.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-muted-foreground">
+                      Perkiraan berat total: {sandboxReadiness.estimatedTotalWeightGrams === null
+                        ? 'belum valid'
+                        : `${sandboxReadiness.estimatedTotalWeightGrams} gram`}.
+                      Berat diambil dari master produk terkini, bukan snapshot historis.
+                    </p>
+                    <p className="text-muted-foreground">
+                      {sandboxReadiness.dataComplete
+                        ? 'Data dasar lengkap untuk review UAT. Pengiriman tetap dinonaktifkan sampai alur sandbox Biteship dan pengamanan duplikasi siap.'
+                        : 'Lengkapi konfigurasi yang belum valid sebelum UAT pembuatan pengiriman.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Pesanan belum masuk tahapan pengemasan berbayar atau sesi bukan admin.
+                    Tunggu konfirmasi webhook Xendit TEST.
+                  </p>
+                )}
+                <p className="text-muted-foreground">
+                  Pembatalan, perubahan status manual, dan Kirim Order ke Kurir untuk SBX diblokir.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Update Status */}
+          {!sandboxOrder && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">Update Status</h3>
@@ -310,6 +409,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               />
             </div>
           </div>
+          )}
 
           {/* Audit Log */}
           {statusLogs.length > 0 && (
