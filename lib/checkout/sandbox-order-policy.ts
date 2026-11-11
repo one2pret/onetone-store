@@ -6,6 +6,19 @@ export function sandboxOrderEnabled(flag?: string, xenditKey?: string): boolean 
     xenditKey.startsWith('xnd_development_');
 }
 
+/**
+ * Android TEST invoices should never redirect a browser into a customer's
+ * order detail. Chrome has an independent login session from the APK and can
+ * already be signed in as an admin or a different customer.
+ *
+ * This is a fixed public STAGING landing page with no order ID, token,
+ * payment status, or PII. Both success and failure go to the same neutral
+ * page; only the authenticated app/backend determines payment outcome.
+ */
+export function sandboxPaymentReturnUrl(): string {
+  return 'https://onetone.kanuraga.web.id/payment/sandbox-return';
+}
+
 /** Stable, unique order number per user + client-generated UUID retry key. */
 export function sandboxOrderNumber(userId: number, idempotencyKey: string): string {
   const digest = createHash('sha256')

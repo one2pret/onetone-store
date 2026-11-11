@@ -8,7 +8,7 @@ import { createInvoice } from '@/lib/xendit';
 import { createInternalCustomerEmail } from '@/lib/registration-utils';
 import { loadTrustedCheckoutSelection } from '@/lib/checkout/fresh-quote-service';
 import { commitSandboxOrder, CheckoutRejected } from '@/lib/checkout/commit-sandbox-order';
-import { sandboxOrderEnabled, sandboxOrderNumber } from '@/lib/checkout/sandbox-order-policy';
+import { sandboxOrderEnabled, sandboxOrderNumber, sandboxPaymentReturnUrl } from '@/lib/checkout/sandbox-order-policy';
 
 const schema = z.object({
   addressId: z.number().int().positive(),
@@ -116,6 +116,11 @@ export async function POST(request: Request) {
         payerEmail: user.email ?? createInternalCustomerEmail(user.phone ?? String(user.id)),
         description: 'Pembayaran staging order ' + committed.orderNumber,
         orderId: committed.orderId,
+        // Xendit redirect is not proof of payment and Chrome login differs
+        // from Android app login. Do not send the user to an order details URL
+        // exposing customer data to a separate browser session.
+        successRedirectUrl: sandboxPaymentReturnUrl(),
+        failureRedirectUrl: sandboxPaymentReturnUrl(),
       });
       await db.insert(invoices).values({
         orderId: committed.orderId,
