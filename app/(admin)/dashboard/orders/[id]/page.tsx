@@ -16,7 +16,7 @@ import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
 import { db } from '@/lib/db';
 import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, products } from '@/lib/db/schema';
 import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
-import { evaluateSandboxShipmentReadiness } from '@/lib/checkout/sandbox-shipment-readiness';
+import { evaluateSandboxShipmentReadiness, isBiteshipSandboxApiKey } from '@/lib/checkout/sandbox-shipment-readiness';
 import { eq, desc, inArray } from 'drizzle-orm';
 
 interface Props {
@@ -92,8 +92,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     sandboxReadiness = evaluateSandboxShipmentReadiness({
       orderStatus: order.status,
       invoiceStatus: invoice?.status,
-      hasSandboxBiteshipKey: (process.env.BITSHIP_API_KEY ?? '').startsWith('biteship_test.') &&
-        (process.env.BITSHIP_API_KEY ?? '').length > 'biteship_test.'.length,
+      hasSandboxBiteshipKey: isBiteshipSandboxApiKey(process.env.BITSHIP_API_KEY),
       hasTracking: !!shipping?.trackingId || !!shipping?.waybillId,
       origin: {
         contactName: config['store_name'],
