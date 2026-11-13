@@ -1,5 +1,9 @@
 # Biteship — Alur Integrasi & Panduan Pengujian
 
+Untuk order `SBX-`, gunakan [UAT Sandbox Booking v0.2](uat/biteship-sandbox-booking-v02.md).
+Panduan legacy di bawah tidak berlaku untuk SBX: tombol Kirim legacy tetap diblokir,
+booking memakai kredensial sandbox khusus dan tidak mengubah status order menjadi shipping.
+
 ## Konsep Penting
 
 Data order **TIDAK otomatis** masuk ke Biteship saat customer checkout.

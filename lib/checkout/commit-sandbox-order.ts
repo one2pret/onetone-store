@@ -133,6 +133,7 @@ export async function commitSandboxOrder(args: {
       orderId, productId: line.productId, variantId: line.variantId,
       productName: line.productName, productImage: line.image,
       variantLabel: line.variantLabel, price: String(line.price.finalPrice),
+      unitWeightGrams: line.unitWeight,
       regularPrice: String(line.price.regularPrice),
       productDiscountAmount: String(line.price.discountAmount),
       quantity: line.quantity, subtotal: String(line.price.finalPrice * line.quantity),

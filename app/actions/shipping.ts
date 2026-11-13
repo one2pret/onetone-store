@@ -74,7 +74,7 @@ export async function calculateShippingRates(addressId: number): Promise<{
     // 5. Build items with weight
     const bitshipItems = cart.map(row => ({
       name: row.products!.name,
-      weight: (row.products!.weight ?? 0) * (row.cart_items.quantity ?? 1),
+      weight: row.products!.weight ?? 0,
       quantity: row.cart_items.quantity ?? 1,
       value: getEffectiveUnitPrice(
         row.products!.price,
@@ -86,7 +86,7 @@ export async function calculateShippingRates(addressId: number): Promise<{
           saleChannel: row.products!.saleChannel,
           variantSalePriceOverride: row.product_variants?.salePriceOverride,
         },
-      ) * (row.cart_items.quantity ?? 1),
+      ),
     }));
 
     // 6. Call Bitship
@@ -190,9 +190,9 @@ export async function sendOrderToBitship(orderId: number): Promise<{
       }
       bitshipItems.push({
         name: item.productName,
-        weight: weight * item.quantity,
+        weight,
         quantity: item.quantity,
-        value: Number(item.price) * item.quantity,
+        value: Number(item.price),
       });
     }
 

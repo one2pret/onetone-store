@@ -127,6 +127,13 @@
       "when": 1791766800000,
       "tag": "0017_sales_events",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1794528000000,
+      "tag": "0018_sandbox_bookings",
+      "breakpoints": true
     }
   ]
 }

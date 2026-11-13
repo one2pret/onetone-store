@@ -593,6 +593,7 @@ export const orderItems = mysqlTable('order_items', {
   regularPrice: decimal('regular_price', { precision: 12, scale: 2 }),
   productDiscountAmount: decimal('product_discount_amount', { precision: 12, scale: 2 }).default('0'),
   manualDiscountAmount: decimal('manual_discount_amount', { precision: 12, scale: 2 }).default('0'),
+  unitWeightGrams: int('unit_weight_grams'),
   quantity: int('quantity').notNull(),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 }).notNull(),
 });
@@ -738,6 +739,30 @@ export const shippings = mysqlTable('shippings', {
   status: varchar('shipping_status', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+// A reservation is permanent, including rejected/ambiguous attempts. Never delete to retry.
+export const sandboxBookings = mysqlTable('sandbox_bookings', {
+  id: int('id').primaryKey().autoincrement(),
+  orderId: int('order_id').references(() => orders.id).notNull().unique(),
+  referenceId: varchar('reference_id', { length: 100 }).notNull().unique(),
+  mode: varchar('mode', { length: 16 }).notNull().default('sandbox'),
+  status: mysqlEnum('booking_status', ['needs_reconciliation', 'booked', 'rejected']).notNull(),
+  snapshot: text('snapshot').notNull(),
+  snapshotHash: varchar('snapshot_hash', { length: 64 }).notNull(),
+  externalOrderId: varchar('external_order_id', { length: 255 }).unique(),
+  waybillId: varchar('waybill_id', { length: 255 }),
+  courierTrackingId: varchar('courier_tracking_id', { length: 255 }),
+  requestedAt: timestamp('requested_at').notNull().defaultNow(),
+  respondedAt: timestamp('responded_at'),
+});
+
+export const sandboxBookingEvents = mysqlTable('sandbox_booking_events', {
+  id: int('id').primaryKey().autoincrement(),
+  bookingId: int('booking_id').references(() => sandboxBookings.id).notNull(),
+  actorId: int('actor_id').notNull(),
+  event: varchar('event', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // ============ SHIPPING HISTORIES ============
