@@ -158,93 +158,14 @@ jobs:
               echo 'Staging sandbox checkout flag: disabled'
             fi
 
-            # Biteship booking v0.2 is staging-only. Override any stale ENV_TEST
-            # values and fail closed if the dedicated TEST credential is missing.
-            # The legacy BITSHIP_API_KEY remains untouched for rate lookups.
+            # Sandbox booking credentials are TEST-only and are isolated from
+            # the original ENV_TEST blob and the legacy BITSHIP_API_KEY.
             sed -i '/^APP_ENV=/d; /^BITESHIP_SANDBOX_BOOKING_ENABLED=/d; /^BITESHIP_SANDBOX_API_KEY=/d' .env.app
             printf '%s\n' 'APP_ENV=staging' 'BITESHIP_SANDBOX_BOOKING_ENABLED=false' >> .env.app
 
-            # Never echo the secret; restrict its characters before writing to .env.
-            if printf '%s' "${STAGING_BITESHIP_SANDBOX_API_KEY:-}" | grep -Eq '^biteship_test\.[A-Za-z0-9._-]+, tetapi pertahankan container aplikasi lama
-            # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
-            # menghentikan deploy sebelum image aplikasi baru diaktifkan.
-            docker compose up -d onetone-db
-
-            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
-            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
-            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
-            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
-            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
-
-            docker compose up -d --remove-orphans
-
-            docker image prune -f
-
-  # ───────────────────────────────────────────────────────
-  # JOB 3: DEPLOY PRODUCTION
-  # Hanya jalan saat push ke branch production
-  # ───────────────────────────────────────────────────────
-  deploy-production:
-    name: 🚀 Deploy ke Production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/production'
-
-    steps:
-      - name: Checkout (untuk copy compose file)
-        uses: actions/checkout@v4
-
-      - name: Copy compose file ke server production
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST_PROD }}
-          username: ${{ secrets.VPS_USER_PROD }}
-          key: ${{ secrets.VPS_SSH_KEY_PROD }}
-          source: "docker-compose.prod.yml"
-          target: "/opt/apps/onetone-store/"
-
-      - name: SSH ke VPS Production & deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST_PROD }}
-          username: ${{ secrets.VPS_USER_PROD }}
-          key: ${{ secrets.VPS_SSH_KEY_PROD }}
-          script: |
-            set -e
-            cd /opt/apps/onetone-store
-
-            # Tulis .env — dibaca docker compose untuk MySQL vars
-            cat > .env << 'ENVEOF'
-            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD_PROD }}
-            MYSQL_APP_PASSWORD=${{ secrets.MYSQL_APP_PASSWORD_PROD }}
-            ENVEOF
-
-            # Tulis .env.app — dibaca container Next.js
-            cat > .env.app << 'ENVEOF'
-            ${{ secrets.ENV_PROD }}
-            ENVEOF
-
-            docker compose -f docker-compose.prod.yml pull
-
-            # Pastikan database tersedia, tetapi pertahankan container aplikasi lama
-            # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
-            # menghentikan deploy sebelum image aplikasi baru diaktifkan.
-            docker compose -f docker-compose.prod.yml up -d onetone-db
-
-            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
-            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
-            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
-            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
-            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
-
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            docker image prune -f
-; then
+            # Validate the credential without printing it. Booking stays disabled
+            # unless the dedicated key AND staging-only variable are both valid.
+            if printf '%s' "${STAGING_BITESHIP_SANDBOX_API_KEY:-}" | grep -Eq '^biteship_test\.[A-Za-z0-9._-]+$'; then
               printf 'BITESHIP_SANDBOX_API_KEY=%s\n' "$STAGING_BITESHIP_SANDBOX_API_KEY" >> .env.app
               echo 'Staging Biteship TEST credential: configured (hidden)'
               if [ "${STAGING_BITESHIP_BOOKING_FLAG:-false}" = "true" ]; then
