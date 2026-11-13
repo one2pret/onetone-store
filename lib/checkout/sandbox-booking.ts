@@ -4,10 +4,17 @@ import { evaluateSandboxShipmentReadiness, isBiteshipSandboxApiKey, type Shipmen
 import { isSandboxOrder } from './sandbox-legacy-guard';
 
 export type SandboxPayload = BitshipShipmentRequest & { reference_id: string };
+
+// Diagnostics must report the dedicated TEST credential independently of
+// the booking switch. Prefix detection is not provider authentication.
+export function sandboxBookingTestKeyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isBiteshipSandboxApiKey(env.BITESHIP_SANDBOX_API_KEY);
+}
+
 export function sandboxBookingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.BITESHIP_SANDBOX_BOOKING_ENABLED === 'true' &&
     ['staging', 'test'].includes(env.APP_ENV ?? '') &&
-    isBiteshipSandboxApiKey(env.BITESHIP_SANDBOX_API_KEY);
+    sandboxBookingTestKeyConfigured(env);
 }
 
 export function buildSandboxBookingPayload(orderNumber: string, input: ShipmentReadinessInput): SandboxPayload {
