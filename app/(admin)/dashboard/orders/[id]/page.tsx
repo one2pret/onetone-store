@@ -14,10 +14,12 @@ import { SendOrderButton } from './SendOrderButton';
 import { CancelOrderButton } from './CancelOrderButton';
 import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
 import { db } from '@/lib/db';
-import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, products } from '@/lib/db/schema';
+import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, sandboxBookings } from '@/lib/db/schema';
 import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
-import { evaluateSandboxShipmentReadiness, isBiteshipSandboxApiKey } from '@/lib/checkout/sandbox-shipment-readiness';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { evaluateSandboxShipmentReadiness } from '@/lib/checkout/sandbox-shipment-readiness';
+import { sandboxBookingEnabled } from '@/lib/checkout/sandbox-booking';
+import { SandboxBookingPanel } from './SandboxBookingPanel';
+import { eq, desc } from 'drizzle-orm';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -73,6 +75,10 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     .where(eq(orderStatusLogs.orderId, order.id))
     .orderBy(desc(orderStatusLogs.createdAt));
   const sandboxOrder = isSandboxOrder(order.orderNumber);
+  const sandboxAdmin = sandboxOrder && session?.user?.role === 'admin';
+  const booking = sandboxAdmin
+    ? (await db.select().from(sandboxBookings).where(eq(sandboxBookings.orderId, order.id)).limit(1))[0] ?? null
+    : null;
   let sandboxReadiness: ReturnType<typeof evaluateSandboxShipmentReadiness> | null = null;
 
   // Strictly read-only diagnostics. Never call Biteship or change order/stock.
@@ -81,19 +87,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
       (session?.user as { role?: string } | undefined)?.role === 'admin') {
     const settings = await db.select().from(storeSettings);
     const config = Object.fromEntries(settings.map(row => [row.key, row.value]));
-    const productIds = [...new Set(order.items
-      .map(item => item.productId)
-      .filter((id): id is number => typeof id === 'number' && id > 0))];
-    const productRows = productIds.length > 0
-      ? await db.select({ id: products.id, weight: products.weight })
-          .from(products).where(inArray(products.id, productIds))
-      : [];
-    const weightByProduct = new Map(productRows.map(row => [row.id, row.weight]));
     sandboxReadiness = evaluateSandboxShipmentReadiness({
       orderStatus: order.status,
       invoiceStatus: invoice?.status,
-      hasSandboxBiteshipKey: isBiteshipSandboxApiKey(process.env.BITSHIP_API_KEY),
-      hasTracking: !!shipping?.trackingId || !!shipping?.waybillId,
+      hasSandboxBiteshipKey: sandboxBookingEnabled(),
+      hasTracking: !!shipping?.trackingId || !!shipping?.waybillId || !!booking,
       origin: {
         contactName: config['store_name'],
         contactPhone: config['store_phone'],
@@ -114,7 +112,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         name: item.productName,
         quantity: item.quantity,
         unitPrice: Number(item.price),
-        weightGrams: item.productId ? weightByProduct.get(item.productId) ?? null : null,
+        weightGrams: item.unitWeightGrams,
       })),
     });
   }
@@ -349,8 +347,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               </div>
               <div className="p-5 space-y-3 text-sm">
                 <p className="text-amber-600 font-medium">
-                  Hanya pemeriksaan kesiapan. Tidak membuat pengiriman, tidak menghubungi Biteship,
-                  tidak menghasilkan resi, dan tidak mengubah stok atau status.
+                  Checklist ini hanya pemeriksaan kesiapan. Booking memerlukan review snapshot
+                  dan konfirmasi admin di bawah.
                 </p>
                 {sandboxReadiness ? (
                   <>
@@ -368,11 +366,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                       Perkiraan berat total: {sandboxReadiness.estimatedTotalWeightGrams === null
                         ? 'belum valid'
                         : `${sandboxReadiness.estimatedTotalWeightGrams} gram`}.
-                      Berat diambil dari master produk terkini, bukan snapshot historis.
+                      Berat diambil dari snapshot checkout. Order lama tanpa snapshot ditolak.
                     </p>
                     <p className="text-muted-foreground">
                       {sandboxReadiness.dataComplete
-                        ? 'Data dasar lengkap untuk review UAT. Pengiriman tetap dinonaktifkan sampai alur sandbox Biteship dan pengamanan duplikasi siap.'
+                        ? 'Data dasar lengkap. Tinjau snapshot untuk validasi akhir sebelum booking TESTING.'
                         : 'Lengkapi konfigurasi yang belum valid sebelum UAT pembuatan pengiriman.'}
                     </p>
                   </>
@@ -385,6 +383,10 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                 <p className="text-muted-foreground">
                   Pembatalan, perubahan status manual, dan Kirim Order ke Kurir untuk SBX diblokir.
                 </p>
+                {sandboxAdmin && <SandboxBookingPanel orderId={order.id} enabled={sandboxBookingEnabled()}
+                  booking={booking ? { status: booking.status, referenceId: booking.referenceId,
+                    externalOrderId: booking.externalOrderId, waybillId: booking.waybillId,
+                    courierTrackingId: booking.courierTrackingId } : null} />}
               </div>
             </div>
           )}

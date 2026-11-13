@@ -159,6 +159,9 @@ describe('Shipping Server Actions', () => {
         expect.objectContaining({
           origin_latitude: '-6.200000',
           couriers: 'jne,sicepat',
+          items: expect.arrayContaining([
+            expect.objectContaining({ weight: sampleProduct.weight, quantity: 2, value: Number(sampleProduct.price) }),
+          ]),
         }),
       );
       expect(result.data).toBeDefined();
@@ -295,7 +298,9 @@ describe('Shipping Server Actions', () => {
 
       const result = await sendOrderToBitship(1);
       expect(result.success).toBe(true);
-      expect(createShipment).toHaveBeenCalled();
+      expect(createShipment).toHaveBeenCalledWith(expect.objectContaining({
+        items: [{ name: 'Earbuds', weight: 500, quantity: 2, value: 299000 }],
+      }));
       // Should update shipping with tracking IDs
       expect(db.update).toHaveBeenCalled();
     });

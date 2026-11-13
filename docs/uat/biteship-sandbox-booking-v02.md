@@ -1,0 +1,64 @@
+# Biteship Sandbox Booking v0.2 (Issue #73)
+
+Status: implementation review; manual provider UAT not executed. No external API calls are required by automated tests.
+
+## Source audit
+
+- `lib/bitship.ts` uses shared legacy credentials. The new sandbox client does not import its transport or read `BITSHIP_API_KEY` / `BITSHIP_API_URL`.
+- `sendOrderToBitship` retains its SBX guard. Legacy booking and legacy rate mappings previously multiplied unit weight/value by quantity twice. Both now pass unit quantities; existing transitions remain unchanged.
+- Shared checkout quote mapping already uses unit weight/value and remains unchanged.
+- `commitSandboxOrder` already validates and locks product weight while creating SBX checkout. It now persists that value in `order_items.unit_weight_grams`; inventory and payment logic are unchanged.
+- Old order rows have NULL weight and cannot book. There is no backfill from product master and no override path in this milestone.
+- Neither `orders` nor `shippings` had a durable booking reservation. Migration `0018_sandbox_bookings` adds unique order/reference/external IDs and a separate audit-event table.
+- The reviewed request includes checkout unit weight, unit price, quantity, shipping destination and selected service, plus store pickup details. The server re-reads under order/invoice/shipping/item locks, verifies the review hash, then saves the immutable request and reservation in one transaction before POST.
+- Booking success stays separate from pickup. No write to order/payment/stock/shipping legacy tables; the existing webhook cannot find the new external ID in legacy tracking.
+
+## Configuration and migration
+
+Keep disabled by default. On an authorized staging/test installation only:
+
+```dotenv
+APP_ENV=staging
+BITESHIP_SANDBOX_BOOKING_ENABLED=false
+BITESHIP_SANDBOX_API_KEY=biteship_test.REPLACE_IN_SECRET_STORE
+```
+
+Both the explicit flag `true` and `APP_ENV=staging` or `test` are required, along with a nonempty test-prefixed dedicated key. A Next.js production build on staging may use `NODE_ENV=production`; `APP_ENV` identifies the deployment. Never set this gate on production. There is no fallback to the legacy key and redirects are rejected.
+
+Apply the versioned migration through the project's normal migration runner before using the feature. Do not use `db:push`. Migration is additive: old item weights remain NULL. Do not run migration against deployed databases as part of this PR review.
+
+Disable the gate to roll back capability. Retain reservation and audit tables, including failed/ambiguous rows: deleting a row would remove duplicate protection. The snapshot contains shipping PII needed for the request; restrict database access and backups accordingly. Audit events contain only actor ID, event code, booking ID and timestamp. No raw provider response, request payload or credentials are logged.
+
+## Staged manual UAT (not yet run)
+
+Use a new paid `SBX-` order created after migration, with at least two units of a product. Use test addresses and a dedicated Biteship Testing account. Complete payment via the existing Xendit sandbox process; verify exactly one paid invoice and order `packing`.
+
+1. Keep the booking gate off. Verify preview/booking/reconciliation are blocked, including direct server action requests and non-admin sessions. Ordinary orders must not enter the sandbox action.
+2. Set the gate on only in authorized staging. Open the order as admin and review pickup, destination, courier/service, unit grams, quantity and unit IDR. Confirm total grams is unit grams times quantity. Old pre-migration paid SBX orders must fail because weight is absent.
+3. Change product-master weight after checkout. Review must still use checkout weight. Change pickup data after preview: submission must reject the stale hash and require another review.
+4. Confirm once. Attempt a double-click or two simultaneous submissions from separate tabs. Expect one reservation and at most one provider POST. Refresh and resend must never create another attempt, even after an API rejection.
+5. Verify the order in **Biteship Testing**, matching the deterministic `onetone-sbx-SBX-...` reference. Compare external order ID, optional waybill, and courier tracking ID separately. Absence of a waybill does not mean failure if booking succeeded.
+6. Inspect `sandbox_bookings` for mode, snapshot hash, request/response timestamps and status; inspect `sandbox_booking_events` for actor and event sequence. Order remains `packing`: booked/confirmed does not mean physically picked up. Verify payment and stock remain unchanged by booking.
+7. Simulate provider rejection and response loss using mocks or an isolated test fixture. An ambiguous outcome must remain `needs_reconciliation`; never retry POST. A crash immediately after reservation is also ambiguous even if no request left the process.
+8. For timeout or duplicate code `40002060`, find the candidate external ID from the Biteship Testing dashboard/support using the reserved reference. A duplicate response may supply the candidate ID only when its details match the reserved reference; this does not confirm booking. Wait at least one minute after reservation, then use admin reconciliation. The app performs only GET and accepts only an exact external-ID and reference match. Wrong IDs, missing reference, 404 and timeouts remain unresolved and append a non-sensitive finding.
+9. If the GET response omits `reference_id`, stop and obtain authoritative provider evidence; this implementation deliberately cannot confirm it. Do not edit database IDs or delete reservations to force success. No automatic retry, cancellation or refund is provided.
+10. Turn the flag off when UAT ends. Record result, timestamp, order/reference IDs, redacted screenshots and exceptions in the review. Do not include keys, phone numbers or addresses in GitHub evidence.
+
+## Automated verification
+
+```sh
+npx tsc --noEmit --incremental false
+npm run test:run
+SANDBOX_BOOKING_TEST_DATABASE_URL=mysql://root@127.0.0.1:33079/sbx_booking_test npx vitest run tests/integration/sandbox-booking.test.ts
+```
+
+The integration suite accepts only localhost with the `/sbx_booking_test` marker. It creates and removes its own randomized database. Provider requests are mocked in unit/action suites. The MySQL suite verifies real migration preservation, concurrent unique insertion, reference uniqueness and transactional rollback. CI includes the dedicated MySQL suite.
+
+## Provider contract references
+
+- [Sandbox credentials](https://biteship.com/en/docs/sandbox): credential selects test/live mode on the shared API origin.
+- [Create order](https://biteship.com/en/docs/api/orders/create): unique reference and per-unit item values.
+- [Retrieve order](https://biteship.com/en/docs/api/orders/retrieve): GET by external order ID; nullable fields require fail-closed validation.
+- [Rates](https://biteship.com/en/docs/api/rates/retrieve): unit item weight/value with separate quantity.
+
+Android API/tracking, live launch, pickup lifecycle, cancellation/refunds, deployment and APK builds are outside this milestone.
