@@ -124,13 +124,12 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           STAGING_SANDBOX_ORDER_FLAG: ${{ vars.CHECKOUT_SANDBOX_ORDER_ENABLED_TEST }}
-          STAGING_BITESHIP_BOOKING_FLAG: ${{ vars.BITESHIP_SANDBOX_BOOKING_ENABLED_TEST }}
           STAGING_BITESHIP_SANDBOX_API_KEY: ${{ secrets.BITESHIP_SANDBOX_API_KEY_TEST }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_BITESHIP_BOOKING_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY
+          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY
           script: |
             set -e
             cd /opt/onetone-store
@@ -163,20 +162,15 @@ jobs:
             sed -i '/^APP_ENV=/d; /^BITESHIP_SANDBOX_BOOKING_ENABLED=/d; /^BITESHIP_SANDBOX_API_KEY=/d' .env.app
             printf '%s\n' 'APP_ENV=staging' 'BITESHIP_SANDBOX_BOOKING_ENABLED=false' >> .env.app
 
-            # Validate the credential without printing it. Booking stays disabled
-            # unless the dedicated key AND staging-only variable are both valid.
+            # Validate the credential without printing it. Booking is always
+            # forced OFF in this deployment-config-only change.
             if printf '%s' "${STAGING_BITESHIP_SANDBOX_API_KEY:-}" | grep -Eq '^biteship_test\.[A-Za-z0-9._-]+$'; then
               printf 'BITESHIP_SANDBOX_API_KEY=%s\n' "$STAGING_BITESHIP_SANDBOX_API_KEY" >> .env.app
               echo 'Staging Biteship TEST credential: configured (hidden)'
-              if [ "${STAGING_BITESHIP_BOOKING_FLAG:-false}" = "true" ]; then
-                sed -i 's/^BITESHIP_SANDBOX_BOOKING_ENABLED=false$/BITESHIP_SANDBOX_BOOKING_ENABLED=true/' .env.app
-                echo 'Staging Biteship sandbox booking: ENABLED by staging variable'
-              else
-                echo 'Staging Biteship sandbox booking: disabled'
-              fi
             else
               echo 'Staging Biteship TEST credential: unavailable/invalid; booking disabled'
             fi
+            echo 'Staging Biteship sandbox booking: disabled (fail-closed)'
 
             docker compose pull
 
