@@ -1,7 +1,8 @@
 // app/api/orders/[id]/tracking/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { orders, shippings, shippingHistories } from '@/lib/db/schema';
+import { orders, shippings, shippingHistories, sandboxBookings } from '@/lib/db/schema';
+import { canViewSandboxBooking, sandboxBookingSummary } from '@/lib/checkout/sandbox-booking-summary';
 import { eq, desc } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 
@@ -35,6 +36,16 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Read-only TEST summary is available even when the booking POST gate is OFF.
+    // Ownership has already been checked; do not fetch snapshot/PII.
+    const sandboxBooking = canViewSandboxBooking(order.orderNumber)
+      ? sandboxBookingSummary((await db.select({
+          mode: sandboxBookings.mode,
+          status: sandboxBookings.status,
+          waybillId: sandboxBookings.waybillId,
+        }).from(sandboxBookings).where(eq(sandboxBookings.orderId, orderId)).limit(1))[0])
+      : null;
+
     // Get shipping
     const shippingRows = await db.select().from(shippings)
       .where(eq(shippings.orderId, orderId))
@@ -43,7 +54,7 @@ export async function GET(
     if (shippingRows.length === 0) {
       return NextResponse.json({
         success: true,
-        data: { shipping: null, histories: [] },
+        data: { shipping: null, histories: [], sandboxBooking },
       });
     }
 
@@ -56,7 +67,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: { shipping, histories },
+      data: { shipping, histories, sandboxBooking },
     });
   } catch (error) {
     return NextResponse.json(
