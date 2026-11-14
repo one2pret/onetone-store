@@ -11,12 +11,13 @@ describe('read-only Biteship sandbox booking visibility', () => {
   });
 
   it('exposes a minimal booked TEST summary without any snapshot, contact or provider ID', () => {
-    const summary = sandboxBookingSummary({
+    const databaseRow = {
       mode: 'sandbox', status: 'booked', waybillId: 'WYB-TEST',
       snapshot: '{"destination_contact_phone":"secret"}',
       externalOrderId: 'sensitive-provider-id',
       courierTrackingId: 'internal-tracking',
-    });
+    };
+    const summary = sandboxBookingSummary(databaseRow);
     expect(summary).toEqual({ mode: 'sandbox', status: 'booked', waybillId: 'WYB-TEST' });
     expect(JSON.stringify(summary)).not.toContain('secret');
     expect(JSON.stringify(summary)).not.toContain('sensitive-provider-id');
