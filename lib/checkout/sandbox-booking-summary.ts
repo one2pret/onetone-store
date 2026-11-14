@@ -2,7 +2,7 @@ import { isSandboxOrder } from './sandbox-legacy-guard';
 
 // Separate from BITESHIP_SANDBOX_BOOKING_ENABLED: turning off POST must not
 // hide a previously recorded TEST booking from its rightful customer.
-export function canViewSandboxBooking(orderNumber: string, env: Pick<NodeJS.ProcessEnv, 'APP_ENV'> = process.env): boolean {
+export function canViewSandboxBooking(orderNumber: string, env: { APP_ENV?: string } = process.env): boolean {
   return ['staging', 'test'].includes(env.APP_ENV ?? '') && isSandboxOrder(orderNumber);
 }
 
