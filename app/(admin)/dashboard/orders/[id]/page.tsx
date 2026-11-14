@@ -17,7 +17,7 @@ import { db } from '@/lib/db';
 import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, sandboxBookings } from '@/lib/db/schema';
 import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 import { evaluateSandboxShipmentReadiness } from '@/lib/checkout/sandbox-shipment-readiness';
-import { sandboxBookingEnabled } from '@/lib/checkout/sandbox-booking';
+import { sandboxBookingEnabled, sandboxBookingTestKeyConfigured } from '@/lib/checkout/sandbox-booking';
 import { SandboxBookingPanel } from './SandboxBookingPanel';
 import { eq, desc } from 'drizzle-orm';
 
@@ -90,7 +90,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     sandboxReadiness = evaluateSandboxShipmentReadiness({
       orderStatus: order.status,
       invoiceStatus: invoice?.status,
-      hasSandboxBiteshipKey: sandboxBookingEnabled(),
+      hasSandboxBiteshipKey: sandboxBookingTestKeyConfigured(),
       hasTracking: !!shipping?.trackingId || !!shipping?.waybillId || !!booking,
       origin: {
         contactName: config['store_name'],

@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { bookingSnapshotHash, buildSandboxBookingPayload, requestSandboxBooking, retrieveSandboxBooking, sandboxBookingEnabled } from './sandbox-booking';
+import { bookingSnapshotHash, buildSandboxBookingPayload, requestSandboxBooking, retrieveSandboxBooking, sandboxBookingEnabled, sandboxBookingTestKeyConfigured } from './sandbox-booking';
 import type { ShipmentReadinessInput } from './sandbox-shipment-readiness';
 
 const valid: ShipmentReadinessInput = {
@@ -44,6 +44,25 @@ describe('sandbox payload', () => {
   it('binds confirmation to all shipment fields', () => {
     expect(bookingSnapshotHash(payload())).toBe(bookingSnapshotHash(payload()));
     expect(bookingSnapshotHash({ ...payload(), origin_address: 'Changed' })).not.toBe(bookingSnapshotHash(payload()));
+  });
+});
+
+describe('sandbox key diagnostic independent of booking gate', () => {
+  it('shows a TEST key as configured while booking is disabled', () => {
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('BITESHIP_SANDBOX_BOOKING_ENABLED', 'false');
+    vi.stubEnv('BITESHIP_SANDBOX_API_KEY', 'biteship_test.mock');
+    expect(sandboxBookingTestKeyConfigured()).toBe(true);
+    expect(sandboxBookingEnabled()).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('never treats a live or missing key as configured', () => {
+    vi.stubEnv('BITESHIP_SANDBOX_API_KEY', 'biteship_live.mock');
+    expect(sandboxBookingTestKeyConfigured()).toBe(false);
+    vi.stubEnv('BITESHIP_SANDBOX_API_KEY', '');
+    expect(sandboxBookingTestKeyConfigured()).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
