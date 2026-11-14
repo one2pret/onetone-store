@@ -91,13 +91,14 @@ describe('Biteship TEST order detail API', () => {
       .mockReturnValueOnce([{ id: 1, orderId: 42, productName: 'Item' }])
       .mockReturnValueOnce([])
       .mockReturnValueOnce([{ id: 8, orderId: 42, courierName: 'JNE' }])
+      .mockReturnValueOnce([]) // legacy shipping histories
       .mockReturnValueOnce([storedBooking]);
     const response = await detail(req(''), params);
     expect(response.status).toBe(200);
     const data = (await response.json()).data;
     expect(data.sandboxBooking).toEqual({ mode: 'sandbox', status: 'booked', waybillId: 'WYB-TEST' });
     expect(JSON.stringify(data.sandboxBooking)).not.toContain('PRIVATE');
-    expect(mocks.select).toHaveBeenCalledTimes(5);
+    expect(mocks.select).toHaveBeenCalledTimes(6);
   });
 
   it('denies another customer without exposing the booking', async () => {
