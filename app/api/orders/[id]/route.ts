@@ -1,7 +1,8 @@
 // app/api/orders/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { orders, orderItems, invoices, shippings, shippingHistories } from '@/lib/db/schema';
+import { orders, orderItems, invoices, shippings, shippingHistories, sandboxBookings } from '@/lib/db/schema';
+import { canViewSandboxBooking, sandboxBookingSummary } from '@/lib/checkout/sandbox-booking-summary';
 import { eq, desc } from 'drizzle-orm';
 import { getApiUser } from '@/lib/api-auth';
 
@@ -54,6 +55,16 @@ export async function GET(
         .orderBy(desc(shippingHistories.updatedAt));
     }
 
+    // Retrieve only non-sensitive TEST status after user ownership is verified.
+    // No Biteship network request, webhook, or legacy shipping status update.
+    const sandboxBooking = canViewSandboxBooking(order.orderNumber)
+      ? sandboxBookingSummary((await db.select({
+          mode: sandboxBookings.mode,
+          status: sandboxBookings.status,
+          waybillId: sandboxBookings.waybillId,
+        }).from(sandboxBookings).where(eq(sandboxBookings.orderId, orderId)).limit(1))[0])
+      : null;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -62,6 +73,7 @@ export async function GET(
         invoice: activeInvoice,
         shipping,
         trackingHistories,
+        sandboxBooking,
       },
     });
   } catch (error) {

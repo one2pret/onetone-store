@@ -49,7 +49,8 @@ export function SandboxBookingPanel({ orderId, enabled, booking }: {
   }
   return <div className="space-y-3 border-t border-border pt-3">
     <p className="font-medium">Booking Biteship TESTING</p>
-    {!enabled && <p>Booking dinonaktifkan. Gate staging/test dan kredensial khusus TEST wajib valid.</p>}
+    {!enabled && !booking && <p>Booking baru dinonaktifkan. Gate staging/test dan kredensial khusus TEST wajib valid.</p>}
+    {!enabled && booking && <p>Reservasi TEST tersimpan. Booking baru dan pemeriksaan GET dinonaktifkan; riwayat tetap tersedia.</p>}
     {booking ? <>
       <dl className="space-y-1 break-words">
         <div><dt className="font-medium">Status</dt><dd>{booking.status}</dd></div>

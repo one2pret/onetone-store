@@ -7,7 +7,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Package, MapPin, Clock, Truck, ShoppingBag } from 'lucide-react';
 import { db } from '@/lib/db';
-import { invoices, shippings, shippingHistories } from '@/lib/db/schema';
+import { invoices, shippings, shippingHistories, sandboxBookings } from '@/lib/db/schema';
+import { canViewSandboxBooking, sandboxBookingSummary } from '@/lib/checkout/sandbox-booking-summary';
 import { eq, desc } from 'drizzle-orm';
 import { PaymentCountdown } from '@/components/shop/PaymentCountdown';
 import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
@@ -80,6 +81,16 @@ export default async function OrderDetailPage({ params }: Props) {
       .where(eq(shippingHistories.shippingId, shipping.id))
       .orderBy(desc(shippingHistories.updatedAt));
   }
+
+  // getOrder() already enforced customer ownership before any booking lookup.
+  // This summary is intentionally independent of the booking POST gate.
+  const sandboxBooking = canViewSandboxBooking(order.orderNumber)
+    ? sandboxBookingSummary((await db.select({
+        mode: sandboxBookings.mode,
+        status: sandboxBookings.status,
+        waybillId: sandboxBookings.waybillId,
+      }).from(sandboxBookings).where(eq(sandboxBookings.orderId, order.id)).limit(1))[0])
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -205,6 +216,30 @@ export default async function OrderDetailPage({ params }: Props) {
               )}
             </div>
           </div>
+
+          {/* Stored Biteship booking is a TEST reservation, never proof of delivery. */}
+          {sandboxBooking && (
+            <div className="bg-card rounded-xl border border-border p-6" data-testid="sandbox-booking-summary">
+              <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Truck className="w-5 h-5" />
+                Pengiriman Biteship — TESTING
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Simulasi pengiriman, bukan resi aktif atau bukti paket sudah dijemput.
+                Status pesanan tetap mengikuti proses OneTone.
+              </p>
+              <p className="mt-3 text-sm font-medium text-foreground">
+                {sandboxBooking.status === 'booked' ? 'Booking TEST berhasil dicatat.' :
+                  sandboxBooking.status === 'needs_reconciliation' ? 'Booking TEST belum dapat dikonfirmasi; hubungi admin.' :
+                  'Booking TEST ditolak; hubungi admin.'}
+              </p>
+              {sandboxBooking.status === 'booked' && sandboxBooking.waybillId && (
+                <p className="mt-2 text-sm text-muted-foreground break-all">
+                  Waybill simulasi: <span className="font-mono">{sandboxBooking.waybillId}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Tracking */}
           {(order.status === 'shipping' || order.status === 'delivered') && (

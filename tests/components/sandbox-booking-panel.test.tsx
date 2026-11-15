@@ -21,6 +21,17 @@ describe('sandbox booking confirmation', () => {
     expect(screen.getByRole('button', { name: 'Tinjau snapshot booking' })).toBeDisabled();
     expect(actions.preview).not.toHaveBeenCalled();
   });
+  it('keeps a stored TEST booking readable when the POST gate is off', () => {
+    render(<SandboxBookingPanel orderId={42} enabled={false}
+      booking={{ status: 'booked', referenceId: 'onetone-sbx-SBX-test',
+        externalOrderId: 'provider-test', waybillId: 'WYB-TEST', courierTrackingId: null }} />);
+    expect(screen.getByText(/Reservasi TEST tersimpan/)).toBeInTheDocument();
+    expect(screen.getByText('WYB-TEST')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Periksa booking lewat GET' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Tinjau snapshot booking' })).not.toBeInTheDocument();
+    expect(actions.book).not.toHaveBeenCalled();
+    expect(actions.reconcile).not.toHaveBeenCalled();
+  });
   it('requires a successful review and explicit checkbox before one submission', async () => {
     render(<SandboxBookingPanel orderId={1} enabled booking={null} />);
     fireEvent.click(screen.getByRole('button', { name: 'Tinjau snapshot booking' }));
