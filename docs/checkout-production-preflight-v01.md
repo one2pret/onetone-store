@@ -6,6 +6,20 @@
 
 The legacy `POST /api/orders` accepts client-supplied `courierPrice`, writes order/items/shipping/stock/cart separately without one DB transaction, then may return `201 success` even if remote Xendit invoice creation fails. `lib/stock.ts` also performs read-then-write inventory updates outside a shared transaction. The storefront web UI uses a **separate** server action `app/actions/orders.ts`, which needs its **own** checkout and voucher/points audit. The successful staging `POST /api/checkout/sandbox-order` already uses an atomic transaction and idempotency, but does not yet constitute approval for live sales.
 
+## Storefront web checkout also requires hardening
+
+The customer website's `CheckoutForm.tsx` invokes the **Server Action**
+`app/actions/orders.ts:createOrder`, not the mobile legacy `POST /api/orders` route.
+Direct source audit found:
+
+- `courierPrice` is read from `FormData` and used in totals before a server-owned fresh Biteship rate match.
+- The DB transaction only covers the first order insert, voucher reservation and points deduction. Order items, shipping row, affiliate click update, stock movement, cart clearing and the Xendit invoice happen **after** that transaction as separate operations. A later exception can leave an incomplete order or inconsistent stock/points.
+- Invoice errors are caught, yet the Server Action returns `{ success: true, orderId, paymentUrl }` (where `paymentUrl` may be missing).
+- Its voucher/points/membership/affiliate logic is additional business complexity not implemented in the isolated SBX checkout. A production replacement must preserve these behaviors deliberately, with server-side revalidation and atomicity, not silently remove them.
+- The web order-sync, cancel, repay and webhook flows also require duplicate/late-event guards; these are **separate** from this read-only PR.
+
+The website and mobile flows must be audited together before enabling live Android checkout. Merely securing `POST /api/orders` does **not** secure the storefront Server Action.
+
 ## This PR: what changes, and what does NOT
 
 - Adds `POST /api/checkout/production-preflight` on **staging only**. It is a read-only preparatory audit for the future hardened production checkout, not an actual checkout route.
