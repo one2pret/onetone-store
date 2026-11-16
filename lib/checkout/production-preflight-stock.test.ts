@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// The unit test targets a pure calculator only. Do not open a DB connection.
+vi.mock('@/lib/db', () => ({ db: {} }));
 import { assessOnlineCheckoutStock } from './production-preflight-stock';
 
 const standardItem = {
