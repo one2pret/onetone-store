@@ -11,6 +11,13 @@ on:
     branches:
       - main
       - production
+  workflow_dispatch:
+    inputs:
+      staging_only_confirm:
+        description: 'I approve a staging-only build/deploy of main (NEVER production)'
+        required: true
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -23,6 +30,9 @@ jobs:
   # ───────────────────────────────────────────────────────
   build-and-push:
     name: 🐳 Build & Push Docker Image
+    # Manual dispatch can only run main + explicit staging consent.
+    # Normal push deployment stays unchanged.
+    if: github.event_name == 'push' || (github.ref == 'refs/heads/main' && inputs.staging_only_confirm == true)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -105,7 +115,7 @@ jobs:
     name: 🚀 Deploy ke Testing
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.staging_only_confirm == true))
 
     steps:
       - name: Checkout (untuk copy compose file)
@@ -124,13 +134,14 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           STAGING_SANDBOX_ORDER_FLAG: ${{ vars.CHECKOUT_SANDBOX_ORDER_ENABLED_TEST }}
+          STAGING_CHECKOUT_PREFLIGHT_FLAG: ${{ vars.CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED_TEST }}
           STAGING_BITESHIP_SANDBOX_API_KEY: ${{ secrets.BITESHIP_SANDBOX_API_KEY_TEST }}
           STAGING_BITESHIP_BOOKING_FLAG: ${{ vars.BITESHIP_SANDBOX_BOOKING_ENABLED_TEST }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
+          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_CHECKOUT_PREFLIGHT_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
           script: |
             set -e
             cd /opt/onetone-store
@@ -156,6 +167,19 @@ jobs:
             else
               printf '%s\n' 'CHECKOUT_SANDBOX_ORDER_ENABLED=false' >> .env.app
               echo 'Staging sandbox checkout flag: disabled'
+            fi
+
+            # Dedicated staging-only checkout readiness switch (read-only).
+            # Existing multiline ENV_TEST is preserved, but any older value is
+            # removed to avoid duplicate/conflicting env entries.
+            # Production job has no such bridge or variable.
+            sed -i '/^CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=/d' .env.app
+            if [ "${STAGING_CHECKOUT_PREFLIGHT_FLAG:-false}" = 'true' ]; then
+              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=true' >> .env.app
+              echo 'Staging checkout preflight: ENABLED (read-only)'
+            else
+              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=false' >> .env.app
+              echo 'Staging checkout preflight: disabled'
             fi
 
             # Sandbox booking credentials are TEST-only and are isolated from
@@ -207,7 +231,8 @@ jobs:
     name: 🚀 Deploy ke Production
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/production'
+    # NEVER deploy production in a manually dispatched workflow.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
 
     steps:
       - name: Checkout (untuk copy compose file)
