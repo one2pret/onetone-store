@@ -33,7 +33,7 @@ Expected **HTTP 404** while disabled. A 404 alone does not prove a specific conf
 
 1. CI PASS, review, merge only to `main`. Confirm staging deploy passed.
 2. In GitHub → Settings → Secrets and variables → Actions → **Variables**, create/update `CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED_TEST=true`. This is a nonsecret switch, **not** an API key.
-3. Trigger a **testing deployment** that applies the updated repository variable. Do not push production. The existing workflow is `push`-triggered only; for a one-off flag change without code changes, use an approved staging-only redeployment procedure. **Do not rerun old production jobs.** If using GitHub Actions "Re-run jobs" on a previous main push, ensure it uses the approved main code and current variable configuration.
+3. In GitHub → Actions → **Build & Deploy onetone-store** → **Run workflow**, select branch `main` and check `staging_only_confirm=true`. The workflow has a manual dispatch guard; manual execution is strictly `main` → build + **staging only**, never production. The normal `production` push workflow remains unchanged. Do not manually run or rerun production jobs for this UAT.
 4. Verify `APP_ENV=staging` and preflight flag enabled in the **running** app container without printing any keys:
 
 ```bash
@@ -62,7 +62,7 @@ This is **illustrative**; never assume 123/9000 are the user's actual current ad
 ## Turn OFF immediately after UAT
 
 1. Set `CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED_TEST=false` in GitHub Actions Variables.
-2. Apply an approved **staging-only** redeploy so the Docker container receives the new value.
+2. Go to Actions → **Build & Deploy onetone-store** → **Run workflow**, branch `main`, `staging_only_confirm=true`. This explicitly redeploys staging with the updated OFF variable. Do not click old production jobs.
 3. Verify in the runtime that flag is false and unauthenticated endpoint again responds HTTP 404.
 4. Do not alter `ENV_PROD`; do not delete staging orders/invoices; do not use `docker compose down -v`.
 
