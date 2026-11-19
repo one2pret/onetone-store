@@ -53,7 +53,7 @@ describe.skipIf(!url)('Xendit TEST ledger runtime on isolated MySQL (no Xendit n
       payment_method VARCHAR(100) NULL,
       payment_channel VARCHAR(100) NULL,
       amount DECIMAL(12,2) NOT NULL,
-      status ENUM('pending','paid','expired','cancelled') DEFAULT 'pending',
+      invoice_status ENUM('pending','paid','expired','cancelled') DEFAULT 'pending',
       expired_at TIMESTAMP NULL,
       paid_at TIMESTAMP NULL,
       cancelled_at TIMESTAMP NULL,
