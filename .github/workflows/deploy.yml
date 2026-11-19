@@ -135,13 +135,14 @@ jobs:
         env:
           STAGING_SANDBOX_ORDER_FLAG: ${{ vars.CHECKOUT_SANDBOX_ORDER_ENABLED_TEST }}
           STAGING_CHECKOUT_PREFLIGHT_FLAG: ${{ vars.CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED_TEST }}
+          STAGING_PAYMENT_LEDGER_FLAG: ${{ vars.CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED_TEST }}
           STAGING_BITESHIP_SANDBOX_API_KEY: ${{ secrets.BITESHIP_SANDBOX_API_KEY_TEST }}
           STAGING_BITESHIP_BOOKING_FLAG: ${{ vars.BITESHIP_SANDBOX_BOOKING_ENABLED_TEST }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_CHECKOUT_PREFLIGHT_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
+          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_CHECKOUT_PREFLIGHT_FLAG,STAGING_PAYMENT_LEDGER_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
           script: |
             set -e
             cd /opt/onetone-store
@@ -180,6 +181,17 @@ jobs:
             else
               printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=false' >> .env.app
               echo 'Staging checkout preflight: disabled'
+            fi
+
+            # Xendit TEST attempt ledger is a separate opt-in, OFF by default.
+            # This variable is NOT injected by the production deployment job.
+            sed -i '/^CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=/d' .env.app
+            if [ "${STAGING_PAYMENT_LEDGER_FLAG:-false}" = 'true' ]; then
+              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=true' >> .env.app
+              echo 'Staging Xendit TEST payment ledger: enabled'
+            else
+              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=false' >> .env.app
+              echo 'Staging Xendit TEST payment ledger: disabled'
             fi
 
             # Sandbox booking credentials are TEST-only and are isolated from
