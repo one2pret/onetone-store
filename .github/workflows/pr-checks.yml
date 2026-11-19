@@ -46,4 +46,4 @@ jobs:
       - name: Sandbox + checkout payment attempt MySQL tests
         env:
           SANDBOX_BOOKING_TEST_DATABASE_URL: mysql://root@127.0.0.1:3306/sbx_booking_test
-        run: npx vitest run tests/integration/sandbox-booking.test.ts tests/integration/checkout-payment-attempts.test.ts
+        run: npx vitest run tests/integration/sandbox-booking.test.ts tests/integration/checkout-payment-attempts.test.ts tests/integration/sandbox-payment-ledger-runtime.test.ts
