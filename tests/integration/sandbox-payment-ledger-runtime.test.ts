@@ -42,12 +42,22 @@ describe.skipIf(!url)('Xendit TEST ledger runtime on isolated MySQL (no Xendit n
       status ENUM('waiting_payment','packing','expired','cancelled') NOT NULL,
       total DECIMAL(12,2) NOT NULL
     )`);
+    // Drizzle INSERT emits nullable invoice fields as DEFAULT, so mirror
+    // all columns the actual production schema declares (not only the subset
+    // that this repository explicitly populates).
     await admin.query(`CREATE TABLE invoices (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      order_id INT NOT NULL, xendit_id VARCHAR(255) UNIQUE,
-      invoice_url TEXT, amount DECIMAL(12,2) NOT NULL,
-      status ENUM('pending','paid','expired','cancelled'),
-      expired_at TIMESTAMP NULL
+      order_id INT NOT NULL,
+      xendit_id VARCHAR(255) UNIQUE,
+      invoice_url TEXT,
+      payment_method VARCHAR(100) NULL,
+      payment_channel VARCHAR(100) NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      status ENUM('pending','paid','expired','cancelled') DEFAULT 'pending',
+      expired_at TIMESTAMP NULL,
+      paid_at TIMESTAMP NULL,
+      cancelled_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
     await admin.query(`INSERT INTO orders
       (id,user_id,order_number,order_channel,status,total)
