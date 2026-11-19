@@ -54,11 +54,17 @@ describe('Xendit TEST payment ledger service (no network/database)', () => {
   });
 
   it('uses deterministic request evidence tied to order, amount and payer', () => {
-    const hash = sandboxPaymentRequestHash(valid);
+    const evidence = {
+      userId: valid.userId,
+      orderNumber: valid.orderNumber,
+      amount: valid.total,
+      payerEmail: valid.payerEmail,
+    };
+    const hash = sandboxPaymentRequestHash(evidence);
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(hash).toBe(sandboxPaymentRequestHash({ ...valid }));
-    expect(hash).not.toBe(sandboxPaymentRequestHash({ ...valid, total: valid.total + 1 }));
-    expect(hash).not.toBe(sandboxPaymentRequestHash({ ...valid, userId: 5 }));
+    expect(hash).toBe(sandboxPaymentRequestHash({ ...evidence }));
+    expect(hash).not.toBe(sandboxPaymentRequestHash({ ...evidence, amount: evidence.amount + 1 }));
+    expect(hash).not.toBe(sandboxPaymentRequestHash({ ...evidence, userId: 5 }));
   });
 
   it('reserves and claims BEFORE Xendit TEST and persists invoice result', async () => {
