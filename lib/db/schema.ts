@@ -719,6 +719,33 @@ export const invoices = mysqlTable('invoices', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Payment-provider attempts are durable, including ambiguous timeouts.
+// This ledger is schema-only until a separate reviewed checkout/payment PR.
+export const checkoutPaymentAttempts = mysqlTable('checkout_payment_attempts', {
+  id: int('id').primaryKey().autoincrement(),
+  orderId: int('order_id').references(() => orders.id).notNull(),
+  attemptNo: int('attempt_no').notNull(),
+  mode: mysqlEnum('mode', ['sandbox', 'live']).notNull(),
+  externalId: varchar('external_id', { length: 100 }).notNull().unique(),
+  requestHash: varchar('request_hash', { length: 64 }).notNull(),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  status: mysqlEnum('status', [
+    'reserved', 'requesting', 'needs_reconciliation',
+    'ready', 'paid', 'expired', 'failed',
+  ]).default('reserved').notNull(),
+  xenditId: varchar('xendit_id', { length: 255 }).unique(),
+  invoiceUrl: text('invoice_url'),
+  lastErrorCode: varchar('last_error_code', { length: 100 }),
+  requestedAt: timestamp('requested_at'),
+  resolvedAt: timestamp('resolved_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  orderAttemptUnique: uniqueIndex('checkout_payment_attempt_order_sequence_unique')
+    .on(table.orderId, table.attemptNo),
+  statusIdx: index('checkout_payment_attempt_status_idx').on(table.status),
+}));
+
 // ============ SHIPPINGS ============
 export const shippings = mysqlTable('shippings', {
   id: int('id').primaryKey().autoincrement(),
