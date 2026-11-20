@@ -5,6 +5,18 @@
  * A green checklist is NOT permission to create a shipment. Biteship uses
  * the same API URL for live and test: the API key prefix determines mode.
  */
+// Optional DB-backed facts for the admin-only advisory preflight. Booking actions
+// still re-read and lock these records inside their own transaction.
+export interface SandboxBookingPreflightFacts {
+  invoiceCount: number;
+  shippingCount: number;
+  invoiceAmountMatchesOrder: boolean;
+  courierActive: boolean;
+  shippingStatusClear: boolean;
+  hasReservation: boolean;
+  bookingEnabled: boolean;
+}
+
 export interface ShipmentReadinessInput {
   orderStatus: string | null | undefined;
   invoiceStatus: string | null | undefined;
@@ -32,6 +44,7 @@ export interface ShipmentReadinessInput {
     unitPrice: number;
     weightGrams: number | null | undefined;
   }>;
+  bookingPreflight?: SandboxBookingPreflightFacts;
 }
 
 export interface ShipmentReadinessCheck {
@@ -61,6 +74,7 @@ export function isBiteshipSandboxApiKey(key: string | undefined): boolean {
 export function evaluateSandboxShipmentReadiness(input: ShipmentReadinessInput): {
   checks: ShipmentReadinessCheck[];
   dataComplete: boolean;
+  status: 'PASS' | 'FAIL' | 'BLOCKED';
   estimatedTotalWeightGrams: number | null;
 } {
   const itemsValid = input.items.length > 0 && input.items.every(item =>
@@ -101,13 +115,41 @@ export function evaluateSandboxShipmentReadiness(input: ShipmentReadinessInput):
     { id: 'tracking', label: 'Belum ada resi atau booking pengiriman sebelumnya', ok: !input.hasTracking },
   ];
 
+  // The basic seven checks are shared with the booking payload validator.
+  // Add DB consistency and feature-gate diagnostics only for the admin page.
+  // These are advisory snapshots, not a replacement for transactional guards.
+  const preflight = input.bookingPreflight;
+  if (preflight) {
+    checks.push(
+      { id: 'unique_records', label: 'Tepat satu invoice dan satu pengiriman tersimpan',
+        ok: preflight.invoiceCount === 1 && preflight.shippingCount === 1 },
+      { id: 'invoice_total', label: 'Nominal invoice sama dengan total order',
+        ok: preflight.invoiceCount === 1 && preflight.invoiceAmountMatchesOrder },
+      { id: 'courier_active', label: 'Kurir pilihan checkout masih aktif',
+        ok: preflight.courierActive },
+      { id: 'shipping_state', label: 'Pengiriman belum memiliki status proses sebelumnya',
+        ok: preflight.shippingStatusClear },
+      { id: 'reservation', label: 'Belum ada reservasi Biteship TEST untuk order ini',
+        ok: !preflight.hasReservation },
+      { id: 'booking_gate', label: 'Gate booking TEST pada staging/test diaktifkan secara sengaja',
+        ok: preflight.bookingEnabled },
+    );
+  }
+
+  const dataComplete = checks.every(check => check.ok);
+  // Disabled feature gates and permanent reservations are deliberate BLOCKED
+  // conditions. Ordinary invalid checkout data is FAIL, never PASS.
+  const status = preflight && (!preflight.bookingEnabled || preflight.hasReservation)
+    ? 'BLOCKED' as const : dataComplete ? 'PASS' as const : 'FAIL' as const;
+
   const estimatedTotalWeightGrams = totalsValid
     ? input.items.reduce((sum, item) => sum + item.weightGrams! * item.quantity, 0)
     : null;
 
   return {
     checks,
-    dataComplete: checks.every(c => c.ok),
+    dataComplete,
+    status,
     estimatedTotalWeightGrams,
   };
 }
