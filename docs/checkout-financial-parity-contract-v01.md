@@ -33,9 +33,11 @@ The future shared atomic kernel must revalidate the relevant identities, amounts
 3. Reject stacking points with a voucher that disallows stacking.
 4. Reject requesting more points than can be applied as Rupiah (legacy `calculateRedeemAmount` caps the monetary reduction but the legacy checkout may still debit every requested point).
 5. Reject zero-Rupiah final total; Xendit live invoices must not be assumed to accept zero. UI must prevent over-redemption or show clear reselect guidance.
-6. Reject sums outside safe integer bounds before persistence.
+6. Reject sums outside JavaScript safe integers **or** MySQL `DECIMAL(12,2)` whole-Rupiah storage limits (Rp9,999,999,999), before persistence.
+7. Validate voucher allowance and free-shipping flags as actual booleans; do not accept truthy strings.
 
-These stricter results are **not automatically imposed on legacy production checkout in this PR**. They are target behavior for the upcoming reviewed web/API migration, including matching UI hints and end-to-end test expectations.
+A positive calculated total is not proof that the Xendit provider accepts that specific amount; provider limits and contract must be checked separately during TEST UAT.
+\nThese stricter results are **not automatically imposed on legacy production checkout in this PR**. They are target behavior for the upcoming reviewed web/API migration, including matching UI hints and end-to-end test expectations.
 
 ## Verification
 
