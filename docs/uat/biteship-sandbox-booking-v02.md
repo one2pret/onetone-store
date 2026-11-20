@@ -95,3 +95,7 @@ The integration suite accepts only localhost with the `/sbx_booking_test` marker
 - [Rates](https://biteship.com/en/docs/api/rates/retrieve): unit item weight/value with separate quantity.
 
 Android API/tracking, live launch, pickup lifecycle, cancellation/refunds, deployment and APK builds are outside this milestone.
+
+### Read-only checklist diagnostics
+
+Review the shipment readiness checklist on the admin order page before an authorized TEST booking. The courier check requires lowercase provider codes containing only letters, numbers, underscores or hyphens. The item check requires safe integer unit prices and safe integer line and aggregate values and weights. A failed check identifies data that must be corrected before preview. The checklist also reports a missing TEST key and existing tracking. It is preliminary: preview separately checks invoice and shipment uniqueness, active courier, existing reservations and the booking gate. A green checklist does not authorize a booking.

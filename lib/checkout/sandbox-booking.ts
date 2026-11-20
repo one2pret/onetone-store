@@ -18,14 +18,7 @@ export function sandboxBookingEnabled(env: NodeJS.ProcessEnv = process.env): boo
 }
 
 export function buildSandboxBookingPayload(orderNumber: string, input: ShipmentReadinessInput): SandboxPayload {
-  if (!isSandboxOrder(orderNumber) || !evaluateSandboxShipmentReadiness(input).dataComplete ||
-      !input.items.every(item => Number.isSafeInteger(item.unitPrice) &&
-        Number.isSafeInteger(item.unitPrice * item.quantity) &&
-        Number.isSafeInteger(item.weightGrams! * item.quantity)) ||
-      !Number.isSafeInteger(input.items.reduce((sum, item) => sum + item.weightGrams! * item.quantity, 0)) ||
-      !Number.isSafeInteger(input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)) ||
-      !/^[a-z0-9_-]+$/.test(input.shipping?.courierCompany ?? '') ||
-      !/^[a-z0-9_-]+$/.test(input.shipping?.courierType ?? '')) {
+  if (!isSandboxOrder(orderNumber) || !evaluateSandboxShipmentReadiness(input).dataComplete) {
     throw new Error('Data booking belum valid; snapshot berat checkout wajib tersedia.');
   }
   const shipping = input.shipping!;
