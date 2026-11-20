@@ -14,7 +14,7 @@ import { SendOrderButton } from './SendOrderButton';
 import { CancelOrderButton } from './CancelOrderButton';
 import { TrackingTimeline } from '@/components/shop/TrackingTimeline';
 import { db } from '@/lib/db';
-import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, sandboxBookings } from '@/lib/db/schema';
+import { invoices, shippings, shippingHistories, orderStatusLogs, storeSettings, sandboxBookings, couriers } from '@/lib/db/schema';
 import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 import { evaluateSandboxShipmentReadiness } from '@/lib/checkout/sandbox-shipment-readiness';
 import { sandboxBookingEnabled, sandboxBookingTestKeyConfigured } from '@/lib/checkout/sandbox-booking';
@@ -83,15 +83,28 @@ export default async function AdminOrderDetailPage({ params }: Props) {
 
   // Strictly read-only diagnostics. Never call Biteship or change order/stock.
   // Only compute for a packing SBX order in an admin session.
-  if (sandboxOrder && order.status === 'packing' &&
-      (session?.user as { role?: string } | undefined)?.role === 'admin') {
-    const settings = await db.select().from(storeSettings);
+  if (sandboxOrder && order.status === 'packing' && sandboxAdmin) {
+    // Deliberately query *all* invoice/shipping rows: the general order display
+    // uses limit(1), which would hide duplicates from a booking preflight.
+    const [settings, bookingInvoices, bookingShippings] = await Promise.all([
+      db.select().from(storeSettings),
+      db.select().from(invoices).where(eq(invoices.orderId, order.id)),
+      db.select().from(shippings).where(eq(shippings.orderId, order.id)),
+    ]);
     const config = Object.fromEntries(settings.map(row => [row.key, row.value]));
+    const bookingInvoice = bookingInvoices.length === 1 ? bookingInvoices[0] : null;
+    const bookingShipping = bookingShippings.length === 1 ? bookingShippings[0] : null;
+    const matchingCouriers = bookingShipping
+      ? await db.select({ isActive: couriers.isActive }).from(couriers)
+        .where(eq(couriers.code, bookingShipping.courierCompany ?? ''))
+      : [];
+
     sandboxReadiness = evaluateSandboxShipmentReadiness({
       orderStatus: order.status,
-      invoiceStatus: invoice?.status,
+      invoiceStatus: bookingInvoice?.status,
       hasSandboxBiteshipKey: sandboxBookingTestKeyConfigured(),
-      hasTracking: !!shipping?.trackingId || !!shipping?.waybillId || !!booking,
+      hasTracking: !!bookingShipping?.trackingId || !!bookingShipping?.waybillId ||
+        !!bookingShipping?.status,
       origin: {
         contactName: config['store_name'],
         contactPhone: config['store_phone'],
@@ -99,14 +112,14 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         latitude: config['store_latitude'],
         longitude: config['store_longitude'],
       },
-      shipping: shipping ? {
-        recipientName: shipping.recipientName,
-        phone: shipping.phone,
-        address: shipping.address,
-        latitude: shipping.latitude,
-        longitude: shipping.longitude,
-        courierCompany: shipping.courierCompany,
-        courierType: shipping.courierType,
+      shipping: bookingShipping ? {
+        recipientName: bookingShipping.recipientName,
+        phone: bookingShipping.phone,
+        address: [bookingShipping.address, bookingShipping.addressDetail].filter(Boolean).join(', '),
+        latitude: bookingShipping.latitude,
+        longitude: bookingShipping.longitude,
+        courierCompany: bookingShipping.courierCompany,
+        courierType: bookingShipping.courierType,
       } : null,
       items: order.items.map(item => ({
         name: item.productName,
@@ -114,6 +127,16 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         unitPrice: Number(item.price),
         weightGrams: item.unitWeightGrams,
       })),
+      bookingPreflight: {
+        invoiceCount: bookingInvoices.length,
+        shippingCount: bookingShippings.length,
+        invoiceAmountMatchesOrder: !!bookingInvoice &&
+          Number(bookingInvoice.amount) === Number(order.total),
+        courierActive: matchingCouriers.some(courier => courier.isActive),
+        shippingStatusClear: !!bookingShipping && !bookingShipping.status,
+        hasReservation: !!booking,
+        bookingEnabled: sandboxBookingEnabled(),
+      },
     });
   }
 
@@ -352,6 +375,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                 </p>
                 {sandboxReadiness ? (
                   <>
+                    <p role="status" className="font-semibold">
+                      Hasil preflight: {sandboxReadiness.status}
+                    </p>
                     <ul className="space-y-2">
                       {sandboxReadiness.checks.map(check => (
                         <li key={check.id} className="flex items-start gap-2">
@@ -369,9 +395,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                       Berat diambil dari snapshot checkout. Order lama tanpa snapshot ditolak.
                     </p>
                     <p className="text-muted-foreground">
-                      {sandboxReadiness.dataComplete
-                        ? 'Data dasar lengkap. Tinjau snapshot untuk validasi akhir sebelum booking TESTING.'
-                        : 'Lengkapi konfigurasi yang belum valid sebelum UAT pembuatan pengiriman.'}
+                      {sandboxReadiness.status === 'PASS'
+                        ? 'Preflight read-only PASS. Tetap wajib tinjau snapshot dan konfirmasi admin; belum ada booking.'
+                        : sandboxReadiness.status === 'BLOCKED'
+                          ? 'Booking diblokir oleh gate yang OFF atau reservasi yang sudah ada. Jangan ulangi POST; gunakan pemeriksaan GET untuk reservasi ambigu.'
+                          : 'Preflight FAIL. Periksa indikator bertanda silang sebelum mencoba preview; jangan melakukan booking.'}
                     </p>
                   </>
                 ) : (

@@ -99,3 +99,43 @@ Android API/tracking, live launch, pickup lifecycle, cancellation/refunds, deplo
 ### Read-only checklist diagnostics
 
 Review the shipment readiness checklist on the admin order page before an authorized TEST booking. The courier check requires lowercase provider codes containing only letters, numbers, underscores or hyphens. The item check requires safe integer unit prices and safe integer line and aggregate values and weights. A failed check identifies data that must be corrected before preview. The checklist also reports a missing TEST key and existing tracking. It is preliminary: preview separately checks invoice and shipment uniqueness, active courier, existing reservations and the booking gate. A green checklist does not authorize a booking.
+
+### Booking preflight integrity diagnostics (21 November 2026)
+
+Admin order detail now extends the **existing** read-only shipment readiness
+checklist (rather than creating another booking engine) with facts read from
+the stored order. The existing seven snapshot/credential checks remain intact.
+The additional six checks require:
+
+1. Exactly one invoice and one shipping row (do not trust the first row of a duplicate set).
+2. The sole invoice amount equals the stored order total.
+3. The selected courier code matches an active courier.
+4. The sole shipping row has no prior shipping status (in addition to no waybill/tracking).
+5. No existing sandbox booking reservation, including rejected or ambiguous reservations.
+6. The explicit staging/test booking feature gate is ON, only for a separately authorized operator UAT.
+
+The screen reports **PASS**, **FAIL**, or **BLOCKED**. FAIL means an ordinary
+prerequisite failed. BLOCKED means the booking gate is OFF or a permanent
+reservation already exists (even if other checks also fail). Checkmarks and
+crosses identify the individual requirements. A disabled booking gate is a
+*safe intended state*, not an instruction to turn it on.
+
+This is an **advisory, read-only database snapshot**; another operator or
+webhook may change state between page render and booking. PASS is not an
+authorization to POST and does not prove provider acceptance. The
+`previewSandboxBooking` and `bookSandboxShipment` actions still re-query and
+lock the order/invoice/shipping/item records, validate the reviewed snapshot,
+and rely on the unique reservation before any provider POST. They are unchanged.
+
+For a BLOCKED reservation, inspect its status and reconcile with a verified
+Biteship Testing GET where permitted; do not delete reservations or retry POST.
+For FAIL, correct the specific bad records/configuration by normal operational
+procedures; do not bypass validation or manually rewrite invoice/payment status.
+Do not put real customer addresses, phones, payment IDs or API keys in a PR.
+
+**Scope:** no schema change, no database migration, no new POST endpoint,
+no payment or stock mutation, no feature-flag change, no provider request and
+no staging/production deployment. Pure regression tests cover PASS, invalid
+counts/amount/courier/shipping state, reserved booking, disabled gate and
+backward compatibility of the seven existing payload checks. Existing MySQL
+concurrency/rollback suites remain authoritative for reservation persistence.
