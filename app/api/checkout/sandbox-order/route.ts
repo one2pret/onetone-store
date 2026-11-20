@@ -9,6 +9,7 @@ import { createInternalCustomerEmail } from '@/lib/registration-utils';
 import { loadTrustedCheckoutSelection } from '@/lib/checkout/fresh-quote-service';
 import { commitSandboxOrder, CheckoutRejected } from '@/lib/checkout/commit-sandbox-order';
 import { sandboxOrderEnabled, sandboxOrderNumber, sandboxPaymentReturnUrl } from '@/lib/checkout/sandbox-order-policy';
+import { createSandboxTestInvoiceWithLedger, sandboxPaymentLedgerEnabled } from '@/lib/checkout/sandbox-payment-invoice-service';
 
 const schema = z.object({
   addressId: z.number().int().positive(),
@@ -107,6 +108,42 @@ export async function POST(request: Request) {
       if (retry) return retry;
     }
 
+    // Optional, independent staging-only ledger path. OFF by default.
+    // Both the sandbox-order route gate above and this separate gate must
+    // succeed; the ledger service repeats the APP_ENV/Xendit TEST guard.
+    if (sandboxPaymentLedgerEnabled(
+      process.env.CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED,
+      process.env.APP_ENV,
+      process.env.XENDIT_SECRET_KEY,
+    )) {
+      const result = await createSandboxTestInvoiceWithLedger({
+        userId: user.id,
+        orderId: committed.orderId,
+        orderNumber: committed.orderNumber,
+        total: committed.total,
+        payerEmail: user.email ?? createInternalCustomerEmail(user.phone ?? String(user.id)),
+      });
+      if (result.kind === 'pending') {
+        return NextResponse.json({
+          success: false, code: 'payment_setup_pending',
+          error: 'Order tercatat, pembayaran perlu rekonsiliasi admin. Jangan buat ulang pesanan.',
+          data: { orderId: committed.orderId, orderNumber: committed.orderNumber },
+        }, { status: 202 });
+      }
+      return NextResponse.json({
+        success: true,
+        data: {
+          orderId: committed.orderId,
+          orderNumber: committed.orderNumber,
+          status: 'waiting_payment',
+          total: committed.total,
+          shippingCost: quote.selected.price,
+          paymentUrl: result.paymentUrl,
+        },
+      }, { status: 201 });
+    }
+
+    // Existing sandbox invoice behavior is preserved when the NEW flag is OFF.
     // Remote call OUTSIDE DB transaction. We never automatically replay after
     // a timeout, to avoid creating duplicate invoices.
     try {
