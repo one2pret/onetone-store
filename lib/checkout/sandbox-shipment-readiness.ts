@@ -66,9 +66,15 @@ export function evaluateSandboxShipmentReadiness(input: ShipmentReadinessInput):
   const itemsValid = input.items.length > 0 && input.items.every(item =>
     hasText(item.name) &&
     Number.isSafeInteger(item.quantity) && item.quantity > 0 &&
-    Number.isFinite(item.unitPrice) && item.unitPrice > 0 &&
-    Number.isSafeInteger(item.weightGrams) && (item.weightGrams ?? 0) > 0,
+    Number.isSafeInteger(item.unitPrice) && item.unitPrice > 0 &&
+    Number.isSafeInteger(item.weightGrams) && (item.weightGrams ?? 0) > 0 &&
+    Number.isSafeInteger(item.unitPrice * item.quantity) &&
+    Number.isSafeInteger(item.weightGrams! * item.quantity),
   );
+
+  const totalsValid = itemsValid &&
+    Number.isSafeInteger(input.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)) &&
+    Number.isSafeInteger(input.items.reduce((sum, item) => sum + item.weightGrams! * item.quantity, 0));
 
   const checks: ShipmentReadinessCheck[] = [
     { id: 'payment', label: 'Invoice Xendit TEST sudah dibayar', ok: input.invoiceStatus === 'paid' && input.orderStatus === 'packing' },
@@ -88,14 +94,14 @@ export function evaluateSandboxShipmentReadiness(input: ShipmentReadinessInput):
     },
     { id: 'courier', label: 'Kode kurir dan layanan dari pilihan checkout tersedia', ok:
       !!input.shipping &&
-      hasText(input.shipping.courierCompany) &&
-      hasText(input.shipping.courierType),
+      /^[a-z0-9_-]+$/.test(input.shipping.courierCompany ?? '') &&
+      /^[a-z0-9_-]+$/.test(input.shipping.courierType ?? ''),
     },
-    { id: 'items', label: 'Produk memiliki jumlah, harga satuan dan berat satuan valid', ok: itemsValid },
+    { id: 'items', label: 'Produk memiliki jumlah, harga satuan dan berat satuan valid', ok: totalsValid },
     { id: 'tracking', label: 'Belum ada resi atau booking pengiriman sebelumnya', ok: !input.hasTracking },
   ];
 
-  const estimatedTotalWeightGrams = itemsValid
+  const estimatedTotalWeightGrams = totalsValid
     ? input.items.reduce((sum, item) => sum + item.weightGrams! * item.quantity, 0)
     : null;
 

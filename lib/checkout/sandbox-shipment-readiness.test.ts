@@ -75,4 +75,11 @@ describe('read-only TEST shipment readiness', () => {
     expect(check({ ...valid, items: [{ ...valid.items[0], unitPrice: -1 }] }, 'items')).toBe(false);
     expect(evaluateSandboxShipmentReadiness({ ...valid, items: [] }).estimatedTotalWeightGrams).toBeNull();
   });
+  it('reports invalid courier codes and unsafe item totals before booking', () => {
+    expect(check({ ...valid, shipping: { ...valid.shipping!, courierType: 'REG' } }, 'courier')).toBe(false);
+    expect(check({ ...valid, items: [{ ...valid.items[0], unitPrice: 1.5 }] }, 'items')).toBe(false);
+    expect(check({ ...valid, items: [{ ...valid.items[0], quantity: 2, weightGrams: Number.MAX_SAFE_INTEGER }] }, 'items')).toBe(false);
+    expect(check({ ...valid, items: [{ ...valid.items[0], unitPrice: Number.MAX_SAFE_INTEGER }, { ...valid.items[0], unitPrice: Number.MAX_SAFE_INTEGER }] }, 'items')).toBe(false);
+  });
+
 });
