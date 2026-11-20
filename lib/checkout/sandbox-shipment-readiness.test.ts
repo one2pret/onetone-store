@@ -28,6 +28,12 @@ const valid: ShipmentReadinessInput = {
   }],
 };
 
+const completePreflight: NonNullable<ShipmentReadinessInput['bookingPreflight']> = {
+  invoiceCount: 1, shippingCount: 1, invoiceAmountMatchesOrder: true,
+  courierActive: true, shippingStatusClear: true,
+  hasReservation: false, bookingEnabled: true,
+};
+
 function check(input: ShipmentReadinessInput, id: string) {
   return evaluateSandboxShipmentReadiness(input).checks.find(c => c.id === id)?.ok;
 }
@@ -75,6 +81,47 @@ describe('read-only TEST shipment readiness', () => {
     expect(check({ ...valid, items: [{ ...valid.items[0], unitPrice: -1 }] }, 'items')).toBe(false);
     expect(evaluateSandboxShipmentReadiness({ ...valid, items: [] }).estimatedTotalWeightGrams).toBeNull();
   });
+  it('reports PASS with full read-only booking integrity and no missing prerequisites', () => {
+    const result = evaluateSandboxShipmentReadiness({ ...valid, bookingPreflight: completePreflight });
+    expect(result.status).toBe('PASS');
+    expect(result.dataComplete).toBe(true);
+    expect(result.checks).toHaveLength(13);
+    expect(result.estimatedTotalWeightGrams).toBe(400);
+  });
+
+  it.each([
+    ['duplicate invoices', { invoiceCount: 2 }, 'unique_records'],
+    ['missing shipping', { shippingCount: 0 }, 'unique_records'],
+    ['invoice amount mismatch', { invoiceAmountMatchesOrder: false }, 'invoice_total'],
+    ['inactive courier', { courierActive: false }, 'courier_active'],
+    ['already processed shipping', { shippingStatusClear: false }, 'shipping_state'],
+  ])('reports FAIL when %s', (_name, override, checkId) => {
+    const result = evaluateSandboxShipmentReadiness({
+      ...valid, bookingPreflight: { ...completePreflight, ...override },
+    });
+    expect(result.status).toBe('FAIL');
+    expect(result.dataComplete).toBe(false);
+    expect(result.checks.find(c => c.id === checkId)?.ok).toBe(false);
+  });
+
+  it.each([
+    ['booking flag is off', { bookingEnabled: false }, 'booking_gate'],
+    ['a reservation already exists', { hasReservation: true }, 'reservation'],
+  ])('reports BLOCKED when %s without authorizing a new POST', (_name, override, checkId) => {
+    const result = evaluateSandboxShipmentReadiness({
+      ...valid, bookingPreflight: { ...completePreflight, ...override },
+    });
+    expect(result.status).toBe('BLOCKED');
+    expect(result.dataComplete).toBe(false);
+    expect(result.checks.find(c => c.id === checkId)?.ok).toBe(false);
+  });
+
+  it('keeps the original seven payload checks independent of optional admin DB facts', () => {
+    const result = evaluateSandboxShipmentReadiness(valid);
+    expect(result.checks).toHaveLength(7);
+    expect(result.status).toBe('PASS');
+  });
+
   it('reports invalid courier codes and unsafe item totals before booking', () => {
     expect(check({ ...valid, shipping: { ...valid.shipping!, courierType: 'REG' } }, 'courier')).toBe(false);
     expect(check({ ...valid, items: [{ ...valid.items[0], unitPrice: 1.5 }] }, 'items')).toBe(false);
