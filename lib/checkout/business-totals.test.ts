@@ -3,6 +3,7 @@ import {
   calculateCheckoutBusinessTotals, CheckoutBusinessTotalsError,
   type CheckoutBusinessTotalsInput,
   type CheckoutBusinessTotalsErrorCode,
+  MAX_CHECKOUT_RUPIAH,
 } from './business-totals';
 
 const base: CheckoutBusinessTotalsInput = {
@@ -68,6 +69,7 @@ describe('shared checkout financial parity contract (pure; no DB/provider)', () 
     [{ subtotal: -1 }, 'invalid_amount'],
     [{ subtotal: 1.5 }, 'invalid_amount'],
     [{ subtotal: Number.MAX_SAFE_INTEGER + 1 }, 'invalid_amount'],
+    [{ subtotal: MAX_CHECKOUT_RUPIAH + 1 }, 'invalid_amount'],
     [{ subtotal: 0 }, 'invalid_amount'],
     [{ quotedShippingCost: -1 }, 'invalid_amount'],
     [{ quotedShippingCost: Number.NaN }, 'invalid_amount'],
@@ -80,6 +82,23 @@ describe('shared checkout financial parity contract (pure; no DB/provider)', () 
     [{ availablePoints: -1 }, 'invalid_points'],
   ] as const)('rejects malformed financial data %j', (override, code) => {
     rejected({ ...base, ...override }, code);
+  });
+
+  it('rejects malformed voucher authorization booleans at runtime', () => {
+    rejected({
+      ...base,
+      voucher: { discountAmount: 0, freeShipping: 'yes', allowPoints: true }
+        as unknown as NonNullable<CheckoutBusinessTotalsInput['voucher']>,
+    }, 'invalid_voucher');
+  });
+
+  it('rejects totals exceeding MySQL DECIMAL(12,2) despite safe JS integers', () => {
+    rejected({
+      ...base, subtotal: MAX_CHECKOUT_RUPIAH, quotedShippingCost: 1,
+    }, 'invalid_amount');
+    expect(calculateCheckoutBusinessTotals({
+      ...base, subtotal: MAX_CHECKOUT_RUPIAH, quotedShippingCost: 0,
+    }).total).toBe(MAX_CHECKOUT_RUPIAH);
   });
 
   it('does not redeem points without a membership', () => {
