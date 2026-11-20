@@ -30,6 +30,10 @@ export type CheckoutBusinessTotals = {
   total: number;
 };
 
+// orders.total and related Rupiah fields use MySQL DECIMAL(12,2), so the
+// largest whole Rupiah amount that can be persisted is 9,999,999,999.
+export const MAX_CHECKOUT_RUPIAH = 9_999_999_999;
+
 export type CheckoutBusinessTotalsErrorCode =
   | 'invalid_amount'
   | 'invalid_voucher'
@@ -48,7 +52,7 @@ export class CheckoutBusinessTotalsError extends Error {
 }
 
 function validRupiah(value: number): boolean {
-  return Number.isSafeInteger(value) && value >= 0;
+  return Number.isSafeInteger(value) && value >= 0 && value <= MAX_CHECKOUT_RUPIAH;
 }
 
 /**
@@ -73,6 +77,12 @@ export function calculateCheckoutBusinessTotals(
   }
 
   const discountAmount = voucher?.discountAmount ?? 0;
+  if (voucher !== null &&
+      (typeof voucher.freeShipping !== 'boolean' ||
+       typeof voucher.allowPoints !== 'boolean' ||
+       !validRupiah(voucher.discountAmount))) {
+    throw new CheckoutBusinessTotalsError('invalid_voucher');
+  }
   if (!validRupiah(discountAmount) || discountAmount > subtotal) {
     throw new CheckoutBusinessTotalsError('invalid_voucher');
   }
@@ -98,7 +108,7 @@ export function calculateCheckoutBusinessTotals(
   );
   const shippingCost = freeShipping ? 0 : quotedShippingCost;
   const dueBeforePoints = subtotal - discountAmount + shippingCost;
-  if (!Number.isSafeInteger(dueBeforePoints)) {
+  if (!validRupiah(dueBeforePoints)) {
     throw new CheckoutBusinessTotalsError('invalid_amount');
   }
 
@@ -111,7 +121,7 @@ export function calculateCheckoutBusinessTotals(
   }
   const pointsDiscountAmount = calculateRedeemAmount(pointsToRedeem, dueBeforePoints);
   const total = dueBeforePoints - pointsDiscountAmount;
-  if (!Number.isSafeInteger(total)) {
+  if (!validRupiah(total)) {
     throw new CheckoutBusinessTotalsError('invalid_amount');
   }
   if (total <= 0) {
