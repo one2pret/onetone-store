@@ -112,7 +112,7 @@ export function evaluateSandboxShipmentReadiness(input: ShipmentReadinessInput):
       /^[a-z0-9_-]+$/.test(input.shipping.courierType ?? ''),
     },
     { id: 'items', label: 'Produk memiliki jumlah, harga satuan dan berat satuan valid', ok: totalsValid },
-    { id: 'tracking', label: 'Belum ada resi atau booking pengiriman sebelumnya', ok: !input.hasTracking },
+    { id: 'tracking', label: 'Belum ada resi, tracking, atau status pengiriman sebelumnya', ok: !input.hasTracking },
   ];
 
   // The basic seven checks are shared with the booking payload validator.
