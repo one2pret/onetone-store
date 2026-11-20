@@ -85,11 +85,10 @@ describe('shared checkout financial parity contract (pure; no DB/provider)', () 
   });
 
   it('rejects malformed voucher authorization booleans at runtime', () => {
-    rejected({
-      ...base,
-      voucher: { discountAmount: 0, freeShipping: 'yes', allowPoints: true }
-        as unknown as NonNullable<CheckoutBusinessTotalsInput['voucher']>,
-    }, 'invalid_voucher');
+    const malformedVoucher = {
+      discountAmount: 0, freeShipping: 'yes', allowPoints: true,
+    } as unknown as NonNullable<CheckoutBusinessTotalsInput['voucher']>;
+    rejected({ ...base, voucher: malformedVoucher }, 'invalid_voucher');
   });
 
   it('rejects totals exceeding MySQL DECIMAL(12,2) despite safe JS integers', () => {
