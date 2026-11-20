@@ -2,9 +2,10 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   invoices, orders, orderItems, orderStatusLogs, inventoryMovements,
-  inventoryBalances, productVariants, products,
+  inventoryBalances, productVariants, products, checkoutPaymentAttempts,
 } from '@/lib/db/schema';
 import { sandboxPaymentDecision, type SandboxInvoiceEvent } from './sandbox-xendit-webhook';
+import { sandboxLedgerWebhookTransition } from './sandbox-ledger-webhook-policy';
 
 export class SandboxWebhookRejected extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -40,9 +41,70 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
       throw new SandboxWebhookRejected(409, 'Identitas atau nominal invoice tidak cocok');
     }
 
+    // Legacy SBX orders predate the attempt ledger and remain supported.
+    // For ledger-backed orders, validate the provider identity before ANY
+    // payment, stock or history transition. Lock alongside invoice and order
+    // to serialize concurrent/replayed callbacks.
+    const ledgerRows = await tx.select({
+      id: checkoutPaymentAttempts.id,
+      mode: checkoutPaymentAttempts.mode,
+      externalId: checkoutPaymentAttempts.externalId,
+      xenditId: checkoutPaymentAttempts.xenditId,
+      amount: checkoutPaymentAttempts.amount,
+      status: checkoutPaymentAttempts.status,
+    }).from(checkoutPaymentAttempts)
+      .where(eq(checkoutPaymentAttempts.orderId, order.id))
+      .for('update').limit(2);
+    if (ledgerRows.length > 1) {
+      // A future repay workflow must explicitly select its active attempt.
+      // Never guess which payment attempt this callback should settle.
+      throw new SandboxWebhookRejected(503, 'Multiple payment attempts require reconciliation');
+    }
+    const ledger = ledgerRows[0] ?? null;
+    if (ledger && (ledger.mode !== 'sandbox' ||
+        ledger.externalId !== order.orderNumber ||
+        ledger.xenditId !== event.id ||
+        Number(ledger.amount) !== event.amount)) {
+      throw new SandboxWebhookRejected(503, 'Payment attempt identity mismatch');
+    }
+
     const decision = sandboxPaymentDecision(event.status, invoice.status, order.status);
-    if (decision === 'duplicate' || decision === 'conflict') {
+    if (decision === 'conflict') {
+      // PAID after EXPIRED or EXPIRED after PAID cannot reverse stock/order.
       return { decision, orderId: order.id };
+    }
+
+    const ledgerTransition = ledger
+      ? sandboxLedgerWebhookTransition(ledger.status, event.status) : null;
+    if (ledgerTransition === 'conflict') {
+      // An incompatible ledger terminal state requires operator review.
+      return { decision: 'conflict', orderId: order.id };
+    }
+
+    if (decision === 'duplicate') {
+      // Repair a pre-existing paid/expired invoice whose ledger was still
+      // READY (e.g. order settled before this upgrade), but NEVER repeat
+      // fulfillment, order status logs, or stock movements.
+      if (ledger && ledgerTransition !== 'already') {
+        const [updated] = await tx.update(checkoutPaymentAttempts)
+          .set({ status: ledgerTransition!, resolvedAt: new Date() })
+          .where(and(
+            eq(checkoutPaymentAttempts.id, ledger.id),
+            eq(checkoutPaymentAttempts.status, ledger.status),
+            eq(checkoutPaymentAttempts.mode, 'sandbox'),
+            eq(checkoutPaymentAttempts.xenditId, event.id),
+          ));
+        if (updated.affectedRows !== 1) {
+          throw new SandboxWebhookRejected(503, 'Payment ledger reconciliation failed');
+        }
+      }
+      return { decision, orderId: order.id };
+    }
+
+    if (ledger && ledgerTransition === 'already') {
+      // The ledger cannot be terminal while invoice/order still say pending.
+      // Never apply an ambiguous settlement silently.
+      return { decision: 'conflict', orderId: order.id };
     }
 
     if (decision === 'expire') {
@@ -153,6 +215,23 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
       toStatus: decision === 'pay' ? 'packing' : 'expired',
       changedBy: 'webhook:xendit:sandbox',
     });
+
+    if (ledger) {
+      // Same transaction as invoice, order, stock restoration and audit log.
+      // On any failure, ALL effects roll back and Xendit can retry.
+      const [updated] = await tx.update(checkoutPaymentAttempts).set({
+        status: ledgerTransition === 'paid' ? 'paid' : 'expired',
+        resolvedAt: new Date(),
+      }).where(and(
+        eq(checkoutPaymentAttempts.id, ledger.id),
+        eq(checkoutPaymentAttempts.status, ledger.status),
+        eq(checkoutPaymentAttempts.mode, 'sandbox'),
+        eq(checkoutPaymentAttempts.xenditId, event.id),
+      ));
+      if (updated.affectedRows !== 1) {
+        throw new SandboxWebhookRejected(503, 'Payment attempt settlement failed');
+      }
+    }
     return { decision: decision === 'pay' ? 'paid' : 'expired', orderId: order.id };
   });
 }
