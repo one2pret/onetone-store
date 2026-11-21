@@ -28,7 +28,7 @@ export type CheckoutMemberPointsSelection = {
 };
 
 export type CommittedOrder = {
-  created: boolean; orderId: number; orderNumber: string; total: number;
+  created: boolean; orderId: number; orderNumber: string; total: number; shippingCost: number;
 };
 
 /**
@@ -64,7 +64,7 @@ export async function commitOnlineOrderAtomically(args: {
     if (previous) {
       if (previous.userId !== args.userId) throw new CheckoutRejected(409, 'Kunci checkout tidak valid');
       return { created: false, orderId: previous.id,
-        orderNumber: previous.orderNumber, total: Number(previous.total) };
+        orderNumber: previous.orderNumber, total: Number(previous.total), shippingCost: Number(previous.shippingCost) };
     }
 
     const [address] = await tx.select().from(addresses)
@@ -276,6 +276,6 @@ export async function commitOnlineOrderAtomically(args: {
       });
     }
     await tx.delete(cartItems).where(eq(cartItems.userId, args.userId));
-    return { created: true, orderId, orderNumber: args.orderNumber, total };
+    return { created: true, orderId, orderNumber: args.orderNumber, total, shippingCost: actualShippingCost };
   });
 }

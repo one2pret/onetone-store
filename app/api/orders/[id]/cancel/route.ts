@@ -7,6 +7,8 @@ import { getApiUser } from '@/lib/api-auth';
 import { restoreStock } from '@/lib/stock';
 import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { expireInvoice } from '@/lib/xendit';
+import { confirmSandboxVoucherCancellation } from '@/lib/checkout/confirm-sandbox-voucher-cancellation';
+import { SandboxWebhookRejected } from '@/lib/checkout/process-sandbox-webhook';
 import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 
 // POST /api/orders/[id]/cancel — cancel order by customer
@@ -35,10 +37,11 @@ export async function POST(
     const order = orderRows[0];
 
     if (order.voucherId != null && isSandboxOrder(order.orderNumber)) {
-      return NextResponse.json(
-        { success: false, error: 'Pembatalan voucher sandbox memerlukan konfirmasi invoice' },
-        { status: 409 },
-      );
+      const result = await confirmSandboxVoucherCancellation(order.id, user.id);
+      if (result.decision === 'conflict') {
+        return NextResponse.json({ success: false, code: 'manual_reconciliation_required' }, { status: 409 });
+      }
+      return NextResponse.json({ success: true, result: result.decision });
     }
 
     if (order.status !== 'waiting_payment') {
@@ -83,6 +86,9 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof SandboxWebhookRejected) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    }
     console.error('Cancel order error:', error);
     return NextResponse.json(
       { success: false, error: 'Gagal membatalkan order' },

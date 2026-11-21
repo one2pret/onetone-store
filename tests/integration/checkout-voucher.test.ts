@@ -4,12 +4,22 @@ import { createRequire } from 'node:module';
 import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql, { type Connection, type Pool } from 'mysql2/promise';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/lib/db/schema';
 import { commitOnlineOrderAtomically } from '@/lib/checkout/commit-online-order';
 import { settleConfirmedSandboxCancellation } from '@/lib/checkout/process-sandbox-webhook';
 import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
+
+import { POST as checkout } from '@/app/api/checkout/sandbox-order/route';
+import { POST as cancelOrder } from '@/app/api/orders/[id]/cancel/route';
+import { getApiUser } from '@/lib/api-auth';
+import { getSandboxInvoice, createInvoice } from '@/lib/xendit';
+import { loadTrustedCheckoutSelection } from '@/lib/checkout/fresh-quote-service';
+
+vi.mock('@/lib/api-auth', () => ({ getApiUser: vi.fn() }));
+vi.mock('@/lib/xendit', () => ({ createInvoice: vi.fn(), getSandboxInvoice: vi.fn(), expireInvoice: vi.fn() }));
+vi.mock('@/lib/checkout/fresh-quote-service', () => ({ loadTrustedCheckoutSelection: vi.fn() }));
 
 vi.mock('@/lib/db', () => ({
   get db() { return databaseClient; },
@@ -120,17 +130,18 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     });
     const invoiceId = `sandbox-invoice-${order.orderId}`;
     const amount = String(order.total);
-    await databaseClient.insert(schema.invoices).values({ orderId: order.orderId, xenditId: invoiceId, amount });
-    if (withLedger) await databaseClient.insert(schema.checkoutPaymentAttempts).values({
+    const [invoice] = await databaseClient.insert(schema.invoices).values({ orderId: order.orderId, xenditId: invoiceId, amount });
+    const [attempt] = withLedger ? await databaseClient.insert(schema.checkoutPaymentAttempts).values({
       orderId: order.orderId, attemptNo: 1, mode: 'sandbox', externalId: order.orderNumber,
       requestHash: '0'.repeat(64), xenditId: invoiceId, amount, status: 'ready',
-    });
+    }) : [];
     return {
       ...order,
-      cancel: (paidAmount: number | null = null) => settleConfirmedSandboxCancellation({
+      invoiceId,
+      cancel: (paidAmount: number | null = null, checkedAt = Date.now()) => settleConfirmedSandboxCancellation({
         id: invoiceId, orderNumber: order.orderNumber, amount: order.total,
         status: 'EXPIRED', paidAmount, paymentMethod: null, paymentChannel: null,
-      }),
+      }, { orderId: order.orderId, userId: data.id, invoiceId: invoice.insertId, attemptId: attempt?.insertId ?? 0, checkedAt }),
       callback: (status: 'PAID' | 'EXPIRED' | 'CANCELLED', externalId = order.orderNumber) =>
         handleSandboxInvoiceCallback({ id: invoiceId, external_id: externalId, amount: order.total, status }),
     };
@@ -145,6 +156,136 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
       logs: await databaseClient.select().from(schema.orderStatusLogs).where(eq(schema.orderStatusLogs.orderId, orderId)),
     };
   }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetAllMocks();
+  });
+
+  function enableUat(owner: number) {
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('CHECKOUT_SANDBOX_ORDER_ENABLED', 'true');
+    vi.stubEnv('CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED', 'true');
+    vi.stubEnv('CHECKOUT_SANDBOX_VOUCHER_ENABLED', 'true');
+    vi.stubEnv('XENDIT_SECRET_KEY', 'xnd_development_fixture');
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_test.fixture');
+    vi.stubEnv('BITSHIP_API_URL', 'https://api.biteship.com');
+    vi.mocked(getApiUser).mockResolvedValue({
+      id: owner, name: 'Fixture', email: 'fixture@example.test', phone: null, role: 'customer',
+    });
+  }
+
+  function checkoutRequest(data: Awaited<ReturnType<typeof fixture>>, key: string, voucherId = data.id) {
+    return new Request('http://localhost/api/checkout/sandbox-order', {
+      method: 'POST', headers: { 'idempotency-key': key },
+      body: JSON.stringify({
+        addressId: data.id, courierCompany: 'test', courierType: 'reg', courierPrice: 2000,
+        voucher: { id: voucherId, pointsToRedeem: 10 },
+      }),
+    });
+  }
+
+  it('checks out an eligible grant, creates one invoice on retry and redeems on PAID', async () => {
+    const data = await fixture({ type: 'free_shipping', value: 0 });
+    enableUat(data.id);
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    vi.mocked(createInvoice).mockResolvedValue({
+      id: 'uat-fixture-invoice', invoiceUrl: 'https://example.test/invoice', expiryDate: new Date(Date.now() + 3600_000).toISOString(),
+    });
+    const key = randomUUID();
+    const response = await checkout(checkoutRequest(data, key));
+    expect(response.status).toBe(201);
+    const { data: order } = await response.json();
+    expect(order).toMatchObject({ total: 19000, shippingCost: 0 });
+    expect(await (await checkout(checkoutRequest(data, key))).json())
+      .toMatchObject({ data: { orderId: order.orderId, repeatedRequest: true } });
+    expect((await checkout(checkoutRequest(data, key, data.id + 1))).status).toBe(409);
+    expect(createInvoice).toHaveBeenCalledTimes(1);
+    expect(loadTrustedCheckoutSelection).toHaveBeenCalledTimes(1);
+    const callback = await handleSandboxInvoiceCallback({
+      id: 'uat-fixture-invoice', external_id: order.orderNumber, amount: order.total, status: 'PAID',
+    });
+    expect(await callback.json()).toMatchObject({ result: 'paid' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
+    const retry = await checkout(checkoutRequest(data, key));
+    expect(await retry.json()).toMatchObject({ data: { paymentUrl: null } });
+  });
+
+  it('rejects voucher opt-in outside staging or without the TEST rate key and checks grant ownership', async () => {
+    const data = await fixture({}, false);
+    enableUat(data.id);
+    vi.stubEnv('APP_ENV', 'production');
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(404);
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_live.fixture');
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(404);
+    expect(loadTrustedCheckoutSelection).not.toHaveBeenCalled();
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_test.fixture');
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(422);
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
+
+  function providerInvoice(order: Awaited<ReturnType<typeof pendingInvoice>>) {
+    return {
+      id: order.invoiceId, externalId: order.orderNumber, amount: order.total,
+      expiryDate: new Date(86_400_000), status: 'EXPIRED' as const,
+      currency: 'IDR' as const, userId: 'test-merchant', merchantName: 'Fixture', merchantProfilePictureUrl: '',
+      invoiceUrl: 'https://example.test/invoice',
+    };
+  }
+
+  function cancellationRequest(orderId: number) {
+    return cancelOrder(new Request('http://localhost/api/orders/cancel', {
+      method: 'POST', body: JSON.stringify({ status: 'EXPIRED' }),
+    }), { params: Promise.resolve({ id: String(orderId) }) });
+  }
+
+  it('requires authenticated provider evidence and preserves a paid order that wins the race', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    enableUat(data.id + 1);
+    expect((await cancellationRequest(order.orderId)).status).toBe(404);
+    expect(getSandboxInvoice).not.toHaveBeenCalled();
+    enableUat(data.id);
+    vi.mocked(getSandboxInvoice).mockRejectedValueOnce(new Error('provider timeout'));
+    expect((await cancellationRequest(order.orderId)).status).toBe(503);
+    vi.mocked(getSandboxInvoice).mockResolvedValueOnce({ ...providerInvoice(order), status: 'PENDING' });
+    expect((await cancellationRequest(order.orderId)).status).toBe(409);
+    vi.mocked(getSandboxInvoice).mockResolvedValueOnce({ ...providerInvoice(order), id: 'different-invoice' });
+    expect((await cancellationRequest(order.orderId)).status).toBe(409);
+    expect((await state(data)).grants).toMatchObject([{ status: 'reserved' }]);
+
+    vi.mocked(getSandboxInvoice).mockImplementationOnce(async () => {
+      expect(await (await order.callback('PAID')).json()).toMatchObject({ result: 'paid' });
+      return providerInvoice(order);
+    });
+    expect(await (await cancellationRequest(order.orderId)).json())
+      .toMatchObject({ code: 'manual_reconciliation_required' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'redeemed' }]);
+  });
+
+  it('settles provider-confirmed expiry once across parallel cancellation requests', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    enableUat(data.id);
+    const before = await webhookState(data, order.orderId);
+    await expect(order.cancel(null, Date.now() - 31_000)).rejects.toMatchObject({ status: 409 });
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+    vi.mocked(getSandboxInvoice).mockResolvedValue(providerInvoice(order));
+    const bodies = await Promise.all([cancellationRequest(order.orderId), cancellationRequest(order.orderId)])
+      .then(responses => Promise.all(responses.map(response => response.json())));
+    expect(bodies.map(body => body.result).sort()).toEqual(['cancelled', 'duplicate']);
+    expect(await (await order.callback('PAID')).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.membership).toMatchObject([{ points: 20 }]);
+    expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(1);
+    expect(saved.grants).toMatchObject([{ status: 'available' }]);
+  });
 
   it.each([
     ['PAID', 'paid', 'EXPIRED', 'redeemed', 'packing', 2],

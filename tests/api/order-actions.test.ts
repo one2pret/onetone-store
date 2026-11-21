@@ -60,7 +60,7 @@ vi.mock('@/lib/xendit', () => ({
   })),
 }));
 
-import { expireInvoice } from '@/lib/xendit';
+import { createInvoice, expireInvoice } from '@/lib/xendit';
 import { restoreStock } from '@/lib/stock';
 import { POST as cancel } from '@/app/api/orders/[id]/cancel/route';
 import { POST as repay } from '@/app/api/orders/[id]/repay/route';
@@ -104,7 +104,7 @@ describe('Order Action APIs', () => {
         makeParams('1'),
       );
 
-      expect(response.status).toBe(409);
+      expect(response.status).toBe(404);
       expect(expireInvoice).not.toHaveBeenCalled();
       expect(restoreStock).not.toHaveBeenCalled();
     });
@@ -145,6 +145,20 @@ describe('Order Action APIs', () => {
   });
 
   describe('POST /api/orders/[id]/repay', () => {
+    it('blocks repayment for a sandbox voucher order before calling the provider', async () => {
+      mockSelectReturn.mockReturnValueOnce([{ ...sampleOrder,
+        orderNumber: 'SBX-voucher', voucherId: 42, status: 'expired',
+      }]);
+
+      const response = await repay(
+        makeRequest('http://localhost/api/orders/1/repay', { method: 'POST' }),
+        makeParams('1'),
+      );
+
+      expect(response.status).toBe(409);
+      expect(createInvoice).not.toHaveBeenCalled();
+    });
+
     it('creates new invoice for expired order', async () => {
       mockSelectReturn
         .mockReturnValueOnce([{ ...sampleOrder, status: 'expired', orderNumber: 'ORD001', total: '1000000' }])

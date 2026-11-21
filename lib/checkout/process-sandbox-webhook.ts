@@ -23,22 +23,27 @@ function stockKey(productId: number, variantId: number | null): string {
  * All stock restoration, invoice/order status and history are one transaction.
  */
 export function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Promise<ProcessResult> {
-  return settleSandboxInvoice(event, false);
+  return settleSandboxInvoice(event);
 }
+
+type CancellationEvidenceTarget = {
+  orderId: number; userId: number; invoiceId: number; attemptId: number; checkedAt: number;
+};
 
 /** Internal command for a trusted caller with confirmed provider expiry.
  * A raw callback or customer cancellation request cannot invoke this command.
  */
 export function settleConfirmedSandboxCancellation(
   evidence: SandboxInvoiceEvent & { status: 'EXPIRED' },
+  target: CancellationEvidenceTarget,
 ): Promise<ProcessResult> {
   if (evidence.status !== 'EXPIRED' || (evidence.paidAmount !== null && evidence.paidAmount !== 0)) {
     throw new SandboxWebhookRejected(409, 'Sandbox cancellation requires confirmed invoice expiry');
   }
-  return settleSandboxInvoice(evidence, true);
+  return settleSandboxInvoice(evidence, target);
 }
 
-async function settleSandboxInvoice(event: SandboxInvoiceEvent, cancel: boolean): Promise<ProcessResult> {
+async function settleSandboxInvoice(event: SandboxInvoiceEvent, cancel?: CancellationEvidenceTarget): Promise<ProcessResult> {
   return db.transaction(async tx => {
     const [invoice] = await tx.select().from(invoices)
       .where(eq(invoices.xenditId, event.id)).for('update').limit(1);
@@ -86,8 +91,13 @@ async function settleSandboxInvoice(event: SandboxInvoiceEvent, cancel: boolean)
       throw new SandboxWebhookRejected(503, 'Payment attempt identity mismatch');
     }
 
-    if (cancel && (order.voucherId === null || !ledger)) {
-      throw new SandboxWebhookRejected(409, 'Atomic sandbox cancellation requires a voucher order and payment attempt');
+    if (cancel) {
+      const evidenceAge = Date.now() - cancel.checkedAt;
+      if (order.voucherId === null || !ledger || evidenceAge < 0 || evidenceAge > 30_000 ||
+          !Number.isFinite(evidenceAge) || order.id !== cancel.orderId || order.userId !== cancel.userId ||
+          invoice.id !== cancel.invoiceId || ledger.id !== cancel.attemptId) {
+        throw new SandboxWebhookRejected(409, 'Sandbox cancellation evidence requires reconciliation');
+      }
     }
 
     const pendingDecision = sandboxPaymentDecision(event.status, invoice.status, order.status);

@@ -1,6 +1,6 @@
-# Atomic Voucher Checkout v0.3
+# Atomic Voucher Checkout v0.4
 
-**Kernel sandbox mendukung PAID, EXPIRED, dan pembatalan internal dengan bukti expiry. Aktivasi endpoint tetap diblokir.**
+**Kernel dan jalur opt-in staging tersedia untuk review. Aktivasi UAT menunggu CI pada commit integrasi dan persetujuan operator.**
 
 Pemanggil server dapat memilih `benefits: { kind: 'voucher-membership-v1', voucherId, pointsToRedeem }`. Kernel menghitung subtotal dari cart dan harga yang dikunci, mencocokkan snapshot cart dan alamat dari pemanggil, lalu mengambil nilai dan aturan diskon dari database. Voucher dan grant dikunci sebelum reservasi. Order, grant, stok, ledger poin, pengiriman, dan cart ditulis dalam satu transaksi. Retry dengan nomor order yang sama mengembalikan hasil tersimpan.
 
@@ -27,19 +27,26 @@ Pada jalur SBX, `orders.voucher_id` mengidentifikasi order opt-in. Invoice dan p
 | PAID setelah EXPIRED atau EXPIRED setelah PAID | Pertahankan keputusan terminal dan kembalikan `manual_reconciliation_required`. |
 | Reservasi hilang atau tidak konsisten | Kembalikan HTTP 503 untuk retry dan rekonsiliasi. Perubahan invoice, order, stok, grant, log, dan payment attempt dibatalkan bersama. |
 | Pembatalan internal terkonfirmasi | `settleConfirmedSandboxCancellation` memerlukan order voucher SBX, satu payment attempt yang cocok, dan bukti invoice provider `EXPIRED` dari pemanggil tepercaya. Order dan invoice lokal menjadi `cancelled`. Ledger provider menjadi `expired` karena invoice provider telah kedaluwarsa. Replay pembatalan hanya dianggap duplikat jika ketiga status terminal konsisten. |
-| Callback mentah CANCELLED | Parser tetap mengabaikannya. Aksi pembatalan web memblokir SBX dan API pembatalan legacy menolak order voucher SBX sebelum akses provider atau perubahan stok. |
+| Callback mentah CANCELLED | Parser tetap mengabaikannya. Aksi pembatalan web memblokir SBX dan API pembatalan order voucher SBX menggunakan pembacaan invoice TEST untuk memastikan expiry. API bayar ulang legacy menolak order voucher SBX dan mengarahkan kasus ke rekonsiliasi. |
 | Pemulihan poin | Pada EXPIRED atau pembatalan voucher, cocokkan pemilik membership, nilai negatif debit `order_redeem`, dan jumlah poin pada order. Kredit dari debit aktual dicatat sekali sebagai `order_voucher_restore`. Debit hilang, tidak cocok, ganda, atau refund sebelumnya pada order yang masih pending memerlukan rekonsiliasi. Order tanpa debit tidak menerima kredit. |
 
 Checkout sandbox legacy dan membership-points tanpa voucher tetap memakai perilaku sebelumnya. Pada PAID, debit poin dipertahankan. Pembatalan, pemulihan stok, status invoice dan order, grant, kredit poin, log, serta payment attempt memakai transaksi yang sama.
 
-## Checklist sebelum aktivasi
+## Aktivasi staging setelah review
 
-- Review dan luluskan pemeriksaan PR pada commit yang ditinjau.
-- Pertahankan opt-in voucher di luar semua endpoint checkout. Kernel hanya memilih voucher jika pemanggil server memberi opsi secara eksplisit.
-- Sebelum UAT staging, review dan setujui pemanggil pembatalan internal yang mencocokkan bukti expiry provider dengan invoice. Tangani race antara respons expiry dan webhook serta hasil `conflict` atau HTTP 503. Belum ada pemanggil runtime untuk perintah pembatalan ini.
-- Jalankan skenario PAID, EXPIRED, pembatalan, replay, konflik, dan refund pada data UAT yang disetujui setelah integrasi pemanggil. Catat status invoice, order, grant, saldo stok, dan entri ledger poin.
-- Pertahankan kuota global, `firstOrderOnly`, dan POS di luar cakupan voucher opt-in.
+Operator yang berwenang dapat menyiapkan runtime staging secara terpisah setelah CI lulus. Pastikan `APP_ENV=staging`, kunci invoice Xendit TEST dengan scope baca dan pembuatan invoice, serta callback TEST yang terautentikasi. Checkout voucher memakai jalur tarif existing dengan `BITSHIP_API_KEY` berformat TEST dan origin `https://api.biteship.com`. Akses pembuatan shipment tidak diperlukan.
+
+Flag baru `CHECKOUT_SANDBOX_VOUCHER_ENABLED` efektif hanya jika nilainya `true` dan kedua flag sandbox existing juga aktif, yaitu `CHECKOUT_SANDBOX_ORDER_ENABLED` dan `CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED`. Nilai contoh adalah `false`. Untuk UAT yang disetujui, berikan flag voucher hanya pada runtime staging. Workflow yang sudah ada membaca konfigurasi aplikasi dari `ENV_TEST` dan mengelola kedua flag sandbox existing melalui variabel staging. Pertahankan flag voucher OFF di semua runtime lain dan pertahankan booking OFF.
+
+### Checklist UAT
+
+- Siapkan akun dan grant TEST milik akun yang sama, SKU dengan stok uji, dan alamat uji. Rekam saldo stok dan poin awal.
+- Kirim checkout sandbox dengan `Idempotency-Key` UUID dan `voucher: { id, pointsToRedeem }`. Verifikasi nominal dari server, status grant `reserved`, dan satu payment attempt. Ulangi request dengan kunci sama. Perubahan pilihan voucher atau poin dengan kunci sama harus menghasilkan 409.
+- Selesaikan satu invoice TEST dan verifikasi `PAID`, grant `redeemed`, serta replay tanpa efek tambahan. Ulangi checkout dengan kunci sama dan periksa bahwa tautan invoice terminal disembunyikan.
+- Pada order terpisah tunggu invoice provider kedaluwarsa. Pembatalan voucher pada `POST /api/orders/{id}/cancel` memakai GET invoice yang terautentikasi. Jika webhook EXPIRED sudah menang, respons pembatalan mengarahkan ke rekonsiliasi dan status terminal tetap tercatat. Jika pembatalan menang, status lokal menjadi `cancelled`. Verifikasi stok kembali, grant dilepas atau kedaluwarsa sesuai kebijakan, dan poin dipulihkan sekali.
+- Uji invoice aktif, identitas salah, dan provider tidak tersedia. Pastikan tidak ada perubahan saldo, stok, atau grant. Bukti dari permintaan checkout atau cancel pelanggan tidak menentukan status invoice. Umur bukti maksimal 30 detik sejak lookup dimulai sampai verifikasi di bawah lock.
+- Kosongkan antrean order TEST pending sebelum menutup UAT. Simpan bukti yang sudah disamarkan.
 
 ## Rollback
 
-Untuk kode yang belum diaktifkan, revert commit v0.3 pada branch fitur. Perubahan ini menggunakan skema yang sudah tersedia. Jika fitur suatu hari sudah dipakai, hentikan penerimaan order voucher baru terlebih dahulu dan rekonsiliasi order pending atau ambigu menggunakan bukti provider sebelum rollback. Pertahankan baris order, voucher, stok, dan ledger poin agar replay tetap dapat ditelusuri.
+Matikan flag voucher staging untuk mencegah checkout voucher baru dan menonaktifkan perintah pembatalan internal dari API. Pertahankan jalur webhook sandbox dan ledger selama rekonsiliasi invoice pending. Setelah pending dan konflik direkonsiliasi, revert commit integrasi bila diperlukan. Simpan baris order, voucher, stok, invoice dan poin. Perubahan menggunakan skema yang sudah tersedia.
