@@ -6,6 +6,7 @@ import {
 } from '@/lib/db/schema';
 import { sandboxPaymentDecision, type SandboxInvoiceEvent } from './sandbox-xendit-webhook';
 import { sandboxLedgerWebhookTransition } from './sandbox-ledger-webhook-policy';
+import { CheckoutVoucherError, settleCheckoutVoucher } from './transactional-voucher';
 
 export class SandboxWebhookRejected extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -207,6 +208,20 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
         status: 'expired',
         expiredAt: sql.raw('NOW()'),
       }).where(eq(orders.id, order.id));
+    }
+
+    // SBX orders with a voucher ID carry the atomic checkout opt-in.
+    // Duplicate/conflicting events return earlier, even if the grant was reused.
+    if (order.voucherId !== null) {
+      try {
+        await settleCheckoutVoucher(tx, {
+          orderId: order.id, userId: order.userId, voucherId: order.voucherId,
+          subtotal: Number(order.subtotal), outcome: decision === 'pay' ? 'paid' : 'expired',
+        });
+      } catch (error) {
+        if (error instanceof CheckoutVoucherError) throw new SandboxWebhookRejected(503, error.message);
+        throw error;
+      }
     }
 
     await tx.insert(orderStatusLogs).values({

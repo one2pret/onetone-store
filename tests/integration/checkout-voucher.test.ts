@@ -7,6 +7,7 @@ import mysql, { type Connection, type Pool } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/lib/db/schema';
 import { commitOnlineOrderAtomically } from '@/lib/checkout/commit-online-order';
+import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
 
 vi.mock('@/lib/db', () => ({
@@ -106,6 +107,180 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
       movements: await db.select().from(schema.inventoryMovements).where(inArray(schema.inventoryMovements.productId, productIds)),
     };
   }
+
+  async function pendingInvoice(
+    data: Awaited<ReturnType<typeof fixture>>,
+    benefits: Parameters<typeof commitOnlineOrderAtomically>[0]['benefits'] = data.args.benefits,
+    withLedger = true,
+  ) {
+    const order = await commitOnlineOrderAtomically({
+      ...data.args, orderNumber: 'SBX-' + randomUUID().replaceAll('-', '').padStart(36, '0'),
+      benefits,
+    });
+    const invoiceId = `sandbox-invoice-${order.orderId}`;
+    const amount = String(order.total);
+    await databaseClient.insert(schema.invoices).values({ orderId: order.orderId, xenditId: invoiceId, amount });
+    if (withLedger) await databaseClient.insert(schema.checkoutPaymentAttempts).values({
+      orderId: order.orderId, attemptNo: 1, mode: 'sandbox', externalId: order.orderNumber,
+      requestHash: '0'.repeat(64), xenditId: invoiceId, amount, status: 'ready',
+    });
+    return {
+      ...order,
+      callback: (status: 'PAID' | 'EXPIRED' | 'CANCELLED', externalId = order.orderNumber) =>
+        handleSandboxInvoiceCallback({ id: invoiceId, external_id: externalId, amount: order.total, status }),
+    };
+  }
+
+  async function webhookState(data: Awaited<ReturnType<typeof fixture>>, orderId: number) {
+    return {
+      ...await state(data),
+      invoices: await databaseClient.select().from(schema.invoices).where(eq(schema.invoices.orderId, orderId)),
+      attempts: await databaseClient.select().from(schema.checkoutPaymentAttempts)
+        .where(eq(schema.checkoutPaymentAttempts.orderId, orderId)),
+      logs: await databaseClient.select().from(schema.orderStatusLogs).where(eq(schema.orderStatusLogs.orderId, orderId)),
+    };
+  }
+
+  it.each([
+    ['PAID', 'paid', 'EXPIRED', 'redeemed', 'packing', 2],
+    ['EXPIRED', 'expired', 'PAID', 'available', 'expired', 3],
+  ] as const)('settles %s once and preserves the terminal outcome on conflict', async (
+    status, result, conflict, grantStatus, orderStatus, stock,
+  ) => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    expect(await (await order.callback(status)).json()).toMatchObject({ result });
+    const settled = await webhookState(data, order.orderId);
+    expect(settled.grants).toMatchObject([{
+      status: grantStatus, reservedOrderId: status === 'PAID' ? order.orderId : null,
+      redeemedOrderId: status === 'PAID' ? order.orderId : null,
+    }]);
+    expect(settled.orders).toMatchObject([{ status: orderStatus }]);
+    expect(settled.invoices).toMatchObject([{ status: result }]);
+    expect(settled.attempts).toMatchObject([{ status: result }]);
+    expect(settled.logs).toHaveLength(1);
+    expect(settled.stock.map(row => row.quantity)).toEqual([stock, stock]);
+    expect(await (await order.callback(status)).json()).toMatchObject({ result: 'duplicate' });
+    expect(await (await order.callback(conflict)).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    expect(await webhookState(data, order.orderId)).toEqual(settled);
+  });
+
+  it('serializes concurrent PAID and EXPIRED callbacks to one terminal result', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const bodies = await Promise.all([order.callback('PAID'), order.callback('EXPIRED')])
+      .then(responses => Promise.all(responses.map(response => response.json())));
+    const settled = await webhookState(data, order.orderId);
+    const paid = settled.invoices[0].status === 'paid';
+    expect(bodies[paid ? 0 : 1]).toMatchObject({ result: paid ? 'paid' : 'expired' });
+    expect(bodies[paid ? 1 : 0]).toMatchObject({ code: 'manual_reconciliation_required' });
+    expect(settled.logs).toHaveLength(1);
+    expect(settled.grants).toMatchObject([{ status: paid ? 'redeemed' : 'available' }]);
+    expect(settled.movements.filter(row => row.type === 'return')).toHaveLength(paid ? 0 : 2);
+  });
+
+  it('preserves a newer reservation when the old EXPIRED callback is replayed', async () => {
+    const data = await fixture();
+    const first = await pendingInvoice(data);
+    await first.callback('EXPIRED');
+    await databaseClient.insert(schema.cartItems).values(data.productIds.map(productId => ({
+      userId: data.id, productId,
+    })));
+    const second = await pendingInvoice(data);
+    expect(await (await first.callback('EXPIRED')).json()).toMatchObject({ result: 'duplicate' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'reserved', reservedOrderId: second.orderId }]);
+  });
+
+  it('blocks wrong order, wrong owner, and inconsistent or missing reservations', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const other = await fixture();
+    const otherOrder = await pendingInvoice(other);
+    const before = await webhookState(data, order.orderId);
+    expect((await order.callback('PAID', otherOrder.orderNumber)).status).toBe(409);
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+
+    const grant = eq(schema.userVouchers.id, data.id);
+    const otherBefore = await webhookState(other, otherOrder.orderId);
+    for (const patch of [
+      { reservedOrderId: otherOrder.orderId },
+      { userId: other.id },
+      { userId: data.id, reservedOrderId: null },
+    ]) {
+      await databaseClient.update(schema.userVouchers).set(patch).where(grant);
+      const inconsistent = await webhookState(data, order.orderId);
+      const response = await order.callback('EXPIRED');
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ error: 'Voucher reservation requires reconciliation' });
+      expect(await webhookState(data, order.orderId)).toEqual(inconsistent);
+    }
+    expect(await webhookState(other, otherOrder.orderId)).toEqual(otherBefore);
+  });
+
+  it.each(['campaign expiry', 'grant expiry', 'disabled campaign', 'tier change'] as const)(
+    'does not return the grant to available after %s', async policy => {
+      const data = await fixture({ tierId: 1 });
+      const order = await pendingInvoice(data);
+      const campaign = eq(schema.vouchers.id, data.id);
+      const past = new Date(86_400_000);
+      if (policy === 'campaign expiry') await databaseClient.update(schema.vouchers).set({ endsAt: past }).where(campaign);
+      if (policy === 'disabled campaign') await databaseClient.update(schema.vouchers).set({ isActive: false }).where(campaign);
+      if (policy === 'grant expiry') await databaseClient.update(schema.userVouchers).set({ expiresAt: past })
+        .where(eq(schema.userVouchers.id, data.id));
+      if (policy === 'tier change') await databaseClient.insert(schema.memberTiers).values({ id: data.id, name: 'Changed tier' })
+        .then(() => databaseClient.update(schema.vouchers).set({ tierId: data.id }).where(campaign));
+      expect(await (await order.callback('EXPIRED')).json()).toMatchObject({ result: 'expired' });
+      expect((await state(data)).grants).toMatchObject([{ status: 'expired', reservedOrderId: null }]);
+    },
+  );
+
+  it('honors the reserved discount on PAID after the grant expires', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    await databaseClient.update(schema.userVouchers).set({ expiresAt: new Date(86_400_000) })
+      .where(eq(schema.userVouchers.id, data.id));
+    expect(await (await order.callback('PAID')).json()).toMatchObject({ result: 'paid' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
+  });
+
+  it.each(['PAID', 'EXPIRED'] as const)('rolls back the full %s transaction on a late ledger DB failure', async status => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const before = await webhookState(data, order.orderId);
+    await admin.query(`CREATE TRIGGER reject_fixture_settlement BEFORE UPDATE ON checkout_payment_attempts
+      FOR EACH ROW BEGIN IF NEW.order_id = ${order.orderId} THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture ledger failure';
+      END IF; END`);
+    try {
+      expect((await order.callback(status)).status).toBe(503);
+      expect(await webhookState(data, order.orderId)).toEqual(before);
+    } finally {
+      await admin.query('DROP TRIGGER reject_fixture_settlement');
+    }
+    expect(await (await order.callback(status)).json()).toMatchObject({ result: status.toLowerCase() });
+  });
+
+  it('keeps a voucher reservation intact on an unsupported CANCELLED callback', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const before = await webhookState(data, order.orderId);
+    expect(await (await order.callback('CANCELLED')).json()).toMatchObject({
+      message: 'Unsupported sandbox invoice status ignored',
+    });
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+  });
+
+  it('preserves the existing membership-only EXPIRED behavior', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data, { kind: 'membership-points-v1', pointsToRedeem: 10 }, false);
+    const before = await webhookState(data, order.orderId);
+    expect(await (await order.callback('EXPIRED')).json()).toMatchObject({ result: 'expired' });
+    const settled = await webhookState(data, order.orderId);
+    expect(settled.grants).toEqual(before.grants);
+    expect(settled.membership).toEqual(before.membership);
+    expect(settled.ledger).toEqual(before.ledger);
+    expect(settled.stock.map(row => row.quantity)).toEqual([3, 3]);
+  });
 
   it('persists the server discount, reserves once, debits points and clears the cart', async () => {
     const data = await fixture({ tierId: 1 });

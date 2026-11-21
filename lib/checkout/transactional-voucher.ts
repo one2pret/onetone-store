@@ -19,27 +19,15 @@ export async function loadCheckoutVoucher(
     eq(userVouchers.userId, args.userId), eq(userVouchers.voucherId, args.voucherId),
   )).for('update').limit(1);
   const now = new Date();
-  if (!voucher || voucher.isActive !== true || voucher.archivedAt ||
-      voucher.audience !== 'new_user' || voucher.quota !== null ||
-      voucher.maxUsesPerUser !== 1 || voucher.firstOrderOnly || voucher.storeId !== null ||
-      (voucher.startsAt && now < voucher.startsAt) ||
-      (voucher.endsAt && now > voucher.endsAt) ||
-      !Number.isSafeInteger(voucher.minSpend ?? 0) || (voucher.minSpend ?? 0) < 0 ||
-      args.subtotal < (voucher.minSpend ?? 0) ||
-      !Number.isSafeInteger(voucher.value ?? 0) || (voucher.value ?? 0) < 0 ||
-      (voucher.type === 'percent' && (voucher.value ?? 0) > 100)) {
+  if (!voucher || !isSupportedVoucher(voucher, args.subtotal, now)) {
     throw new CheckoutVoucherError('Voucher tidak tersedia atau kebijakannya belum didukung');
   }
   if (!grant || grant.status !== 'available' || grant.reservedOrderId !== null ||
-      grant.redeemedOrderId !== null ||
-      (voucher.validDaysAfterGrant !== null && grant.expiresAt === null) ||
-      (grant.expiresAt && now > grant.expiresAt)) {
+      grant.redeemedOrderId !== null || !isGrantCurrent(grant, voucher, now)) {
     throw new CheckoutVoucherError('Voucher tidak dimiliki, kedaluwarsa, atau sudah digunakan');
   }
-  if (voucher.tierId !== null) {
-    const [member] = await tx.select({ tierId: memberships.tierId }).from(memberships)
-      .where(eq(memberships.userId, args.userId)).for('update').limit(1);
-    if (!member || member.tierId < voucher.tierId) throw new CheckoutVoucherError('Tier tidak memenuhi syarat');
+  if (!await meetsVoucherTier(tx, args.userId, voucher.tierId)) {
+    throw new CheckoutVoucherError('Tier tidak memenuhi syarat');
   }
   return {
     voucherId: voucher.id, grantId: grant.id,
@@ -58,4 +46,66 @@ export async function reserveCheckoutVoucher(tx: CheckoutTransaction, args: {
     eq(userVouchers.status, 'available'), isNull(userVouchers.reservedOrderId),
     isNull(userVouchers.redeemedOrderId)));
   if (result.affectedRows !== 1) throw new CheckoutVoucherError('Voucher sudah digunakan');
+}
+
+function isSupportedVoucher(voucher: typeof vouchers.$inferSelect, subtotal: number, now: Date) {
+  const minSpend = voucher.minSpend ?? 0;
+  const value = voucher.value ?? 0;
+  return voucher.isActive === true && !voucher.archivedAt &&
+    voucher.audience === 'new_user' && voucher.quota === null &&
+    voucher.maxUsesPerUser === 1 && !voucher.firstOrderOnly && voucher.storeId === null &&
+    (!voucher.startsAt || now >= voucher.startsAt) && (!voucher.endsAt || now <= voucher.endsAt) &&
+    Number.isSafeInteger(minSpend) && minSpend >= 0 && subtotal >= minSpend &&
+    Number.isSafeInteger(value) && value >= 0 && (voucher.type !== 'percent' || value <= 100);
+}
+
+function isGrantCurrent(
+  grant: Pick<typeof userVouchers.$inferSelect, 'expiresAt'>,
+  voucher: Pick<typeof vouchers.$inferSelect, 'validDaysAfterGrant'>,
+  now: Date,
+) {
+  return grant.expiresAt ? now <= grant.expiresAt : voucher.validDaysAfterGrant === null;
+}
+
+async function meetsVoucherTier(tx: CheckoutTransaction, userId: number, tierId: number | null) {
+  if (tierId === null) return true;
+  const [member] = await tx.select({ tierId: memberships.tierId }).from(memberships)
+    .where(eq(memberships.userId, userId)).for('update').limit(1);
+  return !!member && member.tierId >= tierId;
+}
+
+/** Apply a fresh, identity-checked terminal invoice transition with the order locked. */
+export async function settleCheckoutVoucher(tx: CheckoutTransaction, args: {
+  orderId: number; userId: number | null; voucherId: number; subtotal: number;
+  outcome: 'paid' | 'expired';
+}) {
+  const { orderId, userId, voucherId, subtotal, outcome } = args;
+  if (userId === null) throw new CheckoutVoucherError('Voucher reservation requires reconciliation');
+
+  const [voucher] = await tx.select().from(vouchers)
+    .where(eq(vouchers.id, voucherId)).for('update').limit(1);
+  const owner = and(eq(userVouchers.userId, userId), eq(userVouchers.voucherId, voucherId));
+  const [grant] = await tx.select().from(userVouchers).where(owner).for('update').limit(1);
+  if (!voucher || !grant || grant.status !== 'reserved' || grant.reservedOrderId !== orderId ||
+      !grant.reservedAt || grant.redeemedOrderId !== null || grant.redeemedAt !== null) {
+    throw new CheckoutVoucherError('Voucher reservation requires reconciliation');
+  }
+
+  let reusable = false;
+  if (outcome === 'expired') {
+    const meetsTier = await meetsVoucherTier(tx, userId, voucher.tierId);
+    const now = new Date();
+    reusable = meetsTier && isSupportedVoucher(voucher, subtotal, now) &&
+      isGrantCurrent(grant, voucher, now);
+  }
+
+  // A paid invoice settles the original discount even if the grant later expired.
+  const update = outcome === 'paid'
+    ? { status: 'redeemed' as const, redeemedOrderId: orderId, redeemedAt: new Date() }
+    : { status: reusable ? 'available' as const : 'expired' as const, reservedOrderId: null, reservedAt: null };
+  const [updated] = await tx.update(userVouchers).set(update).where(and(
+    owner, eq(userVouchers.id, grant.id), eq(userVouchers.status, 'reserved'),
+    eq(userVouchers.reservedOrderId, orderId), isNull(userVouchers.redeemedOrderId),
+  ));
+  if (updated.affectedRows !== 1) throw new CheckoutVoucherError('Voucher reservation requires reconciliation');
 }
