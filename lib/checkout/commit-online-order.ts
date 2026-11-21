@@ -6,6 +6,8 @@ import {
 } from '@/lib/db/schema';
 import { resolveProductPrice } from '@/lib/product-pricing';
 import { checkoutSnapshotDigest } from './order-snapshot';
+import { calculateCheckoutBusinessTotals, CheckoutBusinessTotalsError } from './business-totals';
+import { loadLockedCheckoutMembership, debitCheckoutMembershipPoints } from './transactional-membership-points';
 
 export class CheckoutRejected extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -14,6 +16,12 @@ export class CheckoutRejected extends Error {
 type SelectedShipping = {
   courierName: string; courierCompany: string; courierType: string; price: number;
 };
+/** Explicitly opted-in financial scope; vouchers and affiliates remain a later PR. */
+export type CheckoutMemberPointsSelection = {
+  kind: 'membership-points-v1';
+  pointsToRedeem: number;
+};
+
 export type CommittedOrder = {
   created: boolean; orderId: number; orderNumber: string; total: number;
 };
@@ -24,10 +32,11 @@ export type CommittedOrder = {
  * For now this function is used ONLY by the existing staging sandbox order
  * route through its backwards-compatible commitSandboxOrder export.
  *
- * NOT production-ready: legacy web checkout still has vouchers, points,
- * memberships and affiliate effects that are outside this transaction.
- * Do not wire production routes to this function until those rules and
- * payment reconciliation have been reviewed and integration-tested.
+ * NOT production-ready: legacy web checkout still has voucher/affiliate effects
+ * and payment recovery outside this transaction. An OPTIONAL membership-points
+ * scope can be requested by an explicitly reviewed future staging caller.
+ * Existing sandbox callers omit it and retain their original behavior.
+ * Do not wire production routes to this function before end-to-end signoff.
  *
  * Never calls Xendit or Biteship inside the DB transaction.
  */
@@ -38,6 +47,7 @@ export async function commitOnlineOrderAtomically(args: {
   snapshot: string;
   shipping: SelectedShipping;
   notes?: string | null;
+  benefits?: CheckoutMemberPointsSelection;
 }): Promise<CommittedOrder> {
   return db.transaction(async tx => {
     // Lock user to serialize retries with the same or different keys.
@@ -127,18 +137,56 @@ export async function commitOnlineOrderAtomically(args: {
     if (!location) throw new CheckoutRejected(422, 'Gudang Online belum dikonfigurasi');
 
     const subtotal = lines.reduce((sum, line) => sum + line.price.finalPrice * line.quantity, 0);
-    const total = subtotal + args.shipping.price;
+    let total = subtotal + args.shipping.price;
+    let actualShippingCost = args.shipping.price;
+    let lockedMember: Awaited<ReturnType<typeof loadLockedCheckoutMembership>> = null;
+    let pointsToRedeem = 0;
+    if (args.benefits !== undefined) {
+      // Deliberately reject unsupported benefits instead of silently dropping
+      // a caller's voucher, affiliate, or future discount policy.
+      const selection = args.benefits;
+      if (!selection || selection.kind !== 'membership-points-v1' ||
+          Object.keys(selection).some(key => key !== 'kind' && key !== 'pointsToRedeem')) {
+        throw new CheckoutRejected(422, 'Jenis keuntungan checkout belum didukung');
+      }
+      lockedMember = await loadLockedCheckoutMembership(tx, args.userId);
+      try {
+        const financial = calculateCheckoutBusinessTotals({
+          subtotal,
+          quotedShippingCost: args.shipping.price,
+          voucher: null,
+          tierFreeShippingThreshold: lockedMember?.freeShippingThreshold ?? null,
+          pointsToRedeem: selection.pointsToRedeem,
+          availablePoints: lockedMember?.points ?? null,
+        });
+        total = financial.total;
+        actualShippingCost = financial.shippingCost;
+        pointsToRedeem = financial.pointsRedeemed;
+      } catch (error) {
+        if (error instanceof CheckoutBusinessTotalsError) {
+          throw new CheckoutRejected(422, 'Poin, tier, atau nilai pembayaran tidak valid: ' + error.code);
+        }
+        throw error;
+      }
+    }
     if (!Number.isSafeInteger(total) || total <= 0) throw new CheckoutRejected(422, 'Total tidak valid');
 
     const [inserted] = await tx.insert(orders).values({
       userId: args.userId, orderNumber: args.orderNumber,
       channel: 'online', status: 'waiting_payment',
-      subtotal: String(subtotal), shippingCost: String(args.shipping.price),
+      subtotal: String(subtotal), shippingCost: String(actualShippingCost),
+      pointsRedeemed: pointsToRedeem,
       total: String(total), willExpiredAt: sql.raw('NOW() + INTERVAL 24 HOUR'),
       shippingName: address.recipientName, shippingPhone: address.phone,
       shippingAddress: address.address, notes: args.notes || null,
     });
     const orderId = Number(inserted.insertId);
+    if (pointsToRedeem > 0) {
+      if (!lockedMember) throw new CheckoutRejected(409, 'Akun membership tidak ditemukan');
+      await debitCheckoutMembershipPoints(tx, {
+        membershipId: lockedMember.id, orderId, points: pointsToRedeem,
+      });
+    }
     await tx.insert(orderItems).values(lines.map(line => ({
       orderId, productId: line.productId, variantId: line.variantId,
       productName: line.productName, productImage: line.image,
