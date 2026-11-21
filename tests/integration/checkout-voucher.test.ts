@@ -7,6 +7,7 @@ import mysql, { type Connection, type Pool } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/lib/db/schema';
 import { commitOnlineOrderAtomically } from '@/lib/checkout/commit-online-order';
+import { settleConfirmedSandboxCancellation } from '@/lib/checkout/process-sandbox-webhook';
 import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
 
@@ -126,6 +127,10 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     });
     return {
       ...order,
+      cancel: (paidAmount: number | null = null) => settleConfirmedSandboxCancellation({
+        id: invoiceId, orderNumber: order.orderNumber, amount: order.total,
+        status: 'EXPIRED', paidAmount, paymentMethod: null, paymentChannel: null,
+      }),
       callback: (status: 'PAID' | 'EXPIRED' | 'CANCELLED', externalId = order.orderNumber) =>
         handleSandboxInvoiceCallback({ id: invoiceId, external_id: externalId, amount: order.total, status }),
     };
@@ -159,6 +164,9 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     expect(settled.invoices).toMatchObject([{ status: result }]);
     expect(settled.attempts).toMatchObject([{ status: result }]);
     expect(settled.logs).toHaveLength(1);
+    expect(settled.membership).toMatchObject([{ points: status === 'PAID' ? 10 : 20 }]);
+    expect(settled.ledger.filter(row => row.reason === 'order_voucher_restore'))
+      .toMatchObject(status === 'PAID' ? [] : [{ delta: 10, orderId: order.orderId }]);
     expect(settled.stock.map(row => row.quantity)).toEqual([stock, stock]);
     expect(await (await order.callback(status)).json()).toMatchObject({ result: 'duplicate' });
     expect(await (await order.callback(conflict)).json()).toMatchObject({ code: 'manual_reconciliation_required' });
@@ -243,7 +251,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
   });
 
-  it.each(['PAID', 'EXPIRED'] as const)('rolls back the full %s transaction on a late ledger DB failure', async status => {
+  it.each(['PAID', 'EXPIRED', 'CANCELLED'] as const)('rolls back the full %s transaction on a late ledger DB failure', async status => {
     const data = await fixture();
     const order = await pendingInvoice(data);
     const before = await webhookState(data, order.orderId);
@@ -252,12 +260,123 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture ledger failure';
       END IF; END`);
     try {
-      expect((await order.callback(status)).status).toBe(503);
+      if (status === 'CANCELLED') {
+        await expect(order.cancel()).rejects.toThrow();
+      } else {
+        expect((await order.callback(status)).status).toBe(503);
+      }
       expect(await webhookState(data, order.orderId)).toEqual(before);
     } finally {
       await admin.query('DROP TRIGGER reject_fixture_settlement');
     }
-    expect(await (await order.callback(status)).json()).toMatchObject({ result: status.toLowerCase() });
+    if (status === 'CANCELLED') {
+      expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    } else {
+      expect(await (await order.callback(status)).json()).toMatchObject({ result: status.toLowerCase() });
+    }
+  });
+
+  it('cancels atomically, keeps an expired grant unavailable, and ignores terminal replays', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    await databaseClient.update(schema.userVouchers).set({ expiresAt: new Date(86_400_000) })
+      .where(eq(schema.userVouchers.id, data.id));
+
+    expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    const cancelled = await webhookState(data, order.orderId);
+    expect(cancelled.grants).toMatchObject([{ status: 'expired', reservedOrderId: null }]);
+    expect(cancelled.orders).toMatchObject([{ status: 'cancelled', cancelledAt: expect.any(Date) }]);
+    expect(cancelled.invoices).toMatchObject([{ status: 'cancelled', cancelledAt: expect.any(Date) }]);
+    expect(cancelled.attempts).toMatchObject([{ status: 'expired' }]);
+    expect(cancelled.logs).toMatchObject([{ toStatus: 'cancelled', changedBy: 'system:sandbox-cancellation' }]);
+    expect(cancelled.stock.map(row => row.quantity)).toEqual([3, 3]);
+    expect(cancelled.membership).toMatchObject([{ points: 20 }]);
+    expect(cancelled.ledger.filter(row => row.reason === 'order_voucher_restore'))
+      .toMatchObject([{ delta: 10, orderId: order.orderId }]);
+
+    expect(await order.cancel()).toMatchObject({ decision: 'duplicate' });
+    for (const event of ['PAID', 'EXPIRED'] as const) {
+      expect(await (await order.callback(event)).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    }
+    expect(await webhookState(data, order.orderId)).toEqual(cancelled);
+  });
+
+  it('preserves PAID when cancellation evidence and EXPIRED arrive late', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    expect(await (await order.callback('PAID')).json()).toMatchObject({ result: 'paid' });
+    const paid = await webhookState(data, order.orderId);
+    expect(await order.cancel()).toMatchObject({ decision: 'conflict' });
+    expect(await (await order.callback('EXPIRED')).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    expect(await webhookState(data, order.orderId)).toEqual(paid);
+  });
+
+  it('serializes concurrent PAID and cancellation without duplicate refunds', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const [paid, cancelled] = await Promise.all([
+      order.callback('PAID').then(response => response.json()), order.cancel(),
+    ]);
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.logs).toHaveLength(1);
+    if (saved.invoices[0].status === 'paid') {
+      expect(paid).toMatchObject({ result: 'paid' });
+      expect(cancelled).toMatchObject({ decision: 'conflict' });
+      expect(saved.membership).toMatchObject([{ points: 10 }]);
+      expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(0);
+    } else {
+      expect(paid).toMatchObject({ code: 'manual_reconciliation_required' });
+      expect(cancelled).toMatchObject({ decision: 'cancelled' });
+      expect(saved.membership).toMatchObject([{ points: 20 }]);
+      expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(1);
+    }
+  });
+
+  it.each(['missing debit', 'wrong debit', 'previous refund', 'wrong owner', 'missing grant'] as const)(
+    'fails closed on cancellation with %s', async problem => {
+      const data = await fixture();
+      const order = await pendingInvoice(data);
+      const ledger = eq(schema.pointsLedger.orderId, order.orderId);
+      const grant = eq(schema.userVouchers.id, data.id);
+      if (problem === 'missing debit') await databaseClient.delete(schema.pointsLedger).where(ledger);
+      if (problem === 'wrong debit') await databaseClient.update(schema.pointsLedger).set({ delta: -9 }).where(ledger);
+      if (problem === 'previous refund') await databaseClient.insert(schema.pointsLedger).values({
+        membershipId: data.id, orderId: order.orderId, delta: 10, reason: 'order_expire_restore',
+      });
+      if (problem === 'wrong owner') {
+        const other = await fixture();
+        await databaseClient.update(schema.userVouchers).set({ userId: other.id }).where(grant);
+      }
+      if (problem === 'missing grant') await databaseClient.delete(schema.userVouchers).where(grant);
+      const before = await webhookState(data, order.orderId);
+      await expect(order.cancel()).rejects.toMatchObject({ status: 503 });
+      expect(await webhookState(data, order.orderId)).toEqual(before);
+    },
+  );
+
+  it('cancels without crediting points when there was no debit', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data, { ...data.args.benefits, pointsToRedeem: 0 });
+    expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.membership).toMatchObject([{ points: 20 }]);
+    expect(saved.ledger).toHaveLength(0);
+  });
+
+  it('rejects cancellation evidence that reports a payment', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const before = await webhookState(data, order.orderId);
+    expect(() => order.cancel(100)).toThrow('requires confirmed invoice expiry');
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+  });
+
+  it('requires a payment attempt before applying cancellation', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data, data.args.benefits, false);
+    const before = await webhookState(data, order.orderId);
+    await expect(order.cancel()).rejects.toMatchObject({ status: 409 });
+    expect(await webhookState(data, order.orderId)).toEqual(before);
   });
 
   it('keeps a voucher reservation intact on an unsupported CANCELLED callback', async () => {

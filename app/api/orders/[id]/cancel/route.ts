@@ -7,6 +7,7 @@ import { getApiUser } from '@/lib/api-auth';
 import { restoreStock } from '@/lib/stock';
 import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { expireInvoice } from '@/lib/xendit';
+import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 
 // POST /api/orders/[id]/cancel — cancel order by customer
 export async function POST(
@@ -32,6 +33,13 @@ export async function POST(
     }
 
     const order = orderRows[0];
+
+    if (order.voucherId != null && isSandboxOrder(order.orderNumber)) {
+      return NextResponse.json(
+        { success: false, error: 'Pembatalan voucher sandbox memerlukan konfirmasi invoice' },
+        { status: 409 },
+      );
+    }
 
     if (order.status !== 'waiting_payment') {
       return NextResponse.json(

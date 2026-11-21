@@ -1,6 +1,6 @@
-# Atomic Voucher Checkout v0.2
+# Atomic Voucher Checkout v0.3
 
-**PASS untuk reservasi opt-in dan lifecycle PAID/EXPIRED sandbox. BLOCKED untuk CANCELLED dan aktivasi endpoint.**
+**Kernel sandbox mendukung PAID, EXPIRED, dan pembatalan internal dengan bukti expiry. Aktivasi endpoint tetap diblokir.**
 
 Pemanggil server dapat memilih `benefits: { kind: 'voucher-membership-v1', voucherId, pointsToRedeem }`. Kernel menghitung subtotal dari cart dan harga yang dikunci, mencocokkan snapshot cart dan alamat dari pemanggil, lalu mengambil nilai dan aturan diskon dari database. Voucher dan grant dikunci sebelum reservasi. Order, grant, stok, ledger poin, pengiriman, dan cart ditulis dalam satu transaksi. Retry dengan nomor order yang sama mengembalikan hasil tersimpan.
 
@@ -26,10 +26,20 @@ Pada jalur SBX, `orders.voucher_id` mengidentifikasi order opt-in. Invoice dan p
 | Replay terminal | Ambil jalur duplikat yang sudah ada tanpa menyentuh grant, termasuk jika grant sudah direservasi order baru. |
 | PAID setelah EXPIRED atau EXPIRED setelah PAID | Pertahankan keputusan terminal dan kembalikan `manual_reconciliation_required`. |
 | Reservasi hilang atau tidak konsisten | Kembalikan HTTP 503 untuk retry dan rekonsiliasi. Perubahan invoice, order, stok, grant, log, dan payment attempt dibatalkan bersama. |
-| CANCELLED | BLOCKED. Parser webhook mengabaikan status ini. Aksi pembatalan web pelanggan dan admin memblokir SBX. API pembatalan legacy menjalankan provider, stok, status, dan grant secara terpisah sehingga tidak memenuhi kontrak atomik ini. |
+| Pembatalan internal terkonfirmasi | `settleConfirmedSandboxCancellation` memerlukan order voucher SBX, satu payment attempt yang cocok, dan bukti invoice provider `EXPIRED` dari pemanggil tepercaya. Order dan invoice lokal menjadi `cancelled`. Ledger provider menjadi `expired` karena invoice provider telah kedaluwarsa. Replay pembatalan hanya dianggap duplikat jika ketiga status terminal konsisten. |
+| Callback mentah CANCELLED | Parser tetap mengabaikannya. Aksi pembatalan web memblokir SBX dan API pembatalan legacy menolak order voucher SBX sebelum akses provider atau perubahan stok. |
+| Pemulihan poin | Pada EXPIRED atau pembatalan voucher, cocokkan pemilik membership, nilai negatif debit `order_redeem`, dan jumlah poin pada order. Kredit dari debit aktual dicatat sekali sebagai `order_voucher_restore`. Debit hilang, tidak cocok, ganda, atau refund sebelumnya pada order yang masih pending memerlukan rekonsiliasi. Order tanpa debit tidak menerima kredit. |
 
-Suite MySQL menguji callback buatan terhadap invoice dan ledger sandbox lokal. Uji konkurensi, replay setelah reservasi baru, expiry kampanye dan grant, serta kegagalan DB pada update ledger terakhir memeriksa dampak pada pembayaran dan stok.
+Checkout sandbox legacy dan membership-points tanpa voucher tetap memakai perilaku sebelumnya. Pada PAID, debit poin dipertahankan. Pembatalan, pemulihan stok, status invoice dan order, grant, kredit poin, log, serta payment attempt memakai transaksi yang sama.
 
-Sebelum aktivasi endpoint, selesaikan jalur pembatalan SBX dan tetapkan kebijakan pemulihan poin pada expiry untuk order yang memakai voucher dan poin. v0.2 mempertahankan perilaku membership-points yang ada. Kebijakan kuota global, `firstOrderOnly`, dan POS tetap berada di luar dukungan.
+## Checklist sebelum aktivasi
 
-Rollback perubahan ini dapat dilakukan dengan revert commit fitur. Perubahan ini memakai kolom dan tabel yang sudah tersedia.
+- Review dan luluskan pemeriksaan PR pada commit yang ditinjau.
+- Pertahankan opt-in voucher di luar semua endpoint checkout. Kernel hanya memilih voucher jika pemanggil server memberi opsi secara eksplisit.
+- Sebelum UAT staging, review dan setujui pemanggil pembatalan internal yang mencocokkan bukti expiry provider dengan invoice. Tangani race antara respons expiry dan webhook serta hasil `conflict` atau HTTP 503. Belum ada pemanggil runtime untuk perintah pembatalan ini.
+- Jalankan skenario PAID, EXPIRED, pembatalan, replay, konflik, dan refund pada data UAT yang disetujui setelah integrasi pemanggil. Catat status invoice, order, grant, saldo stok, dan entri ledger poin.
+- Pertahankan kuota global, `firstOrderOnly`, dan POS di luar cakupan voucher opt-in.
+
+## Rollback
+
+Untuk kode yang belum diaktifkan, revert commit v0.3 pada branch fitur. Perubahan ini menggunakan skema yang sudah tersedia. Jika fitur suatu hari sudah dipakai, hentikan penerimaan order voucher baru terlebih dahulu dan rekonsiliasi order pending atau ambigu menggunakan bukti provider sebelum rollback. Pertahankan baris order, voucher, stok, dan ledger poin agar replay tetap dapat ditelusuri.

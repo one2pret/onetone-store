@@ -6,28 +6,34 @@ const mockSelectReturn = vi.fn();
 vi.mock('@/lib/db', () => ({
   db: {
     select: vi.fn(() => {
-      const chain: any = {};
-      chain.from = vi.fn().mockReturnValue(chain);
-      chain.where = vi.fn().mockReturnValue(chain);
-      chain.orderBy = vi.fn().mockReturnValue(chain);
-      chain.limit = vi.fn().mockReturnValue(chain);
-      chain.then = (resolve: any) => resolve(mockSelectReturn());
-      chain.catch = () => chain;
+      const chain = {
+        from: vi.fn(), where: vi.fn(), orderBy: vi.fn(), limit: vi.fn(),
+        then: (resolve: (value: unknown) => unknown) => resolve(mockSelectReturn()),
+        catch: () => chain,
+      };
+      chain.from.mockReturnValue(chain);
+      chain.where.mockReturnValue(chain);
+      chain.orderBy.mockReturnValue(chain);
+      chain.limit.mockReturnValue(chain);
       return chain;
     }),
     insert: vi.fn(() => {
-      const chain: any = {};
-      chain.values = vi.fn().mockReturnValue(chain);
-      chain.then = (resolve: any) => resolve([{ insertId: 1 }]);
-      chain.catch = () => chain;
+      const chain = {
+        values: vi.fn(),
+        then: (resolve: (value: unknown) => unknown) => resolve([{ insertId: 1 }]),
+        catch: () => chain,
+      };
+      chain.values.mockReturnValue(chain);
       return chain;
     }),
     update: vi.fn(() => {
-      const chain: any = {};
-      chain.set = vi.fn().mockReturnValue(chain);
-      chain.where = vi.fn().mockReturnValue(chain);
-      chain.then = (resolve: any) => resolve(undefined);
-      chain.catch = () => chain;
+      const chain = {
+        set: vi.fn(), where: vi.fn(),
+        then: (resolve: (value: unknown) => unknown) => resolve(undefined),
+        catch: () => chain,
+      };
+      chain.set.mockReturnValue(chain);
+      chain.where.mockReturnValue(chain);
       return chain;
     }),
   },
@@ -54,6 +60,8 @@ vi.mock('@/lib/xendit', () => ({
   })),
 }));
 
+import { expireInvoice } from '@/lib/xendit';
+import { restoreStock } from '@/lib/stock';
 import { POST as cancel } from '@/app/api/orders/[id]/cancel/route';
 import { POST as repay } from '@/app/api/orders/[id]/repay/route';
 import { GET as tracking } from '@/app/api/orders/[id]/tracking/route';
@@ -88,6 +96,19 @@ describe('Order Action APIs', () => {
       expect(json.success).toBe(true);
     });
 
+    it('keeps sandbox voucher cancellation out of the legacy route', async () => {
+      mockSelectReturn.mockReturnValueOnce([{ ...sampleOrder, orderNumber: 'SBX-voucher', voucherId: 42 }]);
+
+      const response = await cancel(
+        makeRequest('http://localhost/api/orders/1/cancel', { method: 'POST' }),
+        makeParams('1'),
+      );
+
+      expect(response.status).toBe(409);
+      expect(expireInvoice).not.toHaveBeenCalled();
+      expect(restoreStock).not.toHaveBeenCalled();
+    });
+
     it('rejects cancellation for packing order', async () => {
       mockSelectReturn.mockReturnValueOnce([{ ...sampleOrder, status: 'packing' }]);
 
@@ -112,7 +133,7 @@ describe('Order Action APIs', () => {
 
     it('returns 401 when not authenticated', async () => {
       const { getApiUser } = await import('@/lib/api-auth');
-      (getApiUser as any).mockResolvedValueOnce(null);
+      vi.mocked(getApiUser).mockResolvedValueOnce(null);
 
       const response = await cancel(
         makeRequest('http://localhost/api/orders/1/cancel', { method: 'POST' }),
