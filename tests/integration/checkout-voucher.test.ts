@@ -4,11 +4,22 @@ import { createRequire } from 'node:module';
 import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql, { type Connection, type Pool } from 'mysql2/promise';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/lib/db/schema';
 import { commitOnlineOrderAtomically } from '@/lib/checkout/commit-online-order';
+import { settleConfirmedSandboxCancellation } from '@/lib/checkout/process-sandbox-webhook';
 import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
+
+import { POST as checkout } from '@/app/api/checkout/sandbox-order/route';
+import { POST as cancelOrder } from '@/app/api/orders/[id]/cancel/route';
+import { getApiUser } from '@/lib/api-auth';
+import { getSandboxInvoice, createInvoice } from '@/lib/xendit';
+import { loadTrustedCheckoutSelection } from '@/lib/checkout/fresh-quote-service';
+
+vi.mock('@/lib/api-auth', () => ({ getApiUser: vi.fn() }));
+vi.mock('@/lib/xendit', () => ({ createInvoice: vi.fn(), getSandboxInvoice: vi.fn(), expireInvoice: vi.fn() }));
+vi.mock('@/lib/checkout/fresh-quote-service', () => ({ loadTrustedCheckoutSelection: vi.fn() }));
 
 vi.mock('@/lib/db', () => ({
   get db() { return databaseClient; },
@@ -119,13 +130,18 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     });
     const invoiceId = `sandbox-invoice-${order.orderId}`;
     const amount = String(order.total);
-    await databaseClient.insert(schema.invoices).values({ orderId: order.orderId, xenditId: invoiceId, amount });
-    if (withLedger) await databaseClient.insert(schema.checkoutPaymentAttempts).values({
+    const [invoice] = await databaseClient.insert(schema.invoices).values({ orderId: order.orderId, xenditId: invoiceId, amount });
+    const [attempt] = withLedger ? await databaseClient.insert(schema.checkoutPaymentAttempts).values({
       orderId: order.orderId, attemptNo: 1, mode: 'sandbox', externalId: order.orderNumber,
       requestHash: '0'.repeat(64), xenditId: invoiceId, amount, status: 'ready',
-    });
+    }) : [];
     return {
       ...order,
+      invoiceId,
+      cancel: (paidAmount: number | null = null, checkedAt = Date.now()) => settleConfirmedSandboxCancellation({
+        id: invoiceId, orderNumber: order.orderNumber, amount: order.total,
+        status: 'EXPIRED', paidAmount, paymentMethod: null, paymentChannel: null,
+      }, { orderId: order.orderId, userId: data.id, invoiceId: invoice.insertId, attemptId: attempt?.insertId ?? 0, checkedAt }),
       callback: (status: 'PAID' | 'EXPIRED' | 'CANCELLED', externalId = order.orderNumber) =>
         handleSandboxInvoiceCallback({ id: invoiceId, external_id: externalId, amount: order.total, status }),
     };
@@ -140,6 +156,136 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
       logs: await databaseClient.select().from(schema.orderStatusLogs).where(eq(schema.orderStatusLogs.orderId, orderId)),
     };
   }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetAllMocks();
+  });
+
+  function enableUat(owner: number) {
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('CHECKOUT_SANDBOX_ORDER_ENABLED', 'true');
+    vi.stubEnv('CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED', 'true');
+    vi.stubEnv('CHECKOUT_SANDBOX_VOUCHER_ENABLED', 'true');
+    vi.stubEnv('XENDIT_SECRET_KEY', 'xnd_development_fixture');
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_test.fixture');
+    vi.stubEnv('BITSHIP_API_URL', 'https://api.biteship.com');
+    vi.mocked(getApiUser).mockResolvedValue({
+      id: owner, name: 'Fixture', email: 'fixture@example.test', phone: null, role: 'customer',
+    });
+  }
+
+  function checkoutRequest(data: Awaited<ReturnType<typeof fixture>>, key: string, voucherId = data.id) {
+    return new Request('http://localhost/api/checkout/sandbox-order', {
+      method: 'POST', headers: { 'idempotency-key': key },
+      body: JSON.stringify({
+        addressId: data.id, courierCompany: 'test', courierType: 'reg', courierPrice: 2000,
+        voucher: { id: voucherId, pointsToRedeem: 10 },
+      }),
+    });
+  }
+
+  it('checks out an eligible grant, creates one invoice on retry and redeems on PAID', async () => {
+    const data = await fixture({ type: 'free_shipping', value: 0 });
+    enableUat(data.id);
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    vi.mocked(createInvoice).mockResolvedValue({
+      id: 'uat-fixture-invoice', invoiceUrl: 'https://example.test/invoice', expiryDate: new Date(Date.now() + 3600_000).toISOString(),
+    });
+    const key = randomUUID();
+    const response = await checkout(checkoutRequest(data, key));
+    expect(response.status).toBe(201);
+    const { data: order } = await response.json();
+    expect(order).toMatchObject({ total: 19000, shippingCost: 0 });
+    expect(await (await checkout(checkoutRequest(data, key))).json())
+      .toMatchObject({ data: { orderId: order.orderId, repeatedRequest: true } });
+    expect((await checkout(checkoutRequest(data, key, data.id + 1))).status).toBe(409);
+    expect(createInvoice).toHaveBeenCalledTimes(1);
+    expect(loadTrustedCheckoutSelection).toHaveBeenCalledTimes(1);
+    const callback = await handleSandboxInvoiceCallback({
+      id: 'uat-fixture-invoice', external_id: order.orderNumber, amount: order.total, status: 'PAID',
+    });
+    expect(await callback.json()).toMatchObject({ result: 'paid' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
+    const retry = await checkout(checkoutRequest(data, key));
+    expect(await retry.json()).toMatchObject({ data: { paymentUrl: null } });
+  });
+
+  it('rejects voucher opt-in outside staging or without the TEST rate key and checks grant ownership', async () => {
+    const data = await fixture({}, false);
+    enableUat(data.id);
+    vi.stubEnv('APP_ENV', 'production');
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(404);
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_live.fixture');
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(404);
+    expect(loadTrustedCheckoutSelection).not.toHaveBeenCalled();
+    vi.stubEnv('BITSHIP_API_KEY', 'biteship_test.fixture');
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    expect((await checkout(checkoutRequest(data, randomUUID()))).status).toBe(422);
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
+
+  function providerInvoice(order: Awaited<ReturnType<typeof pendingInvoice>>) {
+    return {
+      id: order.invoiceId, externalId: order.orderNumber, amount: order.total,
+      expiryDate: new Date(86_400_000), status: 'EXPIRED' as const,
+      currency: 'IDR' as const, userId: 'test-merchant', merchantName: 'Fixture', merchantProfilePictureUrl: '',
+      invoiceUrl: 'https://example.test/invoice',
+    };
+  }
+
+  function cancellationRequest(orderId: number) {
+    return cancelOrder(new Request('http://localhost/api/orders/cancel', {
+      method: 'POST', body: JSON.stringify({ status: 'EXPIRED' }),
+    }), { params: Promise.resolve({ id: String(orderId) }) });
+  }
+
+  it('requires authenticated provider evidence and preserves a paid order that wins the race', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    enableUat(data.id + 1);
+    expect((await cancellationRequest(order.orderId)).status).toBe(404);
+    expect(getSandboxInvoice).not.toHaveBeenCalled();
+    enableUat(data.id);
+    vi.mocked(getSandboxInvoice).mockRejectedValueOnce(new Error('provider timeout'));
+    expect((await cancellationRequest(order.orderId)).status).toBe(503);
+    vi.mocked(getSandboxInvoice).mockResolvedValueOnce({ ...providerInvoice(order), status: 'PENDING' });
+    expect((await cancellationRequest(order.orderId)).status).toBe(409);
+    vi.mocked(getSandboxInvoice).mockResolvedValueOnce({ ...providerInvoice(order), id: 'different-invoice' });
+    expect((await cancellationRequest(order.orderId)).status).toBe(409);
+    expect((await state(data)).grants).toMatchObject([{ status: 'reserved' }]);
+
+    vi.mocked(getSandboxInvoice).mockImplementationOnce(async () => {
+      expect(await (await order.callback('PAID')).json()).toMatchObject({ result: 'paid' });
+      return providerInvoice(order);
+    });
+    expect(await (await cancellationRequest(order.orderId)).json())
+      .toMatchObject({ code: 'manual_reconciliation_required' });
+    expect((await state(data)).grants).toMatchObject([{ status: 'redeemed' }]);
+  });
+
+  it('settles provider-confirmed expiry once across parallel cancellation requests', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    enableUat(data.id);
+    const before = await webhookState(data, order.orderId);
+    await expect(order.cancel(null, Date.now() - 31_000)).rejects.toMatchObject({ status: 409 });
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+    vi.mocked(getSandboxInvoice).mockResolvedValue(providerInvoice(order));
+    const bodies = await Promise.all([cancellationRequest(order.orderId), cancellationRequest(order.orderId)])
+      .then(responses => Promise.all(responses.map(response => response.json())));
+    expect(bodies.map(body => body.result).sort()).toEqual(['cancelled', 'duplicate']);
+    expect(await (await order.callback('PAID')).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.membership).toMatchObject([{ points: 20 }]);
+    expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(1);
+    expect(saved.grants).toMatchObject([{ status: 'available' }]);
+  });
 
   it.each([
     ['PAID', 'paid', 'EXPIRED', 'redeemed', 'packing', 2],
@@ -159,6 +305,9 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     expect(settled.invoices).toMatchObject([{ status: result }]);
     expect(settled.attempts).toMatchObject([{ status: result }]);
     expect(settled.logs).toHaveLength(1);
+    expect(settled.membership).toMatchObject([{ points: status === 'PAID' ? 10 : 20 }]);
+    expect(settled.ledger.filter(row => row.reason === 'order_voucher_restore'))
+      .toMatchObject(status === 'PAID' ? [] : [{ delta: 10, orderId: order.orderId }]);
     expect(settled.stock.map(row => row.quantity)).toEqual([stock, stock]);
     expect(await (await order.callback(status)).json()).toMatchObject({ result: 'duplicate' });
     expect(await (await order.callback(conflict)).json()).toMatchObject({ code: 'manual_reconciliation_required' });
@@ -243,7 +392,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
   });
 
-  it.each(['PAID', 'EXPIRED'] as const)('rolls back the full %s transaction on a late ledger DB failure', async status => {
+  it.each(['PAID', 'EXPIRED', 'CANCELLED'] as const)('rolls back the full %s transaction on a late ledger DB failure', async status => {
     const data = await fixture();
     const order = await pendingInvoice(data);
     const before = await webhookState(data, order.orderId);
@@ -252,12 +401,123 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture ledger failure';
       END IF; END`);
     try {
-      expect((await order.callback(status)).status).toBe(503);
+      if (status === 'CANCELLED') {
+        await expect(order.cancel()).rejects.toThrow();
+      } else {
+        expect((await order.callback(status)).status).toBe(503);
+      }
       expect(await webhookState(data, order.orderId)).toEqual(before);
     } finally {
       await admin.query('DROP TRIGGER reject_fixture_settlement');
     }
-    expect(await (await order.callback(status)).json()).toMatchObject({ result: status.toLowerCase() });
+    if (status === 'CANCELLED') {
+      expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    } else {
+      expect(await (await order.callback(status)).json()).toMatchObject({ result: status.toLowerCase() });
+    }
+  });
+
+  it('cancels atomically, keeps an expired grant unavailable, and ignores terminal replays', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    await databaseClient.update(schema.userVouchers).set({ expiresAt: new Date(86_400_000) })
+      .where(eq(schema.userVouchers.id, data.id));
+
+    expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    const cancelled = await webhookState(data, order.orderId);
+    expect(cancelled.grants).toMatchObject([{ status: 'expired', reservedOrderId: null }]);
+    expect(cancelled.orders).toMatchObject([{ status: 'cancelled', cancelledAt: expect.any(Date) }]);
+    expect(cancelled.invoices).toMatchObject([{ status: 'cancelled', cancelledAt: expect.any(Date) }]);
+    expect(cancelled.attempts).toMatchObject([{ status: 'expired' }]);
+    expect(cancelled.logs).toMatchObject([{ toStatus: 'cancelled', changedBy: 'system:sandbox-cancellation' }]);
+    expect(cancelled.stock.map(row => row.quantity)).toEqual([3, 3]);
+    expect(cancelled.membership).toMatchObject([{ points: 20 }]);
+    expect(cancelled.ledger.filter(row => row.reason === 'order_voucher_restore'))
+      .toMatchObject([{ delta: 10, orderId: order.orderId }]);
+
+    expect(await order.cancel()).toMatchObject({ decision: 'duplicate' });
+    for (const event of ['PAID', 'EXPIRED'] as const) {
+      expect(await (await order.callback(event)).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    }
+    expect(await webhookState(data, order.orderId)).toEqual(cancelled);
+  });
+
+  it('preserves PAID when cancellation evidence and EXPIRED arrive late', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    expect(await (await order.callback('PAID')).json()).toMatchObject({ result: 'paid' });
+    const paid = await webhookState(data, order.orderId);
+    expect(await order.cancel()).toMatchObject({ decision: 'conflict' });
+    expect(await (await order.callback('EXPIRED')).json()).toMatchObject({ code: 'manual_reconciliation_required' });
+    expect(await webhookState(data, order.orderId)).toEqual(paid);
+  });
+
+  it('serializes concurrent PAID and cancellation without duplicate refunds', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const [paid, cancelled] = await Promise.all([
+      order.callback('PAID').then(response => response.json()), order.cancel(),
+    ]);
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.logs).toHaveLength(1);
+    if (saved.invoices[0].status === 'paid') {
+      expect(paid).toMatchObject({ result: 'paid' });
+      expect(cancelled).toMatchObject({ decision: 'conflict' });
+      expect(saved.membership).toMatchObject([{ points: 10 }]);
+      expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(0);
+    } else {
+      expect(paid).toMatchObject({ code: 'manual_reconciliation_required' });
+      expect(cancelled).toMatchObject({ decision: 'cancelled' });
+      expect(saved.membership).toMatchObject([{ points: 20 }]);
+      expect(saved.ledger.filter(row => row.reason === 'order_voucher_restore')).toHaveLength(1);
+    }
+  });
+
+  it.each(['missing debit', 'wrong debit', 'previous refund', 'wrong owner', 'missing grant'] as const)(
+    'fails closed on cancellation with %s', async problem => {
+      const data = await fixture();
+      const order = await pendingInvoice(data);
+      const ledger = eq(schema.pointsLedger.orderId, order.orderId);
+      const grant = eq(schema.userVouchers.id, data.id);
+      if (problem === 'missing debit') await databaseClient.delete(schema.pointsLedger).where(ledger);
+      if (problem === 'wrong debit') await databaseClient.update(schema.pointsLedger).set({ delta: -9 }).where(ledger);
+      if (problem === 'previous refund') await databaseClient.insert(schema.pointsLedger).values({
+        membershipId: data.id, orderId: order.orderId, delta: 10, reason: 'order_expire_restore',
+      });
+      if (problem === 'wrong owner') {
+        const other = await fixture();
+        await databaseClient.update(schema.userVouchers).set({ userId: other.id }).where(grant);
+      }
+      if (problem === 'missing grant') await databaseClient.delete(schema.userVouchers).where(grant);
+      const before = await webhookState(data, order.orderId);
+      await expect(order.cancel()).rejects.toMatchObject({ status: 503 });
+      expect(await webhookState(data, order.orderId)).toEqual(before);
+    },
+  );
+
+  it('cancels without crediting points when there was no debit', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data, { ...data.args.benefits, pointsToRedeem: 0 });
+    expect(await order.cancel()).toMatchObject({ decision: 'cancelled' });
+    const saved = await webhookState(data, order.orderId);
+    expect(saved.membership).toMatchObject([{ points: 20 }]);
+    expect(saved.ledger).toHaveLength(0);
+  });
+
+  it('rejects cancellation evidence that reports a payment', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data);
+    const before = await webhookState(data, order.orderId);
+    expect(() => order.cancel(100)).toThrow('requires confirmed invoice expiry');
+    expect(await webhookState(data, order.orderId)).toEqual(before);
+  });
+
+  it('requires a payment attempt before applying cancellation', async () => {
+    const data = await fixture();
+    const order = await pendingInvoice(data, data.args.benefits, false);
+    const before = await webhookState(data, order.orderId);
+    await expect(order.cancel()).rejects.toMatchObject({ status: 409 });
+    expect(await webhookState(data, order.orderId)).toEqual(before);
   });
 
   it('keeps a voucher reservation intact on an unsupported CANCELLED callback', async () => {

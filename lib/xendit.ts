@@ -61,9 +61,16 @@ export async function expireInvoice(invoiceId: string): Promise<void> {
   const client = getClient();
   try {
     await client.Invoice.expireInvoice({ invoiceId });
-  } catch (error: any) {
+  } catch (error) {
     // Treat already-expired as success
-    if (error.message?.includes('ALREADY_EXPIRED')) return;
+    if (error instanceof Error && error.message.includes('ALREADY_EXPIRED')) return;
     throw error;
   }
+}
+
+/** Dedicated authenticated lookup for sandbox cancellation evidence. */
+export async function getSandboxInvoice(invoiceId: string) {
+  const secretKey = process.env.XENDIT_SECRET_KEY;
+  if (!secretKey?.startsWith('xnd_development_')) throw new Error('Xendit TEST key required');
+  return new Xendit({ secretKey }).Invoice.getInvoiceById({ invoiceId });
 }

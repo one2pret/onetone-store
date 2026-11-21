@@ -1,5 +1,6 @@
 // app/api/orders/[id]/repay/route.ts
 import { NextResponse } from 'next/server';
+import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 import { db } from '@/lib/db';
 import { orders, orderItems, invoices, orderStatusLogs } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -32,6 +33,9 @@ export async function POST(
     }
 
     const order = orderRows[0];
+    if (order.voucherId != null && isSandboxOrder(order.orderNumber)) {
+      return NextResponse.json({ success: false, code: 'manual_reconciliation_required' }, { status: 409 });
+    }
     const isExpired = order.status === 'expired';
     const isWaitingNoInvoice = order.status === 'waiting_payment';
 

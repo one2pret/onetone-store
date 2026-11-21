@@ -9,6 +9,7 @@ import { createInternalCustomerEmail } from '@/lib/registration-utils';
 import { loadTrustedCheckoutSelection } from '@/lib/checkout/fresh-quote-service';
 import { commitSandboxOrder, CheckoutRejected } from '@/lib/checkout/commit-sandbox-order';
 import { sandboxOrderEnabled, sandboxOrderNumber, sandboxPaymentReturnUrl } from '@/lib/checkout/sandbox-order-policy';
+import { sandboxVoucherEnabled, sandboxVoucherRatesEnabled } from '@/lib/checkout/sandbox-voucher-gate';
 import { createSandboxTestInvoiceWithLedger, sandboxPaymentLedgerEnabled } from '@/lib/checkout/sandbox-payment-invoice-service';
 
 const schema = z.object({
@@ -16,13 +17,22 @@ const schema = z.object({
   courierCompany: z.string().trim().min(1).max(64),
   courierType: z.string().trim().min(1).max(64),
   courierPrice: z.number().int().nonnegative(),
+  voucher: z.object({
+    id: z.number().int().positive().max(2_147_483_647),
+    pointsToRedeem: z.number().int().nonnegative().max(2_147_483_647).default(0),
+  }).strict().optional(),
   notes: z.string().max(2000).optional().nullable(),
 });
 
-async function currentPayment(orderNumber: string, userId: number) {
+async function currentPayment(orderNumber: string, userId: number, voucher?: { id: number; pointsToRedeem: number }) {
   const [order] = await db.select().from(orders)
     .where(eq(orders.orderNumber, orderNumber)).limit(1);
   if (!order || order.userId !== userId) return null;
+  if ((voucher || order.voucherId != null) &&
+      (order.voucherId !== (voucher?.id ?? null) ||
+      (order.pointsRedeemed ?? 0) !== (voucher?.pointsToRedeem ?? 0))) {
+    return NextResponse.json({ success: false, code: 'checkout_key_conflict' }, { status: 409 });
+  }
   const [invoice] = await db.select().from(invoices)
     .where(eq(invoices.orderId, order.id)).orderBy(desc(invoices.createdAt)).limit(1);
   if (!invoice?.invoiceUrl) {
@@ -42,7 +52,8 @@ async function currentPayment(orderNumber: string, userId: number) {
       status: order.status,
       total: Number(order.total),
       shippingCost: Number(order.shippingCost),
-      paymentUrl: invoice.invoiceUrl,
+      paymentUrl: order.voucherId != null && (order.status !== 'waiting_payment' || invoice.status !== 'pending')
+        ? null : invoice.invoiceUrl,
       repeatedRequest: true,
     },
   });
@@ -74,13 +85,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Data checkout tidak valid' }, { status: 400 });
   }
 
+  const { addressId, notes, voucher, ...selection } = parsed.data;
+  if (voucher && (!sandboxVoucherEnabled() || !sandboxVoucherRatesEnabled())) {
+    return NextResponse.json({ success: false, error: 'Not available' }, { status: 404 });
+  }
   const orderNumber = sandboxOrderNumber(user.id, key);
   try {
     // Safe retry: don't call Biteship or Xendit again for the same key.
-    const prior = await currentPayment(orderNumber, user.id);
+    const prior = await currentPayment(orderNumber, user.id, voucher);
     if (prior) return prior;
 
-    const { addressId, notes, ...selection } = parsed.data;
     const quote = await loadTrustedCheckoutSelection(user.id, addressId, selection);
     if (!quote.ok) {
       const status = quote.reason === 'address' ? 404
@@ -96,6 +110,9 @@ export async function POST(request: Request) {
 
     const committed = await commitSandboxOrder({
       userId: user.id, addressId, notes, orderNumber, snapshot: quote.snapshot,
+      benefits: voucher ? {
+        kind: 'voucher-membership-v1', voucherId: voucher.id, pointsToRedeem: voucher.pointsToRedeem,
+      } : undefined,
       shipping: {
         courierName: quote.selected.courierName,
         courierCompany: quote.selected.courierCompany,
@@ -104,14 +121,16 @@ export async function POST(request: Request) {
       },
     });
     if (!committed.created) {
-      const retry = await currentPayment(orderNumber, user.id);
-      if (retry) return retry;
+      const retry = await currentPayment(orderNumber, user.id, voucher);
+      return retry ?? NextResponse.json({
+        success: false, code: 'payment_setup_pending',
+      }, { status: 202 });
     }
 
     // Optional, independent staging-only ledger path. OFF by default.
     // Both the sandbox-order route gate above and this separate gate must
     // succeed; the ledger service repeats the APP_ENV/Xendit TEST guard.
-    if (sandboxPaymentLedgerEnabled(
+    if (voucher || sandboxPaymentLedgerEnabled(
       process.env.CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED,
       process.env.APP_ENV,
       process.env.XENDIT_SECRET_KEY,
@@ -137,7 +156,7 @@ export async function POST(request: Request) {
           orderNumber: committed.orderNumber,
           status: 'waiting_payment',
           total: committed.total,
-          shippingCost: quote.selected.price,
+          shippingCost: voucher ? committed.shippingCost : quote.selected.price,
           paymentUrl: result.paymentUrl,
         },
       }, { status: 201 });
