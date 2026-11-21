@@ -1,12 +1,13 @@
 // app/(shop)/checkout/CheckoutForm.tsx
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createOrder } from '@/app/actions/orders';
 import { validateVoucher, getAvailableVouchers, type VoucherValidationResult, type AvailableVoucher } from '@/app/actions/voucher';
 import { calculateShippingRates, type ShippingRouteInfo } from '@/app/actions/shipping';
-import { POINTS_REDEEM_VALUE, calculateRedeemAmount } from '@/lib/membership-utils';
+import { POINTS_REDEEM_VALUE } from '@/lib/membership-utils';
+import { maximumCheckoutPreviewPoints } from '@/lib/checkout/points-preview';
 import { getUserAddresses } from '@/app/actions/addresses';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +54,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   const [rates, setRates] = useState<GroupedRates | null>(null);
   const [routeInfo, setRouteInfo] = useState<ShippingRouteInfo | null>(null);
   const [loadingRates, setLoadingRates] = useState(false);
+  const latestQuoteRequest = useRef(0);
   const [selectedRate, setSelectedRate] = useState<BitshipRate | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
@@ -74,11 +76,24 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   const shippingCost = freeShipping ? 0 : rawShippingCost;
   const discountAmount = voucherResult?.valid ? voucherResult.discountAmount : 0;
   const afterVoucher = subtotal - discountAmount + shippingCost;
-  const redeemAmount = usePoints && pointsBalance > 0
-    ? calculateRedeemAmount(pointsBalance, afterVoucher)
-    : 0;
-  const pointsToRedeem = redeemAmount > 0 ? Math.ceil(redeemAmount / POINTS_REDEEM_VALUE) : 0;
+  const pointsBlockedByVoucher = voucherResult?.valid === true && !voucherResult.allowPoints;
+  const maxRedeemablePoints = maximumCheckoutPreviewPoints(pointsBalance, afterVoucher);
+  const pointsToRedeem = usePoints && !pointsBlockedByVoucher ? maxRedeemablePoints : 0;
+  const redeemAmount = pointsToRedeem * POINTS_REDEEM_VALUE;
   const total = afterVoucher - redeemAmount;
+
+  function handleSelectedAddress(id: number) {
+    if (id !== selectedAddressId) {
+      // Ignore any late result from the previous address's quote request.
+      latestQuoteRequest.current += 1;
+      setLoadingRates(false);
+      setSelectedRate(null);
+      setRates(null);
+      setRouteInfo(null);
+      setError('');
+    }
+    setSelectedAddressId(id);
+  }
 
   async function handleAddressCreated() {
     const fresh = await getUserAddresses();
@@ -88,7 +103,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
       const newest = fresh[fresh.length - 1];
       // If there's a default, prefer it; otherwise pick newest
       const defaultAddr = fresh.find(a => a.isDefault);
-      setSelectedAddressId(defaultAddr?.id ?? newest.id);
+      handleSelectedAddress(defaultAddr?.id ?? newest.id);
     }
   }
 
@@ -97,20 +112,30 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
       setError('Pilih alamat pengiriman');
       return;
     }
+    const requestId = ++latestQuoteRequest.current;
     setError('');
+    setSelectedRate(null);
+    setRates(null);
+    setRouteInfo(null);
     setLoadingRates(true);
     setStep(2);
 
-    const result = await calculateShippingRates(selectedAddressId);
-    setLoadingRates(false);
-
-    if (!result.success) {
-      setError(result.error || 'Gagal menghitung ongkir');
-      return;
+    try {
+      const result = await calculateShippingRates(selectedAddressId);
+      if (requestId !== latestQuoteRequest.current) return;
+      if (!result.success) {
+        setError(result.error || 'Gagal menghitung ongkir');
+        return;
+      }
+      setRates(result.data ?? null);
+      setRouteInfo(result.route ?? null);
+    } catch {
+      if (requestId === latestQuoteRequest.current) {
+        setError('Tidak dapat memuat tarif pengiriman. Coba kembali.');
+      }
+    } finally {
+      if (requestId === latestQuoteRequest.current) setLoadingRates(false);
     }
-
-    setRates(result.data ?? null);
-    setRouteInfo(result.route ?? null);
   }
 
   function handleCourierNext() {
@@ -157,6 +182,10 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
 
   function handleSubmit() {
     if (!selectedAddressId || !selectedRate) return;
+    if (!Number.isSafeInteger(total) || total <= 0) {
+      setError('Total pembayaran harus lebih dari Rp0. Ubah voucher atau penggunaan poin.');
+      return;
+    }
 
     setError('');
     startTransition(async () => {
@@ -226,7 +255,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
           <AddressSelector
             addresses={addressList}
             selectedId={selectedAddressId}
-            onSelect={setSelectedAddressId}
+            onSelect={handleSelectedAddress}
             onAddressCreated={handleAddressCreated}
           />
           <div className="mt-6 flex justify-end">
@@ -454,21 +483,32 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
                   <button
                     type="button"
                     onClick={() => setUsePoints(!usePoints)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    disabled={pointsBlockedByVoucher || maxRedeemablePoints === 0}
+                    aria-label="Gunakan poin untuk pesanan ini"
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       usePoints ? 'bg-primary' : 'bg-muted'
                     }`}
-                    aria-pressed={usePoints}
+                    aria-pressed={usePoints && !pointsBlockedByVoucher && pointsToRedeem > 0}
                   >
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${
                       usePoints ? 'translate-x-4' : 'translate-x-0.5'
                     }`} />
                   </button>
                 </div>
-                {usePoints && redeemAmount > 0 && (
-                  <p className="text-xs text-success mt-2">
-                    ✓ {pointsToRedeem} poin digunakan, hemat {formatRupiah(redeemAmount)}
+                {pointsBlockedByVoucher ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Voucher ini tidak dapat digabung dengan poin.
                   </p>
-                )}
+                ) : usePoints && redeemAmount > 0 ? (
+                  <p className="text-xs text-success mt-2" role="status">
+                    ✓ {pointsToRedeem} poin digunakan, hemat {formatRupiah(redeemAmount)}.
+                    Sisa {pointsBalance - pointsToRedeem} poin.
+                  </p>
+                ) : maxRedeemablePoints === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Poin tersedia, tetapi belum cukup untuk potongan yang menjaga total pembayaran tetap positif.
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -501,10 +541,23 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
               {tierFreeShipping && (
                 <p className="text-xs text-success">✓ Gratis ongkir dari benefit membership</p>
               )}
-              <div className="border-t border-border pt-2 flex justify-between font-semibold text-lg">
-                <span className="text-foreground">Total</span>
-                <span className="text-foreground">{formatRupiah(total)}</span>
+              <div aria-live="polite" className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Total pembayaran</p>
+                    <p className="text-xs text-muted-foreground mt-1">Setelah diskon dan manfaat membership</p>
+                  </div>
+                  <p className="text-xl font-bold tracking-tight text-foreground">{formatRupiah(total)}</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Harga dan ketersediaan akan diperiksa kembali saat pesanan dibuat.
+                </p>
               </div>
+              {total <= 0 && (
+                <p className="text-xs text-destructive" role="alert">
+                  Total Rp0 belum dapat diproses untuk pembayaran. Ubah voucher atau poin.
+                </p>
+              )}
             </div>
           </div>
 
@@ -531,7 +584,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isPending}
+              disabled={isPending || total <= 0}
               className="py-6 px-8 text-base font-semibold"
             >
               {isPending ? (
