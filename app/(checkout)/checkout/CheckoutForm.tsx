@@ -1,7 +1,7 @@
 // app/(shop)/checkout/CheckoutForm.tsx
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createOrder } from '@/app/actions/orders';
 import { validateVoucher, getAvailableVouchers, type VoucherValidationResult, type AvailableVoucher } from '@/app/actions/voucher';
@@ -54,6 +54,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
   const [rates, setRates] = useState<GroupedRates | null>(null);
   const [routeInfo, setRouteInfo] = useState<ShippingRouteInfo | null>(null);
   const [loadingRates, setLoadingRates] = useState(false);
+  const latestQuoteRequest = useRef(0);
   const [selectedRate, setSelectedRate] = useState<BitshipRate | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
@@ -83,7 +84,9 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
 
   function handleSelectedAddress(id: number) {
     if (id !== selectedAddressId) {
-      // Never use a courier rate selected for a different destination.
+      // Ignore any late result from the previous address's quote request.
+      latestQuoteRequest.current += 1;
+      setLoadingRates(false);
       setSelectedRate(null);
       setRates(null);
       setRouteInfo(null);
@@ -109,6 +112,7 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
       setError('Pilih alamat pengiriman');
       return;
     }
+    const requestId = ++latestQuoteRequest.current;
     setError('');
     setSelectedRate(null);
     setRates(null);
@@ -116,16 +120,22 @@ export function CheckoutForm({ addresses: initialAddresses, cart, subtotal, tier
     setLoadingRates(true);
     setStep(2);
 
-    const result = await calculateShippingRates(selectedAddressId);
-    setLoadingRates(false);
-
-    if (!result.success) {
-      setError(result.error || 'Gagal menghitung ongkir');
-      return;
+    try {
+      const result = await calculateShippingRates(selectedAddressId);
+      if (requestId !== latestQuoteRequest.current) return;
+      if (!result.success) {
+        setError(result.error || 'Gagal menghitung ongkir');
+        return;
+      }
+      setRates(result.data ?? null);
+      setRouteInfo(result.route ?? null);
+    } catch {
+      if (requestId === latestQuoteRequest.current) {
+        setError('Tidak dapat memuat tarif pengiriman. Coba kembali.');
+      }
+    } finally {
+      if (requestId === latestQuoteRequest.current) setLoadingRates(false);
     }
-
-    setRates(result.data ?? null);
-    setRouteInfo(result.route ?? null);
   }
 
   function handleCourierNext() {
