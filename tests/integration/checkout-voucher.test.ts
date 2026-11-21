@@ -1,19 +1,30 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
-import mysql, { type Connection, type Pool, type RowDataPacket } from 'mysql2/promise';
+import { createRequire } from 'node:module';
+import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import mysql, { type Connection, type Pool } from 'mysql2/promise';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/lib/db/schema';
-import { loadCheckoutVoucher, reserveCheckoutVoucher } from '@/lib/checkout/transactional-voucher';
+import { commitOnlineOrderAtomically } from '@/lib/checkout/commit-online-order';
+import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
+
+vi.mock('@/lib/db', () => ({
+  get db() { return databaseClient; },
+}));
 
 const url = process.env.SANDBOX_BOOKING_TEST_DATABASE_URL;
 const database = 'sbx_voucher_' + randomUUID().replaceAll('-', '');
 let admin: Connection;
 let pool: Pool;
+let databaseClient: ReturnType<typeof connect>;
 let created = false;
-const now = new Date('2026-11-20T10:00:00Z');
 
-describe.skipIf(!url)('voucher reservation on disposable MySQL', () => {
+function connect(pool: Pool) {
+  return drizzle(pool, { schema, mode: 'default' });
+}
+
+describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
   beforeAll(async () => {
     const parsed = new URL(url!);
     if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || parsed.pathname !== '/sbx_booking_test') {
@@ -25,67 +36,158 @@ describe.skipIf(!url)('voucher reservation on disposable MySQL', () => {
     await admin.query('CREATE DATABASE ??', [database]);
     created = true;
     await admin.changeUser({ database });
-    await admin.query(`CREATE TABLE vouchers (
-      id INT PRIMARY KEY, code VARCHAR(50), name VARCHAR(120), description TEXT,
-      voucher_type VARCHAR(30), value INT, min_spend INT, store_id INT, tier_id INT,
-      quota INT, used_count INT, voucher_audience VARCHAR(30), valid_days_after_grant INT,
-      max_uses_per_user INT, first_order_only BOOLEAN, allow_points BOOLEAN,
-      starts_at TIMESTAMP NULL, ends_at TIMESTAMP NULL, is_active BOOLEAN, archived_at TIMESTAMP NULL
-    ) ENGINE=InnoDB`);
-    await admin.query(`CREATE TABLE user_vouchers (
-      id INT PRIMARY KEY, user_id INT NOT NULL, voucher_id INT NOT NULL,
-      user_voucher_status VARCHAR(30), granted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      expires_at TIMESTAMP NULL, reserved_order_id INT NULL, reserved_at TIMESTAMP NULL,
-      redeemed_order_id INT NULL, redeemed_at TIMESTAMP NULL, UNIQUE KEY (user_id, voucher_id)
-    ) ENGINE=InnoDB`);
-    await admin.query('CREATE TABLE memberships (id INT PRIMARY KEY, user_id INT UNIQUE, tier_id INT, points INT, total_spend INT, joined_at TIMESTAMP NULL) ENGINE=InnoDB');
-    await admin.query("INSERT INTO vouchers (id,code,voucher_type,value,min_spend,used_count,voucher_audience,max_uses_per_user,first_order_only,allow_points,is_active) VALUES (1,'TEST','fixed',5000,10000,0,'new_user',1,false,true,true)");
-    await admin.query("INSERT INTO user_vouchers (id,user_id,voucher_id,user_voucher_status) VALUES (1,10,1,'available')");
+    // drizzle-kit 0.30 bundles CommonJS dependencies in its ESM entry.
+    const { generateMySQLDrizzleJson, generateMySQLMigration } =
+      createRequire(import.meta.url)('drizzle-kit/api') as typeof import('drizzle-kit/api');
+    const empty = await generateMySQLDrizzleJson({});
+    const current = await generateMySQLDrizzleJson(schema);
+    for (const statement of await generateMySQLMigration(empty, current)) {
+      await admin.query(statement);
+    }
     pool = mysql.createPool({ ...options, database, connectionLimit: 4 });
+    databaseClient = connect(pool);
+    await databaseClient.insert(schema.inventoryLocations).values({
+      id: 1, code: 'TEST', name: 'Test', type: 'online', isOnlineDefault: true,
+    });
+    await databaseClient.insert(schema.memberTiers).values({ id: 1, name: 'Test' });
   }, 30000);
+
   afterAll(async () => {
     await pool?.end();
     if (created) await admin.query('DROP DATABASE ??', [database]);
     await admin?.end();
   });
-  const getDb = () => drizzle(pool, { schema, mode: 'default' });
-  const load = (tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0], userId = 10) =>
-    loadCheckoutVoucher(tx, { userId, voucherId: 1, subtotal: 20000 });
 
-  it('uses server-side discount and rejects a different owner and insufficient subtotal', async () => {
-    await getDb().transaction(async tx => {
-      const voucher = await load(tx);
-      expect(voucher).toMatchObject({ voucherId: 1, grantId: 1, discountAmount: 5000, allowPoints: true });
-    });
-    await expect(getDb().transaction(tx => load(tx, 11))).rejects.toThrow();
-    await expect(getDb().transaction(tx => loadCheckoutVoucher(tx, { userId: 10, voucherId: 1, subtotal: 9999 }))).rejects.toThrow();
+  let nextId = 10;
+  async function fixture(policy: Partial<typeof schema.vouchers.$inferInsert> = {}, owned = true) {
+    const id = nextId;
+    nextId += 2;
+    const db = databaseClient;
+    await db.insert(schema.users).values({ id, name: 'Test', email: `test-${id}@example.test`, password: 'fixture' });
+    const address = { id, userId: id, recipientName: 'Test', phone: '0000000000',
+      address: 'Test address', detail: null, latitude: null, longitude: null };
+    await db.insert(schema.addresses).values({ ...address, province: 'Test', city: 'Test',
+      district: 'Test', postalCode: '00000' });
+    const productIds = [id, id + 1];
+    await db.insert(schema.products).values(productIds.map(productId => ({
+      id: productId, name: 'Test item', slug: `test-item-${productId}`, price: '10000', stock: 3, weight: 100,
+    })));
+    await db.insert(schema.cartItems).values(productIds.map(productId => ({ userId: id, productId })));
+    await db.insert(schema.inventoryBalances).values(productIds.map(productId => ({
+      locationId: 1, productId, quantity: 3,
+    })));
+    await db.insert(schema.memberships).values({ id, userId: id, tierId: 1, points: 20 });
+    await db.insert(schema.vouchers).values({ id, code: `TEST-${id}`, type: 'fixed', value: 5000,
+      minSpend: 10000, audience: 'new_user', ...policy });
+    if (owned) await db.insert(schema.userVouchers).values({ id, userId: id, voucherId: id });
+    const args = {
+      userId: id, addressId: id, orderNumber: `TEST-${id}`,
+      snapshot: checkoutSnapshotDigest({ address, items: productIds.map(productId => ({
+        productId, variantId: null, quantity: 1, unitWeight: 100, unitPrice: 10000,
+      })) }),
+      shipping: { courierName: 'Test', courierCompany: 'test', courierType: 'reg', price: 2000 },
+      benefits: { kind: 'voucher-membership-v1' as const, voucherId: id, pointsToRedeem: 10 },
+    };
+    return { id, productIds, args };
+  }
+
+  async function state({ id, productIds }: Awaited<ReturnType<typeof fixture>>) {
+    const db = databaseClient;
+    return {
+      orderItems: await db.select().from(schema.orderItems).where(inArray(schema.orderItems.productId, productIds)),
+      shipments: await db.select().from(schema.shippings).innerJoin(schema.orders, eq(schema.shippings.orderId, schema.orders.id)).where(eq(schema.orders.userId, id)),
+      orders: await db.select().from(schema.orders).where(eq(schema.orders.userId, id)),
+      grants: await db.select().from(schema.userVouchers).where(eq(schema.userVouchers.userId, id)),
+      membership: await db.select().from(schema.memberships).where(eq(schema.memberships.userId, id)),
+      ledger: await db.select().from(schema.pointsLedger).where(eq(schema.pointsLedger.membershipId, id)),
+      cart: await db.select().from(schema.cartItems).where(eq(schema.cartItems.userId, id)),
+      products: await db.select().from(schema.products).where(inArray(schema.products.id, productIds)),
+      stock: await db.select().from(schema.inventoryBalances).where(inArray(schema.inventoryBalances.productId, productIds)),
+      movements: await db.select().from(schema.inventoryMovements).where(inArray(schema.inventoryMovements.productId, productIds)),
+    };
+  }
+
+  it('persists the server discount, reserves once, debits points and clears the cart', async () => {
+    const data = await fixture({ tierId: 1 });
+    const result = await commitOnlineOrderAtomically(data.args);
+    const retry = await commitOnlineOrderAtomically(data.args);
+    expect(result).toMatchObject({ created: true, total: 16000 });
+    expect(retry).toEqual({ ...result, created: false });
+    const saved = await state(data);
+    expect(saved.orders).toMatchObject([{ voucherId: data.id, discountAmount: '5000.00', pointsRedeemed: 10 }]);
+    expect(saved.grants).toMatchObject([{ status: 'reserved', reservedOrderId: result.orderId }]);
+    expect(saved.membership).toMatchObject([{ points: 10 }]);
+    expect(saved.ledger).toMatchObject([{ orderId: result.orderId, delta: -10 }]);
+    expect(saved.stock.map(row => row.quantity)).toEqual([2, 2]);
+    expect(saved.movements).toHaveLength(2);
+    expect(saved.cart).toHaveLength(0);
   });
 
-  it('fails closed for quota, first-order, tier and expired policies', async () => {
-    for (const update of ["quota=1", "first_order_only=true", "tier_id=2", "ends_at='2026-11-19 00:00:00'"]) {
-      await admin.query(`UPDATE vouchers SET ${update} WHERE id=1`);
-      await expect(getDb().transaction(tx => load(tx))).rejects.toThrow();
-      await admin.query('UPDATE vouchers SET quota=NULL, first_order_only=false, tier_id=NULL, ends_at=NULL WHERE id=1');
-    }
+  it.each([
+    ['missing ownership', {}, false, 'tidak dimiliki'],
+    ['expired campaign', { endsAt: new Date(86_400_000) }, true, 'tidak tersedia'],
+    ['insufficient subtotal', { minSpend: 20001 }, true, 'tidak tersedia'],
+    ['limited quota', { quota: 1 }, true, 'belum didukung'],
+    ['first order only', { firstOrderOnly: true }, true, 'belum didukung'],
+    ['multiple uses', { maxUsesPerUser: 2 }, true, 'belum didukung'],
+    ['missing grant expiry', { validDaysAfterGrant: 30 }, true, 'kedaluwarsa'],
+    ['membership voucher', { audience: 'membership' }, true, 'belum didukung'],
+    ['public voucher', { audience: 'public' }, true, 'belum didukung'],
+    ['points stacking forbidden', { allowPoints: false }, true, 'voucher_points_conflict'],
+  ] as const)('leaves all state unchanged for %s', async (_, policy, owned, message) => {
+    const data = await fixture(policy, owned);
+    const before = await state(data);
+    await expect(commitOnlineOrderAtomically(data.args)).rejects.toThrow(message);
+    expect(await state(data)).toEqual(before);
   });
 
-  it('rolls back a reservation when a later stock step fails', async () => {
-    await expect(getDb().transaction(async tx => {
-      const voucher = await load(tx);
-      await reserveCheckoutVoucher(tx, { userId: 10, grantId: voucher.grantId, orderId: 77, now });
-      throw new Error('stock failure');
-    })).rejects.toThrow('stock failure');
-    const [rows] = await admin.query<RowDataPacket[]>('SELECT user_voucher_status, reserved_order_id FROM user_vouchers WHERE id=1');
-    expect(rows[0]).toMatchObject({ user_voucher_status: 'available', reserved_order_id: null });
+  it('rejects an expired owned grant on an active campaign', async () => {
+    const data = await fixture({ validDaysAfterGrant: 30 });
+    await databaseClient.update(schema.userVouchers).set({ expiresAt: new Date(86_400_000) })
+      .where(eq(schema.userVouchers.id, data.id));
+    const before = await state(data);
+    await expect(commitOnlineOrderAtomically(data.args)).rejects.toThrow('kedaluwarsa');
+    expect(await state(data)).toEqual(before);
   });
 
-  it('allows only one concurrent reservation and prevents reuse', async () => {
-    const attempt = (orderId: number) => getDb().transaction(async tx => {
-      const voucher = await load(tx);
-      await reserveCheckoutVoucher(tx, { userId: 10, grantId: voucher.grantId, orderId, now });
-    });
-    const results = await Promise.allSettled([attempt(100), attempt(101)]);
+  it.each([
+    [undefined, 22000, 20],
+    [{ kind: 'membership-points-v1', pointsToRedeem: 10 } as const, 21000, 10],
+  ])('preserves non-voucher checkout for %j', async (benefits, total, points) => {
+    const data = await fixture();
+    const result = await commitOnlineOrderAtomically({ ...data.args, benefits });
+    expect(result.total).toBe(total);
+    const saved = await state(data);
+    expect(saved.orders).toMatchObject([{ voucherId: null, discountAmount: '0.00' }]);
+    expect(saved.grants).toMatchObject([{ status: 'available', reservedOrderId: null }]);
+    expect(saved.membership).toMatchObject([{ points }]);
+  });
+
+  it('rolls back order, grant, points and an earlier stock update when a later item is out of stock', async () => {
+    const data = await fixture();
+    await databaseClient.update(schema.inventoryBalances).set({ quantity: 0 })
+      .where(eq(schema.inventoryBalances.productId, data.productIds[1]));
+    const before = await state(data);
+    await expect(commitOnlineOrderAtomically(data.args)).rejects.toThrow('Stok Gudang Online');
+    expect(await state(data)).toEqual(before);
+  });
+
+  it('allows one competing checkout and rejects reuse even after the cart is refilled', async () => {
+    const data = await fixture();
+    const alternate = { ...data.args, orderNumber: `${data.args.orderNumber}-alternate` };
+    const results = await Promise.allSettled([
+      commitOnlineOrderAtomically(data.args), commitOnlineOrderAtomically(alternate),
+    ]);
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
-    await expect(attempt(102)).rejects.toThrow();
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    await databaseClient.insert(schema.cartItems).values(data.productIds.map(productId => ({
+      userId: data.id, productId,
+    })));
+    const before = await state(data);
+    expect(before.orders).toHaveLength(1);
+    await expect(commitOnlineOrderAtomically({
+      ...data.args, orderNumber: `${data.args.orderNumber}-reuse`,
+    })).rejects.toThrow('sudah digunakan');
+    expect(await state(data)).toEqual(before);
   });
 });

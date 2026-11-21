@@ -1,17 +1,20 @@
-# Atomic voucher checkout audit
+# Atomic Voucher Checkout v0.1
 
-Status: PARTIAL / BLOCKED for endpoint use. A restricted opt-in grant flow is implemented in the shared kernel. No endpoint is wired to voucher handling by this work.
+**PASS untuk reservasi opt-in pada kernel. BLOCKED untuk aktivasi endpoint.**
 
-`user_vouchers` has a unique user/campaign grant and available/reserved/redeemed states. Legacy online checkout reserves grants, but public vouchers have no universal per-user reservation ledger. `used_count` is incremented after payment in the legacy Xendit webhook, in a different transaction from grant redemption and order status updates. POS updates quota in its own transaction. A kernel-only count of reserved grants cannot guarantee global quota against legacy checkout and webhook concurrency. First-order eligibility currently checks completed orders after grant creation, without a shared lock protocol across POS and online flows. `max_uses_per_user` lacks a universally enforced usage ledger. Expiry, cancellation, and reconciliation must be considered together with quota release and idempotent redemption.
+Pemanggil server dapat memilih `benefits: { kind: 'voucher-membership-v1', voucherId, pointsToRedeem }`. Kernel menghitung subtotal dari cart dan harga yang dikunci, mencocokkan snapshot cart dan alamat dari pemanggil, lalu mengambil nilai dan aturan diskon dari database. Voucher dan grant dikunci sebelum reservasi. Order, grant, stok, ledger poin, pengiriman, dan cart ditulis dalam satu transaksi. Retry dengan nomor order yang sama mengembalikan hasil tersimpan.
 
-A restricted grant-only, unlimited-quota path still requires a transactional expiry, ownership and lifecycle design, plus integration tests proving its interaction with existing writers. Before enabling any voucher path, establish and test one shared reservation/redemption protocol across all writers, including old pending orders and callbacks. Until then do not introduce an opt-in path that can affect actual orders.
+| Aturan | Perilaku v0.1 |
+| --- | --- |
+| Masa berlaku | Periksa jadwal kampanye dan tanggal kedaluwarsa grant. Kampanye dengan masa berlaku relatif membutuhkan tanggal pada grant. |
+| Minimum belanja dan tier | Gunakan subtotal yang dihitung server dan tier membership yang dikunci. |
+| Audience dan kepemilikan | Hanya grant `new_user` milik pengguna, aktif, belum diarsipkan, dan tanpa batas toko. |
+| Pemakaian | Hanya satu kali. Grant harus berstatus `available` dan bebas dari referensi reservasi atau redemption sebelumnya. |
+| Kuota, `firstOrderOnly`, penggunaan berulang | Tolak. Penulis legacy online, POS, dan webhook belum memiliki satu protokol kuota dan histori lintas jalur. |
+| Poin | Terapkan `allowPoints` dari voucher. Validasi jumlah poin terhadap saldo dan total pembayaran di kernel bisnis. |
 
-Required next tests include real MySQL races between online and POS/legacy writers, voucher quota and grant ownership, first-order contention, allow-points stacking, inventory failure rollback, expiry/cancellation release and duplicate webhook handling. No staging or production database or provider access is needed for those tests.
+Suite MySQL membangun skema aplikasi di database lokal yang dihapus setelah tes. Suite menjalankan kernel untuk checkout sukses, retry, persaingan checkout, penolakan kebijakan dan grant, kompatibilitas sandbox dan membership-points, serta rollback ketika stok item kedua tidak mencukupi.
 
-## Voucher opt-in v0.1
+Sebelum endpoint memilih opsi ini, selesaikan redemption yang idempoten pada pembayaran berhasil, release saat expiry atau pembatalan, dan rekonsiliasi untuk callback ambigu. Callback sandbox saat ini tidak mengelola grant baru ini. Webhook legacy mengelola grant dan penghitung pemakaian di luar satu transaksi bersama. Aktivasi memerlukan pengujian replay, pemulihan reservasi, dan interaksi lintas penulis sebelum kuota terbatas atau `firstOrderOnly` dapat didukung.
 
-The shared kernel accepts `benefits: { kind: 'voucher-membership-v1', voucherId, pointsToRedeem }` only from an explicit future caller. It locks the voucher and owned grant, calculates the discount from database values and reserves the grant in the order transaction. Stock, cart, points and reservation roll back with the transaction. Existing sandbox and membership-points-v1 calls do not opt in. The server must still provide a trusted shipping quote and cart snapshot.
-
-Only active, unarchived `new_user` grants with unlimited quota, no store restriction, `maxUsesPerUser=1` and `firstOrderOnly=false` are supported. Time windows, minimum spend, tier, ownership, grant expiry and `allowPoints` are checked. All other policies fail closed. Existing first-order and quota semantics are intentionally not approximated.
-
-**BLOCKED for endpoint use:** sandbox payment callbacks do not implement grant redemption or release for this new path, and legacy callback processing is not atomic with all order effects. Complete the payment, expiry and cancellation lifecycle with idempotent reservation recovery and full kernel integration and concurrent stock/points tests before connecting any route. Current MySQL tests exercise the reservation helper and rollback, not the complete checkout transaction.
+Rollback perubahan ini dapat dilakukan dengan revert commit fitur. Perubahan ini memakai kolom dan tabel yang sudah tersedia.

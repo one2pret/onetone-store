@@ -31,7 +31,9 @@ export async function loadCheckoutVoucher(
     throw new CheckoutVoucherError('Voucher tidak tersedia atau kebijakannya belum didukung');
   }
   if (!grant || grant.status !== 'available' || grant.reservedOrderId !== null ||
-      grant.redeemedOrderId !== null || (grant.expiresAt && now > grant.expiresAt)) {
+      grant.redeemedOrderId !== null ||
+      (voucher.validDaysAfterGrant !== null && grant.expiresAt === null) ||
+      (grant.expiresAt && now > grant.expiresAt)) {
     throw new CheckoutVoucherError('Voucher tidak dimiliki, kedaluwarsa, atau sudah digunakan');
   }
   if (voucher.tierId !== null) {
