@@ -31,8 +31,8 @@ export async function handleSandboxInvoiceCallback(body: unknown) {
     if (result.decision === 'conflict') {
       // PAID after expiry or EXPIRED after PAID must never silently reverse
       // stock/fulfillment. Operator must reconcile with provider.
-      console.error('Sandbox Xendit conflicting callback requires reconciliation', {
-        orderId: result.orderId, status: parsed.event.status,
+      console.error('sandbox_settlement', {
+        orderId: result.orderId, providerStatus: parsed.event.status, outcome: 'conflict',
       });
       return NextResponse.json({
         success: true,
@@ -40,6 +40,9 @@ export async function handleSandboxInvoiceCallback(body: unknown) {
         message: 'Callback acknowledged; terminal state requires review',
       });
     }
+    console.info('sandbox_settlement', {
+      orderId: result.orderId, providerStatus: parsed.event.status, outcome: result.decision,
+    });
     return NextResponse.json({
       success: true,
       result: result.decision,
@@ -47,14 +50,14 @@ export async function handleSandboxInvoiceCallback(body: unknown) {
     });
   } catch (error) {
     if (error instanceof SandboxWebhookRejected) {
-      console.error('Sandbox invoice callback rejected', {
-        status: error.status, message: error.message,
+      console.error('sandbox_settlement', {
+        providerStatus: parsed.event.status, outcome: 'rejected', httpStatus: error.status,
       });
       return NextResponse.json({
         success: false, error: error.message,
       }, { status: error.status });
     }
-    console.error('Sandbox invoice callback processing failed', error);
+    console.error('sandbox_settlement', { providerStatus: parsed.event.status, outcome: 'retry' });
     // A non-2xx result requests an automatic provider retry.
     return NextResponse.json({
       success: false, error: 'Temporary webhook failure',

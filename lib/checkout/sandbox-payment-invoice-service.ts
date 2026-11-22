@@ -67,7 +67,7 @@ export async function createSandboxTestInvoiceWithLedger(args: {
   } catch {
     // Order may already be committed. Returning 202 is safer than reporting
     // an unqualified checkout failure and inviting a new idempotency key.
-    console.error('TEST checkout payment reservation unavailable; operator reconciliation required');
+    console.error('sandbox_invoice_setup', { orderId: args.orderId, outcome: 'claim_unavailable' });
     return { kind: 'pending' };
   }
 
@@ -90,13 +90,13 @@ export async function createSandboxTestInvoiceWithLedger(args: {
   } catch {
     // Cannot infer Xendit did not create an invoice on timeout/crash.
     // NEVER retry createInvoice automatically for this attempt.
-    console.error('TEST checkout payment attempt requires reconciliation');
     try {
       await markSandboxAttemptNeedsReconciliation(attemptId);
+      console.error('sandbox_invoice_setup', { orderId: args.orderId, attemptId, outcome: 'needs_reconciliation' });
     } catch {
       // Remaining 'requesting' is also non-replayable; an operator must
       // look up the attempt before further contact with Xendit.
-      console.error('TEST checkout payment reconciliation status could not be persisted');
+      console.error('sandbox_invoice_setup', { orderId: args.orderId, attemptId, outcome: 'reconciliation_write_failed' });
     }
     return { kind: 'pending' };
   }

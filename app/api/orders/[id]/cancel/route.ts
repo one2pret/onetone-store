@@ -37,11 +37,20 @@ export async function POST(
     const order = orderRows[0];
 
     if (order.voucherId != null && isSandboxOrder(order.orderNumber)) {
-      const result = await confirmSandboxVoucherCancellation(order.id, user.id);
-      if (result.decision === 'conflict') {
-        return NextResponse.json({ success: false, code: 'manual_reconciliation_required' }, { status: 409 });
+      try {
+        const result = await confirmSandboxVoucherCancellation(order.id, user.id);
+        console.info('sandbox_cancellation', { orderId: order.id, outcome: result.decision });
+        if (result.decision === 'conflict') {
+          return NextResponse.json({ success: false, code: 'manual_reconciliation_required' }, { status: 409 });
+        }
+        return NextResponse.json({ success: true, result: result.decision });
+      } catch (error) {
+        const status = error instanceof SandboxWebhookRejected ? error.status : 503;
+        console.error('sandbox_cancellation', { orderId: order.id, outcome: 'rejected', httpStatus: status });
+        return NextResponse.json({
+          success: false, error: error instanceof SandboxWebhookRejected ? error.message : 'Pembatalan perlu rekonsiliasi',
+        }, { status });
       }
-      return NextResponse.json({ success: true, result: result.decision });
     }
 
     if (order.status !== 'waiting_payment') {
@@ -85,11 +94,8 @@ export async function POST(
       await releaseVoucherReservation(orderId);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    if (error instanceof SandboxWebhookRejected) {
-      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-    }
-    console.error('Cancel order error:', error);
+  } catch {
+    console.error('order_cancellation', { outcome: 'retry' });
     return NextResponse.json(
       { success: false, error: 'Gagal membatalkan order' },
       { status: 500 },

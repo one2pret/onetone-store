@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       return dispatchValidatedSandboxCallback(body);
     }
 
-    const { id: xenditId, status, payment_method, payment_channel, paid_at } = body;
+    const { id: xenditId, status, payment_method, payment_channel } = body;
 
     if (!xenditId || !status) {
       return NextResponse.json({ success: true, message: 'Ignored: missing data' });
@@ -243,8 +243,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Xendit webhook error:', error);
+  } catch {
+    console.error('xendit_invoice_callback', { outcome: 'retry' });
     return NextResponse.json({ success: true, message: 'Error handled' });
   }
 }
