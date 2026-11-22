@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { db } from '@/lib/db';
 import { memberships, memberTiers, pointsLedger } from '@/lib/db/schema';
 
@@ -71,4 +71,39 @@ export async function debitCheckoutMembershipPoints(
     delta: -args.points,
     reason: 'order_redeem',
   });
+}
+
+export class CheckoutPointsReconciliationError extends Error {
+  constructor() { super('Membership points debit requires reconciliation'); }
+}
+
+/** Restore the exact debit during a fresh terminal transition with the order locked. */
+export async function restoreCheckoutMembershipPoints(tx: CheckoutTransaction, args: {
+  orderId: number; userId: number | null; pointsRedeemed: number | null;
+}): Promise<void> {
+  const { orderId, userId, pointsRedeemed } = args;
+  const [member] = userId === null ? [] : await tx.select({
+    id: memberships.id, points: memberships.points,
+  }).from(memberships).where(eq(memberships.userId, userId)).for('update').limit(1);
+  const entries = await tx.select({
+    membershipId: pointsLedger.membershipId, delta: pointsLedger.delta, reason: pointsLedger.reason,
+  }).from(pointsLedger).where(and(eq(pointsLedger.orderId, orderId), inArray(pointsLedger.reason, [
+    'order_redeem', 'order_expire_restore', 'order_cancel_restore', 'order_voucher_restore',
+  ]))).for('update');
+
+  if (pointsRedeemed === 0 && entries.length === 0) return;
+  const [debit] = entries;
+  if (!member || entries.length !== 1 || debit.reason !== 'order_redeem' ||
+      debit.membershipId !== member.id || debit.delta >= 0 || -debit.delta !== pointsRedeemed ||
+      member.points === null || member.points < 0 || member.points - debit.delta > 2_147_483_647) {
+    throw new CheckoutPointsReconciliationError();
+  }
+
+  await tx.insert(pointsLedger).values({
+    membershipId: member.id, orderId, delta: -debit.delta, reason: 'order_voucher_restore',
+  });
+  const [updated] = await tx.update(memberships).set({
+    points: sql`${memberships.points} - ${debit.delta}`,
+  }).where(eq(memberships.id, member.id));
+  if (updated.affectedRows !== 1) throw new CheckoutPointsReconciliationError();
 }

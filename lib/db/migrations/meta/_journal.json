@@ -141,6 +141,13 @@
       "when": 1795071600000,
       "tag": "0019_checkout_payment_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1795305600000,
+      "tag": "0020_runtime_schema_parity",
+      "breakpoints": true
     }
   ]
 }

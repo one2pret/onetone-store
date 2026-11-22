@@ -7,6 +7,9 @@ import { getApiUser } from '@/lib/api-auth';
 import { restoreStock } from '@/lib/stock';
 import { releaseVoucherReservation } from '@/lib/user-vouchers';
 import { expireInvoice } from '@/lib/xendit';
+import { confirmSandboxVoucherCancellation } from '@/lib/checkout/confirm-sandbox-voucher-cancellation';
+import { SandboxWebhookRejected } from '@/lib/checkout/process-sandbox-webhook';
+import { isSandboxOrder } from '@/lib/checkout/sandbox-legacy-guard';
 
 // POST /api/orders/[id]/cancel — cancel order by customer
 export async function POST(
@@ -32,6 +35,23 @@ export async function POST(
     }
 
     const order = orderRows[0];
+
+    if (order.voucherId != null && isSandboxOrder(order.orderNumber)) {
+      try {
+        const result = await confirmSandboxVoucherCancellation(order.id, user.id);
+        console.info('sandbox_cancellation', { orderId: order.id, outcome: result.decision });
+        if (result.decision === 'conflict') {
+          return NextResponse.json({ success: false, code: 'manual_reconciliation_required' }, { status: 409 });
+        }
+        return NextResponse.json({ success: true, result: result.decision });
+      } catch (error) {
+        const status = error instanceof SandboxWebhookRejected ? error.status : 503;
+        console.error('sandbox_cancellation', { orderId: order.id, outcome: 'rejected', httpStatus: status });
+        return NextResponse.json({
+          success: false, error: error instanceof SandboxWebhookRejected ? error.message : 'Pembatalan perlu rekonsiliasi',
+        }, { status });
+      }
+    }
 
     if (order.status !== 'waiting_payment') {
       return NextResponse.json(
@@ -74,8 +94,8 @@ export async function POST(
       await releaseVoucherReservation(orderId);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Cancel order error:', error);
+  } catch {
+    console.error('order_cancellation', { outcome: 'retry' });
     return NextResponse.json(
       { success: false, error: 'Gagal membatalkan order' },
       { status: 500 },

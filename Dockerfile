@@ -44,7 +44,7 @@ RUN npm run build
 # `drizzle-kit push --force` di server karena schema diff dapat mengusulkan truncate
 # atau perubahan destruktif terhadap database yang sudah berisi data.
 FROM builder AS migrator
-CMD ["npx", "drizzle-kit", "migrate"]
+CMD ["node_modules/.bin/tsx", "scripts/migrate-mysql.ts"]
 
 # ── Stage 3: Production image ─────────────────────────────────────────────────
 FROM node:20-alpine AS runner

@@ -74,6 +74,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          labels: org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
             DATABASE_URL=mysql://build:build@localhost:3306/build
             AUTH_SECRET=build_time_dummy
@@ -96,6 +97,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}-migrate
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          labels: org.opencontainers.image.revision=${{ github.sha }}
           build-args: |
             DATABASE_URL=mysql://build:build@localhost:3306/build
             AUTH_SECRET=build_time_dummy

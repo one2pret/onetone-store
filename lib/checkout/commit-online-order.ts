@@ -8,6 +8,7 @@ import { resolveProductPrice } from '@/lib/product-pricing';
 import { checkoutSnapshotDigest } from './order-snapshot';
 import { calculateCheckoutBusinessTotals, CheckoutBusinessTotalsError } from './business-totals';
 import { loadLockedCheckoutMembership, debitCheckoutMembershipPoints } from './transactional-membership-points';
+import { CheckoutVoucherError, loadCheckoutVoucher, reserveCheckoutVoucher } from './transactional-voucher';
 
 export class CheckoutRejected extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -16,14 +17,18 @@ export class CheckoutRejected extends Error {
 type SelectedShipping = {
   courierName: string; courierCompany: string; courierType: string; price: number;
 };
-/** Explicitly opted-in financial scope; vouchers and affiliates remain a later PR. */
+/** Explicitly opted-in financial scopes; affiliate effects remain unsupported. */
 export type CheckoutMemberPointsSelection = {
   kind: 'membership-points-v1';
+  pointsToRedeem: number;
+} | {
+  kind: 'voucher-membership-v1';
+  voucherId: number;
   pointsToRedeem: number;
 };
 
 export type CommittedOrder = {
-  created: boolean; orderId: number; orderNumber: string; total: number;
+  created: boolean; orderId: number; orderNumber: string; total: number; shippingCost: number;
 };
 
 /**
@@ -59,7 +64,7 @@ export async function commitOnlineOrderAtomically(args: {
     if (previous) {
       if (previous.userId !== args.userId) throw new CheckoutRejected(409, 'Kunci checkout tidak valid');
       return { created: false, orderId: previous.id,
-        orderNumber: previous.orderNumber, total: Number(previous.total) };
+        orderNumber: previous.orderNumber, total: Number(previous.total), shippingCost: Number(previous.shippingCost) };
     }
 
     const [address] = await tx.select().from(addresses)
@@ -141,25 +146,40 @@ export async function commitOnlineOrderAtomically(args: {
     let actualShippingCost = args.shipping.price;
     let lockedMember: Awaited<ReturnType<typeof loadLockedCheckoutMembership>> = null;
     let pointsToRedeem = 0;
+    let selectedVoucher: Awaited<ReturnType<typeof loadCheckoutVoucher>> | null = null;
+    let discountAmount = 0;
     if (args.benefits !== undefined) {
       // Deliberately reject unsupported benefits instead of silently dropping
-      // a caller's voucher, affiliate, or future discount policy.
+      // a caller's affiliate or other unsupported discount policy.
       const selection = args.benefits;
-      if (!selection || selection.kind !== 'membership-points-v1' ||
-          Object.keys(selection).some(key => key !== 'kind' && key !== 'pointsToRedeem')) {
+      if (!selection ||
+          (selection.kind !== 'membership-points-v1' && selection.kind !== 'voucher-membership-v1') ||
+          Object.keys(selection).some(key => !['kind', 'pointsToRedeem',
+            ...(selection.kind === 'voucher-membership-v1' ? ['voucherId'] : [])].includes(key))) {
         throw new CheckoutRejected(422, 'Jenis keuntungan checkout belum didukung');
+      }
+      if (selection.kind === 'voucher-membership-v1') {
+        try {
+          selectedVoucher = await loadCheckoutVoucher(tx, {
+            userId: args.userId, voucherId: selection.voucherId, subtotal,
+          });
+        } catch (error) {
+          if (error instanceof CheckoutVoucherError) throw new CheckoutRejected(422, error.message);
+          throw error;
+        }
       }
       lockedMember = await loadLockedCheckoutMembership(tx, args.userId);
       try {
         const financial = calculateCheckoutBusinessTotals({
           subtotal,
           quotedShippingCost: args.shipping.price,
-          voucher: null,
+          voucher: selectedVoucher,
           tierFreeShippingThreshold: lockedMember?.freeShippingThreshold ?? null,
           pointsToRedeem: selection.pointsToRedeem,
           availablePoints: lockedMember?.points ?? null,
         });
         total = financial.total;
+        discountAmount = financial.discountAmount;
         actualShippingCost = financial.shippingCost;
         pointsToRedeem = financial.pointsRedeemed;
       } catch (error) {
@@ -176,11 +196,15 @@ export async function commitOnlineOrderAtomically(args: {
       channel: 'online', status: 'waiting_payment',
       subtotal: String(subtotal), shippingCost: String(actualShippingCost),
       pointsRedeemed: pointsToRedeem,
+      voucherId: selectedVoucher?.voucherId ?? null, discountAmount: String(discountAmount),
       total: String(total), willExpiredAt: sql.raw('NOW() + INTERVAL 24 HOUR'),
       shippingName: address.recipientName, shippingPhone: address.phone,
       shippingAddress: address.address, notes: args.notes || null,
     });
     const orderId = Number(inserted.insertId);
+    if (selectedVoucher) {
+      await reserveCheckoutVoucher(tx, { userId: args.userId, grantId: selectedVoucher.grantId, orderId, now: new Date() });
+    }
     if (pointsToRedeem > 0) {
       if (!lockedMember) throw new CheckoutRejected(409, 'Akun membership tidak ditemukan');
       await debitCheckoutMembershipPoints(tx, {
@@ -252,6 +276,6 @@ export async function commitOnlineOrderAtomically(args: {
       });
     }
     await tx.delete(cartItems).where(eq(cartItems.userId, args.userId));
-    return { created: true, orderId, orderNumber: args.orderNumber, total };
+    return { created: true, orderId, orderNumber: args.orderNumber, total, shippingCost: actualShippingCost };
   });
 }

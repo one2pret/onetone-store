@@ -6,12 +6,14 @@ import {
 } from '@/lib/db/schema';
 import { sandboxPaymentDecision, type SandboxInvoiceEvent } from './sandbox-xendit-webhook';
 import { sandboxLedgerWebhookTransition } from './sandbox-ledger-webhook-policy';
+import { CheckoutPointsReconciliationError, restoreCheckoutMembershipPoints } from './transactional-membership-points';
+import { CheckoutVoucherError, settleCheckoutVoucher } from './transactional-voucher';
 
 export class SandboxWebhookRejected extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
 
-type ProcessResult = { decision: 'paid' | 'expired' | 'duplicate' | 'conflict'; orderId: number };
+type ProcessResult = { decision: 'paid' | 'expired' | 'cancelled' | 'duplicate' | 'conflict'; orderId: number };
 
 function stockKey(productId: number, variantId: number | null): string {
   return String(productId) + ':' + String(variantId ?? 'base');
@@ -20,7 +22,28 @@ function stockKey(productId: number, variantId: number | null): string {
 /** Atomically apply a sandbox invoice transition. Only SBX- orders are accepted.
  * All stock restoration, invoice/order status and history are one transaction.
  */
-export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Promise<ProcessResult> {
+export function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Promise<ProcessResult> {
+  return settleSandboxInvoice(event);
+}
+
+type CancellationEvidenceTarget = {
+  orderId: number; userId: number; invoiceId: number; attemptId: number; checkedAt: number;
+};
+
+/** Internal command for a trusted caller with confirmed provider expiry.
+ * A raw callback or customer cancellation request cannot invoke this command.
+ */
+export function settleConfirmedSandboxCancellation(
+  evidence: SandboxInvoiceEvent & { status: 'EXPIRED' },
+  target: CancellationEvidenceTarget,
+): Promise<ProcessResult> {
+  if (evidence.status !== 'EXPIRED' || (evidence.paidAmount !== null && evidence.paidAmount !== 0)) {
+    throw new SandboxWebhookRejected(409, 'Sandbox cancellation requires confirmed invoice expiry');
+  }
+  return settleSandboxInvoice(evidence, target);
+}
+
+async function settleSandboxInvoice(event: SandboxInvoiceEvent, cancel?: CancellationEvidenceTarget): Promise<ProcessResult> {
   return db.transaction(async tx => {
     const [invoice] = await tx.select().from(invoices)
       .where(eq(invoices.xenditId, event.id)).for('update').limit(1);
@@ -68,7 +91,21 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
       throw new SandboxWebhookRejected(503, 'Payment attempt identity mismatch');
     }
 
-    const decision = sandboxPaymentDecision(event.status, invoice.status, order.status);
+    if (cancel) {
+      const evidenceAge = Date.now() - cancel.checkedAt;
+      if (order.voucherId === null || !ledger || evidenceAge < 0 || evidenceAge > 30_000 ||
+          !Number.isFinite(evidenceAge) || order.id !== cancel.orderId || order.userId !== cancel.userId ||
+          invoice.id !== cancel.invoiceId || ledger.id !== cancel.attemptId) {
+        throw new SandboxWebhookRejected(409, 'Sandbox cancellation evidence requires reconciliation');
+      }
+    }
+
+    const pendingDecision = sandboxPaymentDecision(event.status, invoice.status, order.status);
+    const decision = cancel
+      ? invoice.status === 'cancelled' && order.status === 'cancelled' && ledger?.status === 'expired'
+        ? 'duplicate'
+        : pendingDecision === 'expire' ? 'cancel' : 'conflict'
+      : pendingDecision;
     if (decision === 'conflict') {
       // PAID after EXPIRED or EXPIRED after PAID cannot reverse stock/order.
       return { decision, orderId: order.id };
@@ -107,7 +144,7 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
       return { decision: 'conflict', orderId: order.id };
     }
 
-    if (decision === 'expire') {
+    if (decision !== 'pay') {
       // Restore ONLY recorded sale movements, to the original location even if
       // the online default location has since changed.
       const movements = await tx.select().from(inventoryMovements)
@@ -184,7 +221,7 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
           type: 'return',
           referenceType: 'order',
           referenceId: order.id,
-          notes: 'sandbox invoice expired',
+          notes: decision === 'cancel' ? 'sandbox invoice cancelled' : 'sandbox invoice expired',
         });
       }
     }
@@ -200,6 +237,10 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
         status: 'packing',
         paidAt: sql.raw('NOW()'),
       }).where(eq(orders.id, order.id));
+    } else if (decision === 'cancel') {
+      const cancelledAt = new Date();
+      await tx.update(invoices).set({ status: 'cancelled', cancelledAt }).where(eq(invoices.id, invoice.id));
+      await tx.update(orders).set({ status: 'cancelled', cancelledAt }).where(eq(orders.id, order.id));
     } else {
       await tx.update(invoices).set({ status: 'expired' })
         .where(eq(invoices.id, invoice.id));
@@ -209,11 +250,31 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
       }).where(eq(orders.id, order.id));
     }
 
+    // SBX orders with a voucher ID carry the atomic checkout opt-in.
+    // Duplicate/conflicting events return earlier, even if the grant was reused.
+    if (order.voucherId !== null) {
+      try {
+        await settleCheckoutVoucher(tx, {
+          orderId: order.id, userId: order.userId, voucherId: order.voucherId,
+          subtotal: Number(order.subtotal), outcome: decision === 'pay' ? 'paid' : 'expired',
+        });
+        if (decision !== 'pay') await restoreCheckoutMembershipPoints(tx, {
+          orderId: order.id, userId: order.userId, pointsRedeemed: order.pointsRedeemed,
+        });
+      } catch (error) {
+        if (error instanceof CheckoutVoucherError || error instanceof CheckoutPointsReconciliationError) {
+          throw new SandboxWebhookRejected(503, error.message);
+        }
+        throw error;
+      }
+    }
+
+    const outcome = decision === 'pay' ? 'paid' : decision === 'cancel' ? 'cancelled' : 'expired';
     await tx.insert(orderStatusLogs).values({
       orderId: order.id,
       fromStatus: order.status!,
-      toStatus: decision === 'pay' ? 'packing' : 'expired',
-      changedBy: 'webhook:xendit:sandbox',
+      toStatus: outcome === 'paid' ? 'packing' : outcome,
+      changedBy: decision === 'cancel' ? 'system:sandbox-cancellation' : 'webhook:xendit:sandbox',
     });
 
     if (ledger) {
@@ -232,6 +293,6 @@ export async function processSandboxInvoiceEvent(event: SandboxInvoiceEvent): Pr
         throw new SandboxWebhookRejected(503, 'Payment attempt settlement failed');
       }
     }
-    return { decision: decision === 'pay' ? 'paid' : 'expired', orderId: order.id };
+    return { decision: outcome, orderId: order.id };
   });
 }
