@@ -32,24 +32,38 @@ function signatureGroups(rows: RowDataPacket[], values: (row: RowDataPacket) => 
   return [...new Set([...groups.values()].map(group => JSON.stringify([group.table, ...group.values])))].sort();
 }
 
-export async function readMysqlSchemaInventory(connection: Connection): Promise<SchemaInventory> {
-  const [columns] = await connection.query<Column[]>(`SELECT TABLE_NAME t, COLUMN_NAME n, COLUMN_TYPE ty,
+export const mysqlSchemaMetadataQueries = {
+  columns: `SELECT TABLE_NAME t, COLUMN_NAME n, COLUMN_TYPE ty,
     IS_NULLABLE nu, COLUMN_DEFAULT d, EXTRA e FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()`);
-  const [indexes] = await connection.query<RowDataPacket[]>(`SELECT TABLE_NAME t, INDEX_NAME n,
+    WHERE TABLE_SCHEMA = DATABASE()`,
+  indexes: `SELECT TABLE_NAME t, INDEX_NAME n,
     NON_UNIQUE u, COLUMN_NAME c, SUB_PART p, INDEX_TYPE ty, COLLATION dir, IS_VISIBLE v
-    FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() ORDER BY t,n,SEQ_IN_INDEX`);
-  const [foreignKeys] = await connection.query<RowDataPacket[]>(`SELECT k.TABLE_NAME t, k.CONSTRAINT_NAME n,
+    FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() ORDER BY t,n,SEQ_IN_INDEX`,
+  foreignKeys: `SELECT k.TABLE_NAME t, k.CONSTRAINT_NAME n,
     k.COLUMN_NAME c, k.REFERENCED_TABLE_NAME rt, k.REFERENCED_COLUMN_NAME rc,
     (k.REFERENCED_TABLE_SCHEMA = DATABASE()) local_schema, r.UPDATE_RULE ur, r.DELETE_RULE dr
     FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r
     ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME
-    WHERE k.TABLE_SCHEMA=DATABASE() ORDER BY t,n,k.ORDINAL_POSITION`);
-  const [checks] = await connection.query<RowDataPacket[]>(`SELECT t.TABLE_NAME t, c.CHECK_CLAUSE clause
+    WHERE k.TABLE_SCHEMA=DATABASE() ORDER BY t,n,k.ORDINAL_POSITION`,
+  checks: `SELECT t.TABLE_NAME t, c.CHECK_CLAUSE clause
     FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c
     ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME
-    WHERE t.TABLE_SCHEMA=DATABASE() AND t.CONSTRAINT_TYPE='CHECK' AND t.ENFORCED='YES'`);
+    WHERE t.TABLE_SCHEMA=DATABASE() AND t.CONSTRAINT_TYPE='CHECK' AND t.ENFORCED='YES'`,
+};
 
+type MysqlSchemaMetadata = {
+  columns: Column[]; indexes: RowDataPacket[]; foreignKeys: RowDataPacket[]; checks: RowDataPacket[];
+};
+
+export async function readMysqlSchemaInventory(connection: Connection): Promise<SchemaInventory> {
+  const [columns] = await connection.query<Column[]>(mysqlSchemaMetadataQueries.columns);
+  const [indexes] = await connection.query<RowDataPacket[]>(mysqlSchemaMetadataQueries.indexes);
+  const [foreignKeys] = await connection.query<RowDataPacket[]>(mysqlSchemaMetadataQueries.foreignKeys);
+  const [checks] = await connection.query<RowDataPacket[]>(mysqlSchemaMetadataQueries.checks);
+  return normalizeMysqlSchemaInventory({ columns, indexes, foreignKeys, checks });
+}
+
+export function normalizeMysqlSchemaInventory({ columns, indexes, foreignKeys, checks }: MysqlSchemaMetadata): SchemaInventory {
   return {
     columns: columns.map(columnSignature).sort(),
     indexes: signatureGroups(indexes, row => [row.n === 'PRIMARY', row.u, row.c, row.p, row.ty, row.dir, row.v]),

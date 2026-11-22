@@ -1,7 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { getTableColumns, getTableName, is } from 'drizzle-orm';
-import { MySqlTable } from 'drizzle-orm/mysql-core';
-import * as schema from '../lib/db/schema';
+import { missingMysqlSchema, mysqlSchemaMetadataQueries, normalizeMysqlSchemaInventory } from './mysql-schema-parity';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { migrationsFolder } from './mysql-migrations';
 
@@ -40,9 +38,10 @@ report('container_image_digest', digests.length ? digests.includes(expectedDiges
 // categories back. Never print environment variables, SQL errors or raw logs.
 const probe = `
 const journal = JSON.parse(process.argv[1]);
-const expectedColumns = JSON.parse(process.argv[2]);
+const metadataQueries = JSON.parse(process.argv[2]);
 const orderId = process.argv[3];
 const checks = [];
+let schemaMetadata;
 const add = (check, status, evidence) => checks.push({ check, status, evidence });
 const env = process.env;
 const stage = env.APP_ENV === 'staging';
@@ -78,10 +77,12 @@ async function main() {
     const pending = Number(unfinished[0].count);
     add('database_migrations', !matches || pending ? 'FAIL' : hasCheckpoint ? 'PASS' : 'UNVERIFIED',
       { applied: applied.length, expected: journal.length, unfinished: pending, checkpointTable: hasCheckpoint });
-    const [columns] = await connection.query("SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()");
-    const actualColumns = new Set(columns.map(row => row.table_name + '.' + row.column_name));
-    const missingColumns = expectedColumns.filter(column => !actualColumns.has(column));
-    add('database_schema', missingColumns.length ? 'FAIL' : 'PASS', { missingColumns });
+    const metadata = {};
+    for (const [name, query] of Object.entries(metadataQueries)) {
+      const [rows] = await connection.query(query);
+      metadata[name] = rows;
+    }
+    schemaMetadata = metadata;
     if (orderId) {
       const [rows] = await connection.execute(
         "SELECT a.status AS attempt_status, a.updated_at AS updated_at FROM orders o JOIN checkout_payment_attempts a ON a.order_id=o.id WHERE o.id=? AND o.order_number LIKE 'SBX-%' AND o.voucher_id IS NOT NULL AND a.mode='sandbox' LIMIT 2", [orderId]);
@@ -93,31 +94,40 @@ async function main() {
     // Missing permissions or missing runtime dependencies leave the probe unverified.
   } finally {
     if (connection) await connection.end().catch(() => {});
-    for (const name of ['database_connectivity', 'database_migrations', 'database_schema', 'reconciliation_diagnostics']) {
+    for (const name of ['database_connectivity', 'database_migrations', 'reconciliation_diagnostics']) {
       if (!checks.some(row => row.check === name)) add(name, 'UNVERIFIED', null);
     }
-    console.log(JSON.stringify(checks));
+    console.log(JSON.stringify({ checks, schemaMetadata }));
   }
 }
 void main();
 `;
 
 const journal = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }) => ({ hash, timestamp: folderMillis }));
-const expectedColumns = Object.values(schema).filter(table => is(table, MySqlTable))
-  .flatMap(table => Object.values(getTableColumns(table)).map(column => getTableName(table) + '.' + column.name));
 const output = docker(['exec', container, 'node', '-e', probe, JSON.stringify(journal),
-  JSON.stringify(expectedColumns), approvedOrderId ?? '']);
-let checks: { check: string; status: Status; evidence: unknown }[] | null = null;
+  JSON.stringify(mysqlSchemaMetadataQueries), approvedOrderId ?? '']);
+type ProbeResult = {
+  checks: { check: string; status: Status; evidence: unknown }[];
+  schemaMetadata?: Parameters<typeof normalizeMysqlSchemaInventory>[0];
+};
+let result: ProbeResult | undefined;
 try {
-  if (output) checks = JSON.parse(output);
+  if (output) result = JSON.parse(output) as ProbeResult;
 } catch {
   // A failed runtime probe does not prove its checks.
 }
-if (Array.isArray(checks)) {
-  for (const row of checks) report(row.check, row.status, row.evidence);
+if (Array.isArray(result?.checks)) {
+  for (const row of result.checks) report(row.check, row.status, row.evidence);
 } else {
   for (const check of ['application_environment', 'payment_mode', 'voucher_feature_flags', 'webhook_readiness',
-    'database_connectivity', 'database_migrations', 'database_schema', 'reconciliation_diagnostics']) report(check, 'UNVERIFIED', null);
+    'database_connectivity', 'database_migrations', 'reconciliation_diagnostics']) report(check, 'UNVERIFIED', null);
+}
+if (result?.schemaMetadata) {
+  const missing = missingMysqlSchema(normalizeMysqlSchemaInventory(result.schemaMetadata));
+  const counts = Object.fromEntries(Object.entries(missing).map(([kind, objects]) => [kind, objects.length]));
+  report('database_schema', Object.values(counts).every(count => count === 0) ? 'PASS' : 'FAIL', counts);
+} else {
+  report('database_schema', 'UNVERIFIED', null);
 }
 
 const logs = spawnSync('docker', ['logs', '--since', '30m', '--tail', '500', container],
