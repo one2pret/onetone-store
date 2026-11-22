@@ -197,8 +197,8 @@ export async function POST(request: Request) {
           paymentUrl: payment.invoiceUrl,
         },
       }, { status: 201 });
-    } catch (error) {
-      console.error('Staging invoice setup requires reconciliation', error);
+    } catch {
+      console.error('sandbox_invoice_setup', { orderId: committed.orderId, outcome: 'needs_reconciliation' });
       return NextResponse.json({
         success: false, code: 'payment_setup_pending',
         error: 'Order tercatat tetapi pembayaran belum terkonfirmasi. Hubungi admin; jangan ulangi pesanan dengan kunci baru.',
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     if (error instanceof CheckoutRejected) {
       return NextResponse.json({ success: false, error: error.message }, { status: error.status });
     }
-    console.error('Staging sandbox checkout failed', error);
+    console.error('sandbox_checkout', { outcome: 'retry' });
     return NextResponse.json({
       success: false, error: 'Checkout tidak dapat diproses',
     }, { status: 503 });

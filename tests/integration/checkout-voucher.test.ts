@@ -11,6 +11,7 @@ import { settleConfirmedSandboxCancellation } from '@/lib/checkout/process-sandb
 import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invoice-callback';
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
 
+import { POST as invoiceWebhook } from '@/app/api/webhooks/xendit/route';
 import { POST as checkout } from '@/app/api/checkout/sandbox-order/route';
 import { POST as cancelOrder } from '@/app/api/orders/[id]/cancel/route';
 import { getApiUser } from '@/lib/api-auth';
@@ -159,6 +160,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
     vi.resetAllMocks();
   });
 
@@ -168,6 +170,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     vi.stubEnv('CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED', 'true');
     vi.stubEnv('CHECKOUT_SANDBOX_VOUCHER_ENABLED', 'true');
     vi.stubEnv('XENDIT_SECRET_KEY', 'xnd_development_fixture');
+    vi.stubEnv('XENDIT_WEBHOOK_TOKEN', 'fixture-webhook-token');
     vi.stubEnv('BITSHIP_API_KEY', 'biteship_test.fixture');
     vi.stubEnv('BITSHIP_API_URL', 'https://api.biteship.com');
     vi.mocked(getApiUser).mockResolvedValue({
@@ -175,12 +178,12 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     });
   }
 
-  function checkoutRequest(data: Awaited<ReturnType<typeof fixture>>, key: string, voucherId = data.id) {
+  function checkoutRequest(data: Awaited<ReturnType<typeof fixture>>, key: string, voucherId = data.id, pointsToRedeem = 10) {
     return new Request('http://localhost/api/checkout/sandbox-order', {
       method: 'POST', headers: { 'idempotency-key': key },
       body: JSON.stringify({
         addressId: data.id, courierCompany: 'test', courierType: 'reg', courierPrice: 2000,
-        voucher: { id: voucherId, pointsToRedeem: 10 },
+        voucher: { id: voucherId, pointsToRedeem },
       }),
     });
   }
@@ -202,15 +205,56 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     expect(await (await checkout(checkoutRequest(data, key))).json())
       .toMatchObject({ data: { orderId: order.orderId, repeatedRequest: true } });
     expect((await checkout(checkoutRequest(data, key, data.id + 1))).status).toBe(409);
+    expect((await checkout(checkoutRequest(data, key, data.id, 9))).status).toBe(409);
     expect(createInvoice).toHaveBeenCalledTimes(1);
     expect(loadTrustedCheckoutSelection).toHaveBeenCalledTimes(1);
-    const callback = await handleSandboxInvoiceCallback({
-      id: 'uat-fixture-invoice', external_id: order.orderNumber, amount: order.total, status: 'PAID',
-    });
-    expect(await callback.json()).toMatchObject({ result: 'paid' });
+    const body = { id: 'uat-fixture-invoice', external_id: order.orderNumber, amount: order.total, status: 'PAID' };
+    const send = (token: string) => invoiceWebhook(new Request('http://localhost/api/webhooks/xendit', {
+      method: 'POST', headers: { 'x-callback-token': token }, body: JSON.stringify(body),
+    }));
+    const pending = await webhookState(data, order.orderId);
+    expect((await send('wrong-token')).status).toBe(401);
+    expect(await webhookState(data, order.orderId)).toEqual(pending);
+    expect(await (await send('fixture-webhook-token')).json()).toMatchObject({ result: 'paid' });
+    expect(await (await send('fixture-webhook-token')).json()).toMatchObject({ result: 'duplicate' });
     expect((await state(data)).grants).toMatchObject([{ status: 'redeemed', redeemedOrderId: order.orderId }]);
     const retry = await checkout(checkoutRequest(data, key));
     expect(await retry.json()).toMatchObject({ data: { paymentUrl: null } });
+  });
+
+  it('quarantines an ambiguous invoice creation and never reissues it on checkout retry', async () => {
+    const data = await fixture();
+    enableUat(data.id);
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(createInvoice).mockRejectedValue(new Error('opaque fixture provider secret'));
+    const key = randomUUID();
+    const response = await checkout(checkoutRequest(data, key));
+    expect(response.status).toBe(202);
+    const first = await response.json();
+    expect(first).toMatchObject({ code: 'payment_setup_pending' });
+    const orderId = first.data.orderId;
+    const pending = await webhookState(data, orderId);
+    expect(pending.attempts).toMatchObject([{ status: 'needs_reconciliation', xenditId: null }]);
+    expect(pending.invoices).toHaveLength(0);
+    expect(pending.grants).toMatchObject([{ status: 'reserved', reservedOrderId: orderId }]);
+
+    const retry = await checkout(checkoutRequest(data, key));
+    expect(retry.status).toBe(202);
+    expect(await retry.json()).toMatchObject({ code: 'payment_setup_pending', data: { orderId } });
+    const earlyWebhook = await handleSandboxInvoiceCallback({
+      id: 'unpersisted-fixture-invoice', external_id: first.data.orderNumber,
+      amount: Number(pending.orders[0].total), status: 'PAID',
+    });
+    expect(earlyWebhook.status).toBe(503);
+    expect(createInvoice).toHaveBeenCalledTimes(1);
+    expect(await webhookState(data, orderId)).toEqual(pending);
+    expect(log).toHaveBeenCalledWith('sandbox_invoice_setup', {
+      orderId, attemptId: pending.attempts[0].id, outcome: 'needs_reconciliation',
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain('opaque fixture provider secret');
   });
 
   it('rejects voucher opt-in outside staging or without the TEST rate key and checks grant ownership', async () => {
@@ -396,6 +440,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
     const data = await fixture();
     const order = await pendingInvoice(data);
     const before = await webhookState(data, order.orderId);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     await admin.query(`CREATE TRIGGER reject_fixture_settlement BEFORE UPDATE ON checkout_payment_attempts
       FOR EACH ROW BEGIN IF NEW.order_id = ${order.orderId} THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture ledger failure';
@@ -407,6 +452,7 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
         expect((await order.callback(status)).status).toBe(503);
       }
       expect(await webhookState(data, order.orderId)).toEqual(before);
+      expect(JSON.stringify(log.mock.calls)).not.toContain('fixture ledger failure');
     } finally {
       await admin.query('DROP TRIGGER reject_fixture_settlement');
     }
