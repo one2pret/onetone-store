@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { hostname } from 'node:os';
 import { isStagingDatabaseUrl, stagingComposeFile, stagingHost } from './staging-preflight-target';
+import { diagnoseStagingJournal } from './staging-preflight-journal';
 import { missingMysqlSchema, mysqlSchemaMetadataQueries, normalizeMysqlSchemaInventory } from './mysql-schema-parity';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { migrationsFolder } from './mysql-migrations';
@@ -88,8 +89,9 @@ const journal = JSON.parse(process.argv[1]);
 const metadataQueries = JSON.parse(process.argv[2]);
 const orderId = process.argv[3];
 const expectedDbAddress = process.argv[4];
-const parity = JSON.parse(process.argv[5]);
+const parityIndex = Number(process.argv[5]);
 const dbUrlAllowed = ${isStagingDatabaseUrl.toString()};
+const diagnoseJournal = ${diagnoseStagingJournal.toString()};
 const checks = [];
 let schemaMetadata;
 const add = (check, status, evidence) => checks.push({ check, status, evidence });
@@ -116,6 +118,7 @@ add('webhook_readiness', env.XENDIT_WEBHOOK_TOKEN ? 'UNVERIFIED' : 'FAIL', {
 
 async function main() {
   let connection;
+  let phase = 'database_guard';
   try {
     if (!stage || !dbUrlAllowed(env.DATABASE_URL)) {
       add('staging_database_guard', 'FAIL', 'unexpected_database_target');
@@ -127,26 +130,24 @@ async function main() {
       return;
     }
     add('staging_database_guard', 'PASS', 'approved_compose_database');
+    phase = 'connect_read_only';
     const mysql = require('mysql2/promise');
     connection = await mysql.createConnection({ uri: env.DATABASE_URL, host: expectedDbAddress, connectTimeout: 5000 });
     await connection.query('START TRANSACTION READ ONLY');
     await connection.query('SELECT 1');
     add('database_connectivity', 'PASS', 'read_only_probe');
+    phase = 'migration_metadata';
     const [tables] = await connection.query("SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('__drizzle_migrations','__onetone_migration_in_progress')");
     const hasJournal = tables.some(row => row.name === '__drizzle_migrations');
     const hasCheckpoint = tables.some(row => row.name === '__onetone_migration_in_progress');
     const [applied] = hasJournal ? await connection.query('SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at, id') : [[]];
     const [unfinished] = hasCheckpoint ? await connection.query('SELECT COUNT(*) AS count FROM __onetone_migration_in_progress') : [[{count: 0}]];
-    const isPrefix = applied.length <= journal.length && applied.every((row, index) =>
-      row.hash === journal[index].hash && Number(row.created_at) === journal[index].timestamp);
-    const pending = Number(unfinished[0].count);
-    add('database_migrations', !hasJournal || !isPrefix || applied.length !== journal.length || pending ? 'FAIL'
-      : hasCheckpoint ? 'PASS' : 'UNVERIFIED',
-      { applied: applied.length, expected: journal.length, exactPrefix: isPrefix, unfinished: pending, checkpointTable: hasCheckpoint });
-    const parityRows = applied.filter(row => Number(row.created_at) === parity.timestamp || row.hash === parity.hash);
-    add('migration_0020_journal', !hasJournal ? 'UNVERIFIED' :
-      parityRows.length === 1 && Number(parityRows[0].created_at) === parity.timestamp && parityRows[0].hash === parity.hash
-        ? 'PASS' : 'FAIL', { matchingTimestampOrHashRows: parityRows.length });
+    const { migrations, parityMigration } = diagnoseJournal(
+      journal, applied, hasJournal, hasCheckpoint, Number(unfinished[0].count), parityIndex,
+    );
+    add('database_migrations', migrations.status, migrations.evidence);
+    add('migration_0020_journal', parityMigration.status, parityMigration.evidence);
+    phase = 'schema_metadata';
     const metadata = {};
     for (const [name, query] of Object.entries(metadataQueries)) {
       const [rows] = await connection.query(query);
@@ -154,6 +155,7 @@ async function main() {
     }
     schemaMetadata = metadata;
     if (orderId) {
+      phase = 'approved_order_diagnostics';
       const [rows] = await connection.execute(
         "SELECT a.status AS attempt_status, a.updated_at AS updated_at FROM orders o JOIN checkout_payment_attempts a ON a.order_id=o.id WHERE o.id=? AND o.order_number LIKE 'SBX-%' AND o.voucher_id IS NOT NULL AND a.mode='sandbox' LIMIT 2", [orderId]);
       const status = rows.length === 1 && ['reserved','requesting','needs_reconciliation','ready','paid','expired','failed'].includes(rows[0].attempt_status)
@@ -161,7 +163,7 @@ async function main() {
       add('reconciliation_diagnostics', status ? 'PASS' : 'UNVERIFIED', { attemptStatus: status, matches: rows.length });
     }
   } catch {
-    // Missing permissions or missing runtime dependencies leave the probe unverified.
+    add('database_probe_execution', 'UNVERIFIED', phase);
   } finally {
     if (connection) {
       await connection.rollback().catch(() => {});
@@ -176,17 +178,21 @@ async function main() {
 void main();
 `;
 
-const journal = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }) => ({ hash, timestamp: folderMillis }));
-const journalMetadata = JSON.parse(readFileSync(`${migrationsFolder}/meta/_journal.json`, 'utf8')) as {
-  entries: { tag: string }[];
-};
-const parity = journal[journalMetadata.entries.findIndex(entry => entry.tag === '0020_runtime_schema_parity')];
-if (!parity) {
-  report('migration_0020_journal', 'FAIL', 'migration_0020_missing_from_checkout');
+let journal: { hash: string; timestamp: number }[];
+let parityIndex: number;
+try {
+  journal = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }) => ({ hash, timestamp: folderMillis }));
+  const journalMetadata = JSON.parse(readFileSync(`${migrationsFolder}/meta/_journal.json`, 'utf8')) as {
+    entries: { tag: string }[];
+  };
+  parityIndex = journalMetadata.entries.findIndex(entry => entry.tag === '0020_runtime_schema_parity');
+  if (!journal[parityIndex]) throw new Error('Missing schema parity migration');
+} catch {
+  report('migration_0020_journal', 'FAIL', 'invalid_checkout_migration_history');
   process.exit(1);
 }
 const output = docker(['exec', app.id, 'node', '-e', probe, JSON.stringify(journal),
-  JSON.stringify(mysqlSchemaMetadataQueries), approvedOrderId ?? '', sharedAddresses[0], JSON.stringify(parity)]);
+  JSON.stringify(mysqlSchemaMetadataQueries), approvedOrderId ?? '', sharedAddresses[0], String(parityIndex)]);
 type ProbeResult = {
   checks: { check: string; status: Status; evidence: unknown }[];
   schemaMetadata?: Parameters<typeof normalizeMysqlSchemaInventory>[0];
