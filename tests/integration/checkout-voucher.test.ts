@@ -12,6 +12,7 @@ import { handleSandboxInvoiceCallback } from '@/lib/checkout/handle-sandbox-invo
 import { checkoutSnapshotDigest } from '@/lib/checkout/order-snapshot';
 
 import { POST as invoiceWebhook } from '@/app/api/webhooks/xendit/route';
+import { recoverSandboxVoucherInvoice } from '@/lib/checkout/reconcile-sandbox-voucher-invoice';
 import { POST as checkout } from '@/app/api/checkout/sandbox-order/route';
 import { POST as cancelOrder } from '@/app/api/orders/[id]/cancel/route';
 import { getApiUser } from '@/lib/api-auth';
@@ -255,6 +256,89 @@ describe.skipIf(!url)('atomic voucher checkout on disposable MySQL', () => {
       orderId, attemptId: pending.attempts[0].id, outcome: 'needs_reconciliation',
     });
     expect(JSON.stringify(log.mock.calls)).not.toContain('opaque fixture provider secret');
+  });
+
+  async function orphanInvoice() {
+    const data = await fixture();
+    enableUat(data.id);
+    await databaseClient.update(schema.users).set({ role: 'admin' }).where(eq(schema.users.id, data.id));
+    vi.mocked(loadTrustedCheckoutSelection).mockResolvedValue({
+      ok: true, selected: data.args.shipping, snapshot: data.args.snapshot,
+    });
+    vi.mocked(createInvoice).mockRejectedValue(new Error('synthetic persistence failure'));
+    const key = randomUUID();
+    const response = await checkout(checkoutRequest(data, key));
+    expect(response.status).toBe(202);
+    const { data: { orderId, orderNumber } } = await response.json();
+    const pending = await webhookState(data, orderId);
+    const invoiceId = `orphan-fixture-${orderId}`;
+    const request = { actorId: data.id, ownerId: data.id, orderId,
+      attemptId: pending.attempts[0].id, invoiceId, approvalRef: 'UAT-FIXTURE' };
+    const invoice = {
+      id: invoiceId, externalId: orderNumber, amount: Number(pending.orders[0].total),
+      status: 'PENDING' as const, currency: 'IDR' as const, expiryDate: new Date(Date.now() + 3600_000),
+      invoiceUrl: `https://checkout-staging.xendit.co/web/${invoiceId}`,
+      userId: 'test-merchant', merchantName: 'Fixture', merchantProfilePictureUrl: '',
+    };
+    vi.mocked(getSandboxInvoice).mockResolvedValue(invoice);
+    return { data, orderId, key, pending, request, invoice };
+  }
+
+  it('attaches one verified orphan during parallel recovery and settles the original invoice', async () => {
+    const { data, orderId, request, invoice, key } = await orphanInvoice();
+    const results = await Promise.all([
+      recoverSandboxVoucherInvoice(request), recoverSandboxVoucherInvoice(request),
+    ]);
+    expect(results.map(result => result.outcome).sort()).toEqual(['already_recovered', 'recovered']);
+    const recovered = await webhookState(data, orderId);
+    expect(recovered.invoices).toMatchObject([{ xenditId: invoice.id, status: 'pending' }]);
+    expect(recovered.attempts).toMatchObject([{ status: 'ready', xenditId: invoice.id }]);
+    expect(recovered.logs).toMatchObject([{
+      changedBy: `admin:${data.id}`, note: expect.stringContaining('approval=UAT-FIXTURE'),
+    }]);
+    expect(await (await checkout(checkoutRequest(data, key))).json()).toMatchObject({
+      data: { orderId, paymentUrl: invoice.invoiceUrl, repeatedRequest: true },
+    });
+    expect(createInvoice).toHaveBeenCalledTimes(1);
+    const payment = await handleSandboxInvoiceCallback({
+      id: invoice.id, external_id: invoice.externalId, amount: invoice.amount, status: 'PAID',
+    });
+    expect(await payment.json()).toMatchObject({ result: 'paid' });
+    const paid = await webhookState(data, orderId);
+    await expect(recoverSandboxVoucherInvoice(request)).rejects.toThrow('requires operator reconciliation');
+    expect(await webhookState(data, orderId)).toEqual(paid);
+  });
+
+  it('fails closed for mismatched or terminal evidence, unauthorized actor, and inconsistent local identity', async () => {
+    const { data, orderId, request, invoice, pending } = await orphanInvoice();
+    await expect(recoverSandboxVoucherInvoice({ ...request, actorId: request.actorId + 1 })).rejects.toThrow();
+    expect(getSandboxInvoice).not.toHaveBeenCalled();
+    for (const patch of [
+      { status: 'PAID' as const }, { status: 'EXPIRED' as const }, { externalId: 'another-order' },
+      { amount: invoice.amount + 1 }, { id: 'different-invoice' }, { invoiceUrl: 'https://checkout.xendit.co/web/live' },
+      { expiryDate: new Date(0) },
+    ]) {
+      vi.mocked(getSandboxInvoice).mockResolvedValueOnce({ ...invoice, ...patch });
+      await expect(recoverSandboxVoucherInvoice(request)).rejects.toThrow();
+      expect(await webhookState(data, orderId)).toEqual(pending);
+    }
+    await expect(recoverSandboxVoucherInvoice({ ...request, attemptId: request.attemptId + 1 })).rejects.toThrow();
+    await expect(recoverSandboxVoucherInvoice({ ...request, ownerId: request.ownerId + 1 })).rejects.toThrow();
+    expect(await webhookState(data, orderId)).toEqual(pending);
+  });
+
+  it('rolls back the invoice attachment and attempt update if the recovery audit cannot be recorded', async () => {
+    const { data, orderId, request, pending } = await orphanInvoice();
+    await admin.query(`CREATE TRIGGER reject_recovery_audit BEFORE INSERT ON order_status_logs
+      FOR EACH ROW BEGIN IF NEW.order_id = ${orderId} THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture audit failure';
+      END IF; END`);
+    try {
+      await expect(recoverSandboxVoucherInvoice(request)).rejects.toThrow();
+      expect(await webhookState(data, orderId)).toEqual(pending);
+    } finally {
+      await admin.query('DROP TRIGGER reject_recovery_audit');
+    }
   });
 
   it('rejects voucher opt-in outside staging or without the TEST rate key and checks grant ownership', async () => {
