@@ -1,9 +1,12 @@
 // @vitest-environment node
+import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyMysqlMigrations, migrationsFolder } from '../../scripts/mysql-migrations';
+import { loadMysqlSchemaContract, missingMysqlSchema, readMysqlSchemaInventory } from '../../scripts/mysql-schema-parity';
+import * as schema from '@/lib/db/schema';
 
 const url = process.env.SANDBOX_BOOKING_TEST_DATABASE_URL;
 const migrations = readMigrationFiles({ migrationsFolder });
@@ -52,6 +55,68 @@ describe.skipIf(!url)('versioned MySQL migrations on disposable schemas', () => 
         'checkout_payment_attempt_order_sequence_unique', 'checkout_payment_attempt_xendit_id_unique'
       )`, [db.name]);
     expect(indexes).toHaveLength(4);
+  }, 30000);
+
+  it('matches all required ORM and migration-layer signatures on a fresh schema', async () => {
+    const db = await fixture();
+    const modelDb = await fixture();
+    await applyMysqlMigrations(db.url);
+    const actual = await mysql.createConnection(db.url);
+    const model = await mysql.createConnection(modelDb.url);
+    try {
+      const { generateMySQLDrizzleJson, generateMySQLMigration } =
+        createRequire(import.meta.url)('drizzle-kit/api') as typeof import('drizzle-kit/api');
+      const sql = await generateMySQLMigration(await generateMySQLDrizzleJson({}), await generateMySQLDrizzleJson(schema));
+      for (const statement of sql) await model.query(statement);
+      // The contract must stay aligned with the application model. Additional
+      // historical checks in the contract must also exist on a migrated DB.
+      const expected = await readMysqlSchemaInventory(model);
+      expect(missingMysqlSchema(loadMysqlSchemaContract(), expected)).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+      expect(missingMysqlSchema(await readMysqlSchemaInventory(actual))).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+      await actual.query('CREATE INDEX fixture_membership_support ON points_ledger (membership_id)');
+      await actual.query('DROP INDEX points_ledger_membership_order_reason_unique ON points_ledger');
+      const broken = missingMysqlSchema(await readMysqlSchemaInventory(actual));
+      expect(broken.indexes).toContainEqual([
+        'points_ledger', [false, 0, 'membership_id', null, 'BTREE', 'A', 'YES'],
+        [false, 0, 'order_id', null, 'BTREE', 'A', 'YES'],
+        [false, 0, 'reason', null, 'BTREE', 'A', 'YES'],
+      ]);
+    } finally {
+      await actual.end();
+      await model.end();
+    }
+  }, 30000);
+
+  it('keeps populated pre-existing parity columns, tables and equivalent foreign keys', async () => {
+    const db = await fixture();
+    const prefix = migrations.slice(0, -1);
+    await applyMysqlMigrations(db.url, prefix);
+    const connection = await mysql.createConnection(db.url);
+    try {
+      await connection.query('ALTER TABLE users ADD COLUMN birthdate varchar(10)');
+      await connection.query("INSERT INTO users (id,name,email,password,birthdate) VALUES (1,'Fixture','fixture@example.test','fixture','2000-01-01')");
+      const affiliateDDL = migrations.at(-1)!.sql.find(statement =>
+        statement.includes('CREATE TABLE IF NOT EXISTS `affiliates`'));
+      if (!affiliateDDL) throw new Error('Affiliate fixture DDL missing');
+      await connection.query(affiliateDDL);
+      await connection.query('ALTER TABLE affiliates ADD CONSTRAINT installed_affiliate_owner_fk FOREIGN KEY (user_id) REFERENCES users(id)');
+      await connection.query("INSERT INTO affiliates (id,user_id,code) VALUES (1,1,'FIXTURE')");
+      const before = missingMysqlSchema(await readMysqlSchemaInventory(connection));
+      expect(before.columns.length).toBeGreaterThan(0);
+      expect(await applyMysqlMigrations(db.url)).toEqual({ previous: prefix.length, applied: 1 });
+      expect(await applyMysqlMigrations(db.url)).toEqual({ previous: migrations.length, applied: 0 });
+      const [data] = await connection.query<RowDataPacket[]>('SELECT u.birthdate, a.code, a.affiliate_status FROM users u JOIN affiliates a ON a.user_id=u.id WHERE u.id=1');
+      expect(data).toEqual([{ birthdate: '2000-01-01', code: 'FIXTURE', affiliate_status: 'pending' }]);
+      expect(missingMysqlSchema(await readMysqlSchemaInventory(connection))).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+    } finally {
+      await connection.end();
+    }
   }, 30000);
 
   it('upgrades a populated legacy journal prefix and preserves existing rows', async () => {
