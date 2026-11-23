@@ -178,13 +178,15 @@ async function main() {
 void main();
 `;
 
-let journal: { hash: string; timestamp: number }[];
+let journal: { hash: string; timestamp: number; tag: string }[];
 let parityIndex: number;
 try {
-  journal = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }) => ({ hash, timestamp: folderMillis }));
   const journalMetadata = JSON.parse(readFileSync(`${migrationsFolder}/meta/_journal.json`, 'utf8')) as {
     entries: { tag: string }[];
   };
+  journal = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }, index) => ({
+    hash, timestamp: folderMillis, tag: journalMetadata.entries[index].tag,
+  }));
   parityIndex = journalMetadata.entries.findIndex(entry => entry.tag === '0020_runtime_schema_parity');
   if (!journal[parityIndex]) throw new Error('Missing schema parity migration');
 } catch {
@@ -212,7 +214,8 @@ if (Array.isArray(result?.checks)) {
 if (result?.schemaMetadata) {
   const missing = missingMysqlSchema(normalizeMysqlSchemaInventory(result.schemaMetadata));
   const counts = Object.fromEntries(Object.entries(missing).map(([kind, objects]) => [kind, objects.length]));
-  report('database_schema', Object.values(counts).every(count => count === 0) ? 'PASS' : 'FAIL', counts);
+  report('database_schema', Object.values(counts).every(count => count === 0) ? 'PASS' : 'FAIL',
+    { counts, missingRequiredSignatures: missing });
 } else {
   report('database_schema', 'UNVERIFIED', null);
 }

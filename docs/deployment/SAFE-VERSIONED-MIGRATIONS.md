@@ -1,5 +1,10 @@
 # Deployment database yang aman
 
+Panduan ini mendokumentasikan prosedur lama. Runner saat ini membutuhkan prefix
+kanonik. Jika database memiliki marker baseline manual, ikuti
+[runbook rekonsiliasi read-only](../checkout/staging-migration-reconciliation-v11.md)
+dan hentikan deployment sebelum mencoba ulang.
+
 ## Aturan utama
 
 - Server testing dan production menggunakan SQL versioned di `lib/db/migrations`.

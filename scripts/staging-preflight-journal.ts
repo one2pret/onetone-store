@@ -1,4 +1,4 @@
-type Migration = { hash: string; timestamp: number };
+type Migration = { hash: string; timestamp: number; tag?: string };
 type JournalRow = { hash: string; created_at: number | string | null };
 
 export function diagnoseStagingJournal(
@@ -26,6 +26,24 @@ export function diagnoseStagingJournal(
   const parity = expected[parityIndex];
   const parityRows = applied.filter(row => Number(row.created_at) === parity.timestamp || row.hash === parity.hash);
   const parityRecorded = verifiedPrefixLength > parityIndex && parityRows.length === 1;
+  const comparison = applied.map((row, index) => {
+    const positional = expected[index];
+    const timestamp = row.created_at === null ? null : Number(row.created_at);
+    const matchByTime = expected.find(item => item.timestamp === timestamp);
+    const matchByHash = expected.find(item => item.hash === row.hash);
+    const legacyBaseline = row.hash === 'baseline-manual-through-0015' && timestamp === 1790704800000;
+    return {
+      index,
+      expectedTag: positional?.tag ?? null,
+      expectedTimestamp: positional?.timestamp ?? null,
+      observedTimestamp: Number.isSafeInteger(timestamp) ? timestamp : null,
+      timestampMatchesPosition: Boolean(positional && timestamp === positional.timestamp),
+      hashMatchesPosition: Boolean(positional && row.hash === positional.hash),
+      tagAtObservedTimestamp: matchByTime?.tag ?? null,
+      tagForExactHash: matchByHash?.tag ?? null,
+      documentedLegacyBaseline: legacyBaseline,
+    };
+  });
 
   return {
     migrations: {
@@ -38,6 +56,7 @@ export function diagnoseStagingJournal(
         firstUnverifiedIndex: verifiedPrefixLength === expected.length && history === 'complete' ? null : verifiedPrefixLength,
         unfinished,
         checkpointTable: hasCheckpoint,
+        comparison,
       },
     },
     parityMigration: {

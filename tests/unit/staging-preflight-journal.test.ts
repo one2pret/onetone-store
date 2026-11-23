@@ -3,8 +3,10 @@ import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { describe, expect, it } from 'vitest';
 import { migrationsFolder } from '../../scripts/mysql-migrations';
 import { diagnoseStagingJournal } from '../../scripts/staging-preflight-journal';
+import journal from '../../lib/db/migrations/meta/_journal.json';
 
-const expected = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }) => ({ hash, timestamp: folderMillis }));
+const expected = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }, index) =>
+  ({ hash, timestamp: folderMillis, tag: journal.entries[index].tag }));
 const applied = expected.map(({ hash, timestamp }) => ({ hash, created_at: String(timestamp) }));
 const parityIndex = expected.findIndex(row => row.timestamp === 1795305600000);
 
@@ -27,6 +29,24 @@ describe('staging migration evidence', () => {
     expect(diagnoseStagingJournal(expected, rows, true, true, 0, parityIndex).migrations).toMatchObject({
       status: 'FAIL', evidence: { history: 'history_mismatch', verifiedPrefixLength: 2, firstUnverifiedIndex: 2 },
     });
+  });
+
+  it('maps a documented legacy marker and four subsequent rows without exposing unrecognized hashes', () => {
+    const rows = [
+      { hash: 'baseline-manual-through-0015', created_at: '1790704800000' },
+      ...applied.slice(16, 19),
+      { ...applied[19], hash: 'unrecognized-journal-value' },
+    ];
+    const { migrations } = diagnoseStagingJournal(expected, rows, true, true, 0, parityIndex);
+    expect(migrations.evidence.verifiedPrefixLength).toBe(0);
+    expect(migrations.evidence.comparison).toMatchObject([
+      { index: 0, expectedTag: journal.entries[0].tag, expectedTimestamp: 1784002757594,
+        observedTimestamp: 1790704800000, tagAtObservedTimestamp: journal.entries[15].tag,
+        tagForExactHash: null, documentedLegacyBaseline: true, hashMatchesPosition: false, timestampMatchesPosition: false },
+      ...journal.entries.slice(16, 19).map(({ tag }) => ({ tagAtObservedTimestamp: tag, tagForExactHash: tag })),
+      { observedTimestamp: 1795071600000, tagAtObservedTimestamp: journal.entries[19].tag, tagForExactHash: null },
+    ]);
+    expect(JSON.stringify(migrations)).not.toContain('unrecognized-journal-value');
   });
 
   it('requires a complete verified history and a clean checkpoint', () => {
