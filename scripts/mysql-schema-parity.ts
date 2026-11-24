@@ -85,10 +85,10 @@ export function missingMysqlSchema(actual: SchemaInventory, expected = loadMysql
   }));
 }
 
-export async function verifyMysqlRuntimeSchema(databaseUrl: string) {
+export async function verifyMysqlRuntimeSchema(databaseUrl: string, approvedAddress?: string) {
   const url = new URL(databaseUrl);
   if (url.protocol !== 'mysql:' || url.pathname.length < 2) throw new Error('MySQL database required');
-  const connection = await mysql.createConnection({ uri: databaseUrl, connectTimeout: 5000 });
+  const connection = await mysql.createConnection({ uri: databaseUrl, host: approvedAddress, connectTimeout: 5000 });
   try {
     const missing = missingMysqlSchema(await readMysqlSchemaInventory(connection));
     const pass = Object.values(missing).every(items => items.length === 0);

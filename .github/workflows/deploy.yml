@@ -1,21 +1,26 @@
-# =============================================================================
-# .github/workflows/deploy.yml — onetone-store CI/CD
-# Branch main       → build tag :latest  → deploy ke testing  (43.133.139.76)
-# Branch production → build tag :production → deploy ke production (43.129.40.41)
-# =============================================================================
-
 name: Build & Deploy onetone-store
 
 on:
   push:
     branches:
       - main
-      - production
+      - 'release/atomic-voucher-*'
   workflow_dispatch:
     inputs:
       staging_only_confirm:
         description: 'I approve a staging-only build/deploy of main (NEVER production)'
         required: true
+        type: boolean
+        default: false
+      staging_rehearsal_sha256:
+        description: SHA-256 of the approved staging rehearsal evidence for this commit
+        type: string
+      legacy_baseline_confirm:
+        description: Approve the exact legacy baseline path after the staging clone rehearsal
+        type: boolean
+        default: false
+      production_build_only:
+        description: Publish production artifacts without deploying (production branch only)
         type: boolean
         default: false
 
@@ -30,16 +35,21 @@ jobs:
   # ───────────────────────────────────────────────────────
   build-and-push:
     name: 🐳 Build & Push Docker Image
-    # Manual dispatch can only run main + explicit staging consent.
-    # Normal push deployment stays unchanged.
-    if: github.event_name == 'push' || (github.ref == 'refs/heads/main' && inputs.staging_only_confirm == true)
+    # Production builds require a separate artifact-only dispatch.
+    # Pushes to main and release branches publish images only.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/atomic-voucher-')) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production' &&
+       inputs.production_build_only == true && inputs.staging_only_confirm == false)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     outputs:
-      image-tag: ${{ steps.vars.outputs.tag }}
+      app-digest: ${{ steps.app.outputs.digest }}
+      migrator-digest: ${{ steps.migrator.outputs.digest }}
 
     steps:
       - name: Checkout repository
@@ -48,13 +58,22 @@ jobs:
       - name: Tentukan tag & URL berdasarkan branch
         id: vars
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/production" ]; then
-            echo "tag=production" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://onetone-store.id" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://onetone.kanuraga.web.id" >> "$GITHUB_OUTPUT"
-          fi
+          case "$GITHUB_REF" in
+            refs/heads/production)
+              tag="production"
+              app_url="https://onetone-store.id"
+              ;;
+            refs/heads/release/atomic-voucher-*)
+              tag="rc-$GITHUB_SHA"
+              app_url="https://onetone.kanuraga.web.id"
+              ;;
+            refs/heads/main)
+              tag="latest"
+              app_url="https://onetone.kanuraga.web.id"
+              ;;
+            *) exit 1 ;;
+          esac
+          printf 'tag=%s\napp_url=%s\n' "$tag" "$app_url" >> "$GITHUB_OUTPUT"
 
       - name: Login ke GitHub Container Registry
         uses: docker/login-action@v3
@@ -67,6 +86,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build & Push image
+        id: app
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -74,7 +94,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          labels: org.opencontainers.image.revision=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=onetone-app
           build-args: |
             DATABASE_URL=mysql://build:build@localhost:3306/build
             AUTH_SECRET=build_time_dummy
@@ -89,6 +111,7 @@ jobs:
       # Image terpisah untuk migration SQL versioned — reuse cache dari build di atas,
       # jadi ini bukan build ulang dari nol (layer builder sudah ada di cache).
       - name: Build & Push migrator image
+        id: migrator
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -97,7 +120,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}-migrate
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          labels: org.opencontainers.image.revision=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=onetone-migrator
           build-args: |
             DATABASE_URL=mysql://build:build@localhost:3306/build
             AUTH_SECRET=build_time_dummy
@@ -109,19 +134,56 @@ jobs:
             NEXT_PUBLIC_GOOGLE_PICKER_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY }}
             NEXT_PUBLIC_SEARCH_ENABLED=true
 
+      - name: Record immutable artifacts
+        env:
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+          MIGRATOR_DIGEST: ${{ steps.migrator.outputs.digest }}
+        run: |
+          printf 'Commit: %s\n\nApp: `%s/%s@%s`\n\nMigrator: `%s/%s@%s`\n' \
+            "$GITHUB_SHA" "$REGISTRY" "$IMAGE_NAME" "$APP_DIGEST" "$REGISTRY" "$IMAGE_NAME" "$MIGRATOR_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+
   # ───────────────────────────────────────────────────────
   # JOB 2: DEPLOY TESTING
-  # Hanya jalan saat push ke branch main
+  # Explicitly approved staging dispatch only.
   # ───────────────────────────────────────────────────────
   deploy-testing:
     name: 🚀 Deploy ke Testing
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.staging_only_confirm == true))
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.staging_only_confirm == true
+    environment: staging
+    concurrency: staging-release
 
     steps:
       - name: Checkout (untuk copy compose file)
         uses: actions/checkout@v4
+
+      - name: Validate staging approval inputs
+        env:
+          REHEARSAL_SHA256: ${{ inputs.staging_rehearsal_sha256 }}
+          STAGING_RELEASE_APPROVAL_CONFIGURED: ${{ vars.STAGING_RELEASE_APPROVAL_CONFIGURED }}
+        run: |
+          set -eu
+          test "$STAGING_RELEASE_APPROVAL_CONFIGURED" = true
+          printf '%s\n' "$REHEARSAL_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+
+      - name: Check staging rehearsal evidence on the staging host
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REHEARSAL_SHA256: ${{ inputs.staging_rehearsal_sha256 }}
+          RELEASE_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: REHEARSAL_SHA256,RELEASE_SHA
+          script: |
+            set -eu
+            cd /opt/onetone-store
+            test "$(hostname -s | tr '[:upper:]' '[:lower:]')" = vm-7-242-ubuntu
+            printf '%s\n' "$REHEARSAL_SHA256" | grep -Eq '^[0-9a-f]{64}$'
+            test -s "release-evidence/$RELEASE_SHA.staging-rehearsal"
+            printf '%s  %s\n' "$REHEARSAL_SHA256" "release-evidence/$RELEASE_SHA.staging-rehearsal" | sha256sum --check --status
 
       - name: Copy compose file ke server testing
         uses: appleboy/scp-action@v0.1.7
@@ -135,6 +197,10 @@ jobs:
       - name: SSH ke VPS Testing & deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
+          APP_DIGEST: ${{ needs.build-and-push.outputs.app-digest }}
+          MIGRATOR_DIGEST: ${{ needs.build-and-push.outputs.migrator-digest }}
+          RELEASE_SHA: ${{ github.sha }}
+          LEGACY_BASELINE_CONFIRM: ${{ inputs.legacy_baseline_confirm }}
           STAGING_SANDBOX_ORDER_FLAG: ${{ vars.CHECKOUT_SANDBOX_ORDER_ENABLED_TEST }}
           STAGING_CHECKOUT_PREFLIGHT_FLAG: ${{ vars.CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED_TEST }}
           STAGING_PAYMENT_LEDGER_FLAG: ${{ vars.CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED_TEST }}
@@ -144,31 +210,35 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: STAGING_SANDBOX_ORDER_FLAG,STAGING_CHECKOUT_PREFLIGHT_FLAG,STAGING_PAYMENT_LEDGER_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
+          envs: APP_DIGEST,MIGRATOR_DIGEST,RELEASE_SHA,LEGACY_BASELINE_CONFIRM,STAGING_SANDBOX_ORDER_FLAG,STAGING_CHECKOUT_PREFLIGHT_FLAG,STAGING_PAYMENT_LEDGER_FLAG,STAGING_BITESHIP_SANDBOX_API_KEY,STAGING_BITESHIP_BOOKING_FLAG
           script: |
             set -e
             cd /opt/onetone-store
 
-            # Tulis .env — dibaca docker compose untuk MySQL vars
-            cat > .env << 'ENVEOF'
+            umask 077
+            stage_env="$(mktemp .release-env.XXXXXX)"
+            stage_app_env="$(mktemp .release-app-env.XXXXXX)"
+            trap 'rm -f "$stage_env" "$stage_app_env"' EXIT
+            # Prepare configuration without replacing the running release's files.
+            cat > "$stage_env" << 'ENVEOF'
             MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD_TEST }}
             MYSQL_APP_PASSWORD=${{ secrets.MYSQL_APP_PASSWORD_TEST }}
             ENVEOF
 
-            # Tulis .env.app — dibaca container Next.js
-            cat > .env.app << 'ENVEOF'
+            # Tulis "$stage_app_env" — dibaca container Next.js
+            cat > "$stage_app_env" << 'ENVEOF'
             ${{ secrets.ENV_TEST }}
             ENVEOF
 
             # Keep the staging-only sandbox switch outside the multiline secret.
             # Drop an old copy if present and enforce one explicit fail-closed value.
             # Never use this GitHub variable in production deployment.
-            sed -i '/^CHECKOUT_SANDBOX_ORDER_ENABLED=/d' .env.app
+            sed -i '/^CHECKOUT_SANDBOX_ORDER_ENABLED=/d' "$stage_app_env"
             if [ "${STAGING_SANDBOX_ORDER_FLAG:-false}" = "true" ]; then
-              printf '%s\n' 'CHECKOUT_SANDBOX_ORDER_ENABLED=true' >> .env.app
+              printf '%s\n' 'CHECKOUT_SANDBOX_ORDER_ENABLED=true' >> "$stage_app_env"
               echo 'Staging sandbox checkout flag: enabled'
             else
-              printf '%s\n' 'CHECKOUT_SANDBOX_ORDER_ENABLED=false' >> .env.app
+              printf '%s\n' 'CHECKOUT_SANDBOX_ORDER_ENABLED=false' >> "$stage_app_env"
               echo 'Staging sandbox checkout flag: disabled'
             fi
 
@@ -176,127 +246,83 @@ jobs:
             # Existing multiline ENV_TEST is preserved, but any older value is
             # removed to avoid duplicate/conflicting env entries.
             # Production job has no such bridge or variable.
-            sed -i '/^CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=/d' .env.app
+            sed -i '/^CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=/d' "$stage_app_env"
             if [ "${STAGING_CHECKOUT_PREFLIGHT_FLAG:-false}" = 'true' ]; then
-              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=true' >> .env.app
+              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=true' >> "$stage_app_env"
               echo 'Staging checkout preflight: ENABLED (read-only)'
             else
-              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=false' >> .env.app
+              printf '%s\n' 'CHECKOUT_PRODUCTION_PREFLIGHT_ENABLED=false' >> "$stage_app_env"
               echo 'Staging checkout preflight: disabled'
             fi
 
             # Xendit TEST attempt ledger is a separate opt-in, OFF by default.
             # This variable is NOT injected by the production deployment job.
-            sed -i '/^CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=/d' .env.app
+            sed -i '/^CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=/d' "$stage_app_env"
             if [ "${STAGING_PAYMENT_LEDGER_FLAG:-false}" = 'true' ]; then
-              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=true' >> .env.app
+              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=true' >> "$stage_app_env"
               echo 'Staging Xendit TEST payment ledger: enabled'
             else
-              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=false' >> .env.app
+              printf '%s\n' 'CHECKOUT_SANDBOX_PAYMENT_LEDGER_ENABLED=false' >> "$stage_app_env"
               echo 'Staging Xendit TEST payment ledger: disabled'
             fi
 
             # Sandbox booking credentials are TEST-only and are isolated from
             # the original ENV_TEST blob and the legacy BITSHIP_API_KEY.
-            sed -i '/^APP_ENV=/d; /^BITESHIP_SANDBOX_BOOKING_ENABLED=/d; /^BITESHIP_SANDBOX_API_KEY=/d' .env.app
-            printf '%s\n' 'APP_ENV=staging' 'BITESHIP_SANDBOX_BOOKING_ENABLED=false' >> .env.app
+            sed -i '/^CHECKOUT_SANDBOX_VOUCHER_ENABLED=/d; /^APP_ENV=/d; /^BITESHIP_SANDBOX_BOOKING_ENABLED=/d; /^BITESHIP_SANDBOX_API_KEY=/d' "$stage_app_env"
+            printf '%s\n' 'APP_ENV=staging' 'CHECKOUT_SANDBOX_VOUCHER_ENABLED=false' 'BITESHIP_SANDBOX_BOOKING_ENABLED=false' >> "$stage_app_env"
 
             # Booking defaults OFF. Enable only for an explicitly opted-in
             # staging UAT with a dedicated TEST-format key. Never affects prod.
             if printf '%s' "${STAGING_BITESHIP_SANDBOX_API_KEY:-}" | grep -Eq '^biteship_test\.[A-Za-z0-9._-]+$'; then
-              printf 'BITESHIP_SANDBOX_API_KEY=%s\n' "$STAGING_BITESHIP_SANDBOX_API_KEY" >> .env.app
+              printf 'BITESHIP_SANDBOX_API_KEY=%s\n' "$STAGING_BITESHIP_SANDBOX_API_KEY" >> "$stage_app_env"
               echo 'Staging Biteship TEST credential: configured (hidden)'
               if [ "${STAGING_BITESHIP_BOOKING_FLAG:-false}" = 'true' ]; then
-                sed -i 's/^BITESHIP_SANDBOX_BOOKING_ENABLED=false$/BITESHIP_SANDBOX_BOOKING_ENABLED=true/' .env.app
+                sed -i 's/^BITESHIP_SANDBOX_BOOKING_ENABLED=false$/BITESHIP_SANDBOX_BOOKING_ENABLED=true/' "$stage_app_env"
               fi
             else
               echo 'Staging Biteship TEST credential: unavailable/invalid; booking disabled'
             fi
-            if grep -qx 'BITESHIP_SANDBOX_BOOKING_ENABLED=true' .env.app; then
+            if grep -qx 'BITESHIP_SANDBOX_BOOKING_ENABLED=true' "$stage_app_env"; then
               echo 'Staging Biteship sandbox booking: ENABLED for authorized TEST UAT'
             else
               echo 'Staging Biteship sandbox booking: disabled (fail-closed)'
             fi
 
-            docker compose pull
+            for digest in "$APP_DIGEST" "$MIGRATOR_DIGEST"; do
+              printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+            done
+            export ONETONE_APP_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$APP_DIGEST"
+            migrator="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$MIGRATOR_DIGEST"
+            docker pull "$ONETONE_APP_IMAGE"
+            docker pull "$migrator"
 
             # Pastikan database tersedia, tetapi pertahankan container aplikasi lama
             # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
             # menghentikan deploy sebelum image aplikasi baru diaktifkan.
-            docker compose up -d onetone-db
+            test "$(docker inspect --type container --format '{{.State.Health.Status}}' onetone-db)" = healthy
+            test "$(docker inspect --type container --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' onetone-db)" = "$PWD/docker-compose.yml"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$ONETONE_APP_IMAGE")" = "$RELEASE_SHA"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$migrator")" = "$RELEASE_SHA"
+            db_ip="$(docker inspect --type container --format '{{with index .NetworkSettings.Networks "onetone-store_onetone-net"}}{{.IPAddress}}{{end}}' onetone-db)"
+            test -n "$db_ip"
+            grep -Eq '^BITSHIP_API_KEY=biteship_test\.[A-Za-z0-9._-]+$' "$stage_app_env"
+            test "$(grep -c '^BITSHIP_API_KEY=' "$stage_app_env")" -eq 1
+            if grep '^BITSHIP_API_URL=' "$stage_app_env" | grep -Evq '^BITSHIP_API_URL=(https://api\.biteship\.com)?$'; then
+              exit 1
+            fi
+            grep -Eq '^XENDIT_SECRET_KEY=xnd_development_.+' "$stage_app_env"
+            test "$(grep -c '^XENDIT_SECRET_KEY=' "$stage_app_env")" -eq 1
 
-            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
-            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
-            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
-            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
-            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-migrate
+            # A legacy invocation still verifies the exact metadata, schema and checkpoint.
+            if [ "$LEGACY_BASELINE_CONFIRM" = 'true' ]; then
+              mode=--legacy-staging-baseline
+            else
+              mode=--staging
+            fi
+            docker run --rm --network onetone-store_onetone-net --env-file "$stage_app_env" \
+              -e "STAGING_MIGRATION_DB_IP=$db_ip" "$migrator" node_modules/.bin/tsx scripts/migrate-mysql.ts "$mode"
 
-            docker compose up -d --remove-orphans
-
-            docker image prune -f
-
-  # ───────────────────────────────────────────────────────
-  # JOB 3: DEPLOY PRODUCTION
-  # Hanya jalan saat push ke branch production
-  # ───────────────────────────────────────────────────────
-  deploy-production:
-    name: 🚀 Deploy ke Production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    # NEVER deploy production in a manually dispatched workflow.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
-
-    steps:
-      - name: Checkout (untuk copy compose file)
-        uses: actions/checkout@v4
-
-      - name: Copy compose file ke server production
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST_PROD }}
-          username: ${{ secrets.VPS_USER_PROD }}
-          key: ${{ secrets.VPS_SSH_KEY_PROD }}
-          source: "docker-compose.prod.yml"
-          target: "/opt/apps/onetone-store/"
-
-      - name: SSH ke VPS Production & deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST_PROD }}
-          username: ${{ secrets.VPS_USER_PROD }}
-          key: ${{ secrets.VPS_SSH_KEY_PROD }}
-          script: |
-            set -e
-            cd /opt/apps/onetone-store
-
-            # Tulis .env — dibaca docker compose untuk MySQL vars
-            cat > .env << 'ENVEOF'
-            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD_PROD }}
-            MYSQL_APP_PASSWORD=${{ secrets.MYSQL_APP_PASSWORD_PROD }}
-            ENVEOF
-
-            # Tulis .env.app — dibaca container Next.js
-            cat > .env.app << 'ENVEOF'
-            ${{ secrets.ENV_PROD }}
-            ENVEOF
-
-            docker compose -f docker-compose.prod.yml pull
-
-            # Pastikan database tersedia, tetapi pertahankan container aplikasi lama
-            # sampai perubahan schema berhasil. Jika migrator gagal, `set -e`
-            # menghentikan deploy sebelum image aplikasi baru diaktifkan.
-            docker compose -f docker-compose.prod.yml up -d onetone-db
-
-            # Terapkan hanya migration versioned yang belum tercatat. Exit non-zero
-            # menghentikan deploy sebelum container aplikasi baru diaktifkan.
-            # docker pull eksplisit WAJIB — docker run tidak re-pull image yang
-            # tag-nya sudah ada di cache lokal walau versi di registry sudah beda.
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
-            docker run --rm --network onetone-store_onetone-net --env-file .env.app \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-migrate
-
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            docker image prune -f
+            printf 'ONETONE_APP_IMAGE=%s\n' "$ONETONE_APP_IMAGE" >> "$stage_env"
+            mv "$stage_env" .env
+            mv "$stage_app_env" .env.app
+            docker compose up -d --no-deps --pull never onetone-app

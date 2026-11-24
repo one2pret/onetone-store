@@ -3,6 +3,7 @@ import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { describe, expect, it } from 'vitest';
 import { migrationsFolder } from '../../scripts/mysql-migrations';
 import { diagnoseStagingJournal } from '../../scripts/staging-preflight-journal';
+import { reviewedLegacyHistory } from '../../scripts/mysql-legacy-baseline';
 import journal from '../../lib/db/migrations/meta/_journal.json';
 
 const expected = readMigrationFiles({ migrationsFolder }).map(({ hash, folderMillis }, index) =>
@@ -19,8 +20,17 @@ describe('staging migration evidence', () => {
       evidence: { history: 'incomplete_prefix', applied: 5, expected: 21, verifiedPrefixLength: 5, firstUnverifiedIndex: 5 },
     });
     expect(parityMigration).toEqual({
-      status: 'FAIL', evidence: { matchingTimestampOrHashRows: 0, recordedInVerifiedPrefix: false },
+      status: 'FAIL', evidence: { matchingTimestampOrHashRows: 0, recordedInVerifiedPrefix: false, recordedInReviewedLegacyHistory: false },
     });
+  });
+
+  it('distinguishes the reviewed staging legacy history from a canonical prefix', () => {
+    const legacy = reviewedLegacyHistory.map(({ hash, timestamp }) => ({ hash, created_at: String(timestamp) }));
+    expect(diagnoseStagingJournal(expected, legacy.slice(0, 5), true, true, 0, parityIndex, reviewedLegacyHistory))
+      .toMatchObject({ migrations: { status: 'FAIL', evidence: { reviewedLegacyHistory: '0020_pending' } } });
+    expect(diagnoseStagingJournal(expected, legacy, true, true, 0, parityIndex, reviewedLegacyHistory))
+      .toMatchObject({ migrations: { status: 'PASS', evidence: { history: 'history_mismatch', reviewedLegacyHistory: 'complete' } },
+        parityMigration: { status: 'PASS', evidence: { recordedInVerifiedPrefix: false, recordedInReviewedLegacyHistory: true } } });
   });
 
   it('distinguishes an incompatible history of the same length', () => {

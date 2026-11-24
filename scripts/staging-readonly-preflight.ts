@@ -4,6 +4,7 @@ import { isIP } from 'node:net';
 import { hostname } from 'node:os';
 import { isStagingDatabaseUrl, stagingComposeFile, stagingHost } from './staging-preflight-target';
 import { diagnoseStagingJournal } from './staging-preflight-journal';
+import { reviewedLegacyHistory } from './mysql-legacy-baseline';
 import { missingMysqlSchema, mysqlSchemaMetadataQueries, normalizeMysqlSchemaInventory } from './mysql-schema-parity';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { migrationsFolder } from './mysql-migrations';
@@ -90,6 +91,7 @@ const metadataQueries = JSON.parse(process.argv[2]);
 const orderId = process.argv[3];
 const expectedDbAddress = process.argv[4];
 const parityIndex = Number(process.argv[5]);
+const reviewedLegacy = JSON.parse(process.argv[6]);
 const dbUrlAllowed = ${isStagingDatabaseUrl.toString()};
 const diagnoseJournal = ${diagnoseStagingJournal.toString()};
 const checks = [];
@@ -143,7 +145,7 @@ async function main() {
     const [applied] = hasJournal ? await connection.query('SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at, id') : [[]];
     const [unfinished] = hasCheckpoint ? await connection.query('SELECT COUNT(*) AS count FROM __onetone_migration_in_progress') : [[{count: 0}]];
     const { migrations, parityMigration } = diagnoseJournal(
-      journal, applied, hasJournal, hasCheckpoint, Number(unfinished[0].count), parityIndex,
+      journal, applied, hasJournal, hasCheckpoint, Number(unfinished[0].count), parityIndex, reviewedLegacy,
     );
     add('database_migrations', migrations.status, migrations.evidence);
     add('migration_0020_journal', parityMigration.status, parityMigration.evidence);
@@ -194,7 +196,7 @@ try {
   process.exit(1);
 }
 const output = docker(['exec', app.id, 'node', '-e', probe, JSON.stringify(journal),
-  JSON.stringify(mysqlSchemaMetadataQueries), approvedOrderId ?? '', sharedAddresses[0], String(parityIndex)]);
+  JSON.stringify(mysqlSchemaMetadataQueries), approvedOrderId ?? '', sharedAddresses[0], String(parityIndex), JSON.stringify(reviewedLegacyHistory)]);
 type ProbeResult = {
   checks: { check: string; status: Status; evidence: unknown }[];
   schemaMetadata?: Parameters<typeof normalizeMysqlSchemaInventory>[0];
