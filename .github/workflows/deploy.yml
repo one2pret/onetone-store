@@ -60,7 +60,7 @@ jobs:
         run: |
           case "$GITHUB_REF" in
             refs/heads/production)
-              tag="production"
+              tag="prod-$GITHUB_SHA"
               app_url="https://onetone-store.id"
               ;;
             refs/heads/release/atomic-voucher-*)
