@@ -6,6 +6,7 @@ import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyMysqlMigrations, migrationsFolder } from '../../scripts/mysql-migrations';
 import { loadMysqlSchemaContract, missingMysqlSchema, readMysqlSchemaInventory } from '../../scripts/mysql-schema-parity';
+import { verifyProductionReleaseDatabase } from '../../scripts/production-release-preflight';
 import * as schema from '@/lib/db/schema';
 
 const url = process.env.SANDBOX_BOOKING_TEST_DATABASE_URL;
@@ -26,8 +27,8 @@ describe.skipIf(!url)('versioned MySQL migrations on disposable schemas', () => 
     await admin?.end();
   });
 
-  async function fixture() {
-    const name = 'v07_migration_' + randomUUID().replaceAll('-', '');
+  async function fixture(prefix = 'v07_migration_') {
+    const name = prefix + randomUUID().replaceAll('-', '');
     await admin.query('CREATE DATABASE ??', [name]);
     databases.push(name);
     const parsed = new URL(url!);
@@ -39,6 +40,12 @@ describe.skipIf(!url)('versioned MySQL migrations on disposable schemas', () => 
     const db = await fixture();
     expect(await applyMysqlMigrations(db.url)).toEqual({ previous: 0, applied: migrations.length });
     expect(await applyMysqlMigrations(db.url)).toEqual({ previous: migrations.length, applied: 0 });
+    const preflight = await mysql.createConnection(db.url);
+    try {
+      expect(await verifyProductionReleaseDatabase(preflight)).toEqual({ journalEntries: 21 });
+    } finally {
+      await preflight.end();
+    }
     const [journal] = await admin.query<RowDataPacket[]>('SELECT hash, created_at FROM ??.__drizzle_migrations ORDER BY created_at', [db.name]);
     expect(journal.map(row => ({ hash: row.hash, timestamp: Number(row.created_at) }))).toEqual(
       migrations.map(file => ({ hash: file.hash, timestamp: file.folderMillis })),
@@ -168,6 +175,56 @@ describe.skipIf(!url)('versioned MySQL migrations on disposable schemas', () => 
     await applyMysqlMigrations(db.url, migrations.slice(0, 1));
     await admin.query("UPDATE ??.__drizzle_migrations SET hash = 'different'", [db.name]);
     await expect(applyMysqlMigrations(db.url)).rejects.toThrow('not a verified prefix');
+  }, 30000);
+
+  it('applies only 0020 to the reviewed staging history on a disposable clone', async () => {
+    const db = await fixture('onetone_rc_clone_');
+    const prefix = migrations.slice(0, 20);
+    await applyMysqlMigrations(db.url, prefix);
+    const connection = await mysql.createConnection(db.url);
+    try {
+      // Fixture setup only. The legacy migrator preserves these five rows.
+      await connection.query('DELETE FROM __drizzle_migrations WHERE created_at < 1790704800000');
+      await connection.query("UPDATE __drizzle_migrations SET hash='baseline-manual-through-0015' WHERE created_at=1790704800000");
+      await connection.query("INSERT INTO users (id,name,email,password) VALUES (42,'Fixture','fixture@example.test','synthetic')");
+      await connection.query("INSERT INTO orders (id,user_id,order_number,subtotal,total) VALUES (42,42,'SBX-FIXTURE',1500,1000)");
+      await connection.query("INSERT INTO invoices (id,order_id,xendit_id,amount) VALUES (42,42,'fixture-id',1000)");
+      await connection.query("INSERT INTO checkout_payment_attempts (id,order_id,attempt_no,mode,external_id,request_hash,amount,status,xendit_id) VALUES (42,42,1,'sandbox','FIXTURE',REPEAT('a',64),1000,'ready','fixture-id')");
+      const journalSql = 'SELECT id,hash,created_at FROM __drizzle_migrations ORDER BY created_at,id';
+      const [history] = await connection.query<RowDataPacket[]>(journalSql);
+      const snapshot = 'SELECT u.id, o.total, i.amount, a.status FROM users u JOIN orders o ON o.user_id=u.id JOIN invoices i ON i.order_id=o.id JOIN checkout_payment_attempts a ON a.order_id=o.id';
+      const [before] = await connection.query(snapshot);
+      expect(history).toHaveLength(5);
+      expect(before).toHaveLength(1);
+
+      await expect(applyMysqlMigrations(db.url)).rejects.toThrow('not a verified prefix');
+      await connection.query("UPDATE __drizzle_migrations SET hash='wrong' WHERE created_at=1795071600000");
+      await expect(applyMysqlMigrations(db.url, migrations, 'clone')).rejects.toThrow('not the exact reviewed');
+      await connection.execute('UPDATE __drizzle_migrations SET hash=? WHERE created_at=?', [migrations[19].hash, migrations[19].folderMillis]);
+      await connection.execute('INSERT INTO __onetone_migration_in_progress VALUES (1,?,?)', [migrations[20].hash, migrations[20].folderMillis]);
+      await expect(applyMysqlMigrations(db.url, migrations, 'clone')).rejects.toThrow('Interrupted migration');
+      await connection.query('DELETE FROM __onetone_migration_in_progress');
+      await connection.query('ALTER TABLE checkout_payment_attempts ADD COLUMN unused_test_fixture INT');
+      await connection.query('ALTER TABLE checkout_payment_attempts RENAME COLUMN last_error_code TO fixture_legacy_error');
+      await expect(applyMysqlMigrations(db.url, migrations, 'clone')).rejects.toThrow('pre-0020 contract');
+      await connection.query('ALTER TABLE checkout_payment_attempts RENAME COLUMN fixture_legacy_error TO last_error_code');
+      expect((await connection.query(journalSql))[0]).toEqual(history);
+      await expect(verifyProductionReleaseDatabase(connection)).rejects.toThrow('not a verified prefix');
+
+      expect(await applyMysqlMigrations(db.url, migrations, 'clone')).toEqual({ previous: 20, applied: 1 });
+      expect(await applyMysqlMigrations(db.url, migrations, 'clone')).toEqual({ previous: 21, applied: 0 });
+      await expect(applyMysqlMigrations(db.url)).rejects.toThrow('not a verified prefix');
+      await expect(verifyProductionReleaseDatabase(connection)).rejects.toThrow('not a verified prefix');
+      const [finished] = await connection.query<RowDataPacket[]>(journalSql);
+      expect(finished.slice(0, 5)).toEqual(history);
+      expect(finished[5]).toMatchObject({ hash: migrations[20].hash, created_at: migrations[20].folderMillis });
+      expect((await connection.query(snapshot))[0]).toEqual(before);
+      expect(missingMysqlSchema(await readMysqlSchemaInventory(connection))).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+    } finally {
+      await connection.end();
+    }
   }, 30000);
 
   it('keeps a five-row legacy journal untouched and rehearses a side-by-side data import', async () => {

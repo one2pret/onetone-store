@@ -8,6 +8,7 @@ export function diagnoseStagingJournal(
   hasCheckpoint: boolean,
   unfinished: number,
   parityIndex: number,
+  reviewedLegacy: readonly Migration[] = [],
 ) {
   let verifiedPrefixLength = 0;
   while (verifiedPrefixLength < Math.min(expected.length, applied.length) &&
@@ -25,7 +26,16 @@ export function diagnoseStagingJournal(
 
   const parity = expected[parityIndex];
   const parityRows = applied.filter(row => Number(row.created_at) === parity.timestamp || row.hash === parity.hash);
-  const parityRecorded = verifiedPrefixLength > parityIndex && parityRows.length === 1;
+  const legacyFilesMatch = reviewedLegacy.length > 1 && expected.length === 21 &&
+    reviewedLegacy.slice(1).every((row, index) =>
+      row.hash === expected[index + 16].hash && row.timestamp === expected[index + 16].timestamp);
+  const followsReview = legacyFilesMatch &&
+    (applied.length === reviewedLegacy.length || applied.length === reviewedLegacy.length - 1) &&
+    applied.every((row, index) => row.hash === reviewedLegacy[index].hash &&
+      Number(row.created_at) === reviewedLegacy[index].timestamp);
+  const legacyState = !followsReview ? null :
+    applied.length === reviewedLegacy.length ? 'complete' : '0020_pending';
+  const parityRecorded = (verifiedPrefixLength > parityIndex || legacyState === 'complete') && parityRows.length === 1;
   const comparison = applied.map((row, index) => {
     const positional = expected[index];
     const timestamp = row.created_at === null ? null : Number(row.created_at);
@@ -47,7 +57,8 @@ export function diagnoseStagingJournal(
 
   return {
     migrations: {
-      status: history !== 'complete' || unfinished !== 0 ? 'FAIL' : hasCheckpoint ? 'PASS' : 'UNVERIFIED',
+      status: (history !== 'complete' && legacyState !== 'complete') || unfinished !== 0
+        ? 'FAIL' : hasCheckpoint ? 'PASS' : 'UNVERIFIED',
       evidence: {
         history,
         applied: applied.length,
@@ -56,12 +67,15 @@ export function diagnoseStagingJournal(
         firstUnverifiedIndex: verifiedPrefixLength === expected.length && history === 'complete' ? null : verifiedPrefixLength,
         unfinished,
         checkpointTable: hasCheckpoint,
+        reviewedLegacyHistory: legacyState,
         comparison,
       },
     },
     parityMigration: {
       status: !hasJournal ? 'UNVERIFIED' : parityRecorded ? 'PASS' : 'FAIL',
-      evidence: { matchingTimestampOrHashRows: parityRows.length, recordedInVerifiedPrefix: parityRecorded },
+      evidence: { matchingTimestampOrHashRows: parityRows.length,
+        recordedInVerifiedPrefix: verifiedPrefixLength > parityIndex && parityRows.length === 1,
+        recordedInReviewedLegacyHistory: legacyState === 'complete' },
     },
   } as const;
 }
