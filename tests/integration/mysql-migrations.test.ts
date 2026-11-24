@@ -169,4 +169,70 @@ describe.skipIf(!url)('versioned MySQL migrations on disposable schemas', () => 
     await admin.query("UPDATE ??.__drizzle_migrations SET hash = 'different'", [db.name]);
     await expect(applyMysqlMigrations(db.url)).rejects.toThrow('not a verified prefix');
   }, 30000);
+
+  it('keeps a five-row legacy journal untouched and rehearses a side-by-side data import', async () => {
+    const source = await fixture();
+    const target = await fixture();
+    await applyMysqlMigrations(source.url);
+    await applyMysqlMigrations(target.url);
+    const legacy = await mysql.createConnection(source.url);
+    const rebuilt = await mysql.createConnection(target.url);
+    const projection = `SELECT u.email, o.status, v.code AS voucher_code, g.user_voucher_status,
+      p.xendit_id, i.invoice_status, a.code AS affiliate_code
+      FROM orders o JOIN users u ON u.id=o.user_id JOIN vouchers v ON v.id=o.voucher_id
+      JOIN user_vouchers g ON g.reserved_order_id=o.id
+      JOIN checkout_payment_attempts p ON p.order_id=o.id JOIN invoices i ON i.order_id=o.id
+      JOIN affiliates a ON a.id=o.affiliate_id`;
+    const journal = 'SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at, id';
+    try {
+      // Construct a synthetic legacy source with physical parity and a compressed history.
+      // The recovery path never updates either journal.
+      await legacy.query('DELETE FROM __drizzle_migrations WHERE created_at < ? OR created_at > ?',
+        [migrations[15].folderMillis, migrations[19].folderMillis]);
+      await legacy.query("UPDATE __drizzle_migrations SET hash='baseline-manual-through-0015' WHERE created_at=?",
+        [migrations[15].folderMillis]);
+      await legacy.query("INSERT INTO users (id,name,email,password) VALUES (42,'Fixture','fixture@example.test','synthetic')");
+      await legacy.query("INSERT INTO vouchers (id,code,voucher_type,value) VALUES (42,'FIXTURE','fixed',500)");
+      await legacy.query("INSERT INTO affiliates (id,user_id,code) VALUES (42,42,'AFF-FIXTURE')");
+      await legacy.query("INSERT INTO orders (id,user_id,voucher_id,affiliate_id,order_number,subtotal,total) VALUES (42,42,42,42,'SBX-FIXTURE',1500,1000)");
+      await legacy.query("INSERT INTO user_vouchers (id,user_id,voucher_id,user_voucher_status,reserved_order_id) VALUES (42,42,42,'reserved',42)");
+      await legacy.query("INSERT INTO checkout_payment_attempts (id,order_id,attempt_no,mode,external_id,request_hash,amount,status,xendit_id) VALUES (42,42,1,'sandbox','FIXTURE',REPEAT('a',64),1000,'ready','fixture-id')");
+      await legacy.query("INSERT INTO invoices (id,order_id,xendit_id,amount) VALUES (42,42,'fixture-id',1000)");
+
+      const [originalHistory] = await legacy.query<RowDataPacket[]>(journal);
+      const [originalData] = await legacy.query<RowDataPacket[]>(projection);
+      expect(originalHistory).toHaveLength(5);
+      expect(originalData).toHaveLength(1);
+      expect(missingMysqlSchema(await readMysqlSchemaInventory(legacy))).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+      await expect(applyMysqlMigrations(source.url)).rejects.toThrow('Migration journal is not a verified prefix');
+      expect((await legacy.query(journal))[0]).toEqual(originalHistory);
+      expect((await legacy.query(projection))[0]).toEqual(originalData);
+
+      const fixtureColumns = {
+        users: ['id', 'name', 'email', 'password'],
+        vouchers: ['id', 'code', 'voucher_type', 'value'],
+        affiliates: ['id', 'user_id', 'code'],
+        orders: ['id', 'user_id', 'voucher_id', 'affiliate_id', 'order_number', 'subtotal', 'total', 'status'],
+        user_vouchers: ['id', 'user_id', 'voucher_id', 'user_voucher_status', 'reserved_order_id'],
+        checkout_payment_attempts: ['id', 'order_id', 'attempt_no', 'mode', 'external_id', 'request_hash', 'amount', 'status', 'xendit_id'],
+        invoices: ['id', 'order_id', 'xendit_id', 'amount', 'invoice_status'],
+      };
+      await rebuilt.beginTransaction();
+      for (const [table, columns] of Object.entries(fixtureColumns)) {
+        await rebuilt.query('INSERT INTO ?? (??) SELECT ?? FROM ??.?? WHERE id = 42', [table, columns, columns, source.name, table]);
+      }
+      await rebuilt.commit();
+
+      expect((await rebuilt.query(projection))[0]).toEqual(originalData);
+      expect(await applyMysqlMigrations(target.url)).toEqual({ previous: migrations.length, applied: 0 });
+      expect(missingMysqlSchema(await readMysqlSchemaInventory(rebuilt))).toEqual({
+        columns: [], indexes: [], foreignKeys: [], checks: [],
+      });
+    } finally {
+      await legacy.end();
+      await rebuilt.end();
+    }
+  }, 30000);
 });
