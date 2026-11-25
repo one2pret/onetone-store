@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   onetone-app:
-    image: ghcr.io/one2pret/onetone-store:latest
+    image: ${ONETONE_APP_IMAGE:-ghcr.io/one2pret/onetone-store:latest}
     container_name: onetone-app
     restart: unless-stopped
     ports:

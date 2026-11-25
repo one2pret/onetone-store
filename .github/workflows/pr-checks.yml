@@ -1,6 +1,9 @@
 name: PR TypeScript and Unit Tests
 
 on:
+  push:
+    branches:
+      - 'release/atomic-voucher-*'
   pull_request:
     branches:
       - main

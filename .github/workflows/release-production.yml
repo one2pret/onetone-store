@@ -1,0 +1,113 @@
+name: Approve and deploy a production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_release:
+        description: Approve this production release after staging UAT and recovery rehearsal
+        type: boolean
+        default: false
+        required: true
+      app_digest:
+        description: Approved immutable application digest
+        type: string
+        required: true
+      migrator_digest:
+        description: Approved immutable database preflight (migrator) digest
+        type: string
+        required: true
+      backup_sha256:
+        description: SHA-256 of the approved encrypted production backup
+        type: string
+        required: true
+      rehearsal_sha256:
+        description: SHA-256 of the approved restore and staging UAT evidence
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production' && inputs.confirm_production_release == true
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Validate release inputs
+        env:
+          PRODUCTION_RELEASE_APPROVAL_CONFIGURED: ${{ vars.PRODUCTION_RELEASE_APPROVAL_CONFIGURED }}
+          APP_DIGEST: ${{ inputs.app_digest }}
+          MIGRATOR_DIGEST: ${{ inputs.migrator_digest }}
+          BACKUP_SHA256: ${{ inputs.backup_sha256 }}
+          REHEARSAL_SHA256: ${{ inputs.rehearsal_sha256 }}
+        run: |
+          set -eu
+          test "$PRODUCTION_RELEASE_APPROVAL_CONFIGURED" = true
+          for digest in "$APP_DIGEST" "$MIGRATOR_DIGEST"; do
+            printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          done
+          test "$APP_DIGEST" != "$MIGRATOR_DIGEST"
+          for digest in "$BACKUP_SHA256" "$REHEARSAL_SHA256"; do
+            printf '%s\n' "$digest" | grep -Eq '^[0-9a-f]{64}$'
+          done
+
+      - name: Verify approved evidence and switch only the application
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          APPROVED_SHA: ${{ github.sha }}
+          APP_DIGEST: ${{ inputs.app_digest }}
+          MIGRATOR_DIGEST: ${{ inputs.migrator_digest }}
+          BACKUP_SHA256: ${{ inputs.backup_sha256 }}
+          REHEARSAL_SHA256: ${{ inputs.rehearsal_sha256 }}
+          SSH_FINGERPRINT_PROD: ${{ secrets.VPS_SSH_FINGERPRINT_PROD }}
+        with:
+          host: ${{ secrets.VPS_HOST_PROD }}
+          username: ${{ secrets.VPS_USER_PROD }}
+          key: ${{ secrets.VPS_SSH_KEY_PROD }}
+          fingerprint: ${{ secrets.VPS_SSH_FINGERPRINT_PROD }}
+          envs: APPROVED_SHA,APP_DIGEST,MIGRATOR_DIGEST,BACKUP_SHA256,REHEARSAL_SHA256,SSH_FINGERPRINT_PROD
+          script: |
+            set -eu
+            test -n "$SSH_FINGERPRINT_PROD"
+            cd /opt/apps/onetone-store
+            umask 077
+            evidence="release-evidence/$APPROVED_SHA"
+            release_receipt="$evidence.approved"
+            backup="$evidence.backup.enc"
+            rehearsal="$evidence.rehearsal"
+            printf '%s\n' "$APPROVED_SHA" "$APP_DIGEST" "$MIGRATOR_DIGEST" "$BACKUP_SHA256" "$REHEARSAL_SHA256" | cmp -s - "$release_receipt"
+            test ! -w release-evidence
+            test ! -w "$release_receipt"
+            test -s "$backup"
+            test -s "$rehearsal"
+            printf '%s  %s\n' "$BACKUP_SHA256" "$backup" "$REHEARSAL_SHA256" "$rehearsal" | sha256sum --check --status
+
+            test "$(docker inspect --type container --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' onetone-db-prod)" = "$PWD/docker-compose.prod.yml"
+            test "$(docker inspect --type container --format '{{.State.Health.Status}}' onetone-db-prod)" = healthy
+            db_ip="$(docker inspect --type container --format '{{with index .NetworkSettings.Networks "onetone-store_onetone-net"}}{{.IPAddress}}{{end}}' onetone-db-prod)"
+            test -n "$db_ip"
+            grep -qx 'APP_ENV=production' .env.app
+            test "$(grep -c '^APP_ENV=' .env.app)" -eq 1
+
+            registry=ghcr.io/one2pret/onetone-store
+            app="$registry@$APP_DIGEST"
+            migrator="$registry@$MIGRATOR_DIGEST"
+            docker pull "$app"
+            docker pull "$migrator"
+            for image in "$app" "$migrator"; do
+              test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$APPROVED_SHA"
+            done
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.title"}}' "$app")" = onetone-app
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.title"}}' "$migrator")" = onetone-migrator
+            docker run --rm --network onetone-store_onetone-net --env-file .production-preflight.env \
+              -e "PRODUCTION_PREFLIGHT_DB_IP=$db_ip" "$migrator" node_modules/.bin/tsx scripts/production-release-preflight.ts
+
+            override="release-overrides/$APPROVED_SHA.compose.yml"
+            printf 'services:\n  onetone-app:\n    image: %s\n' "$app" > "$override"
+            docker compose -f docker-compose.prod.yml -f "$override" up -d --no-deps --pull never onetone-app
