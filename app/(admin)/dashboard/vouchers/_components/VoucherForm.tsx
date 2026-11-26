@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useActionState, useEffect, useState, useSyncExternalStore, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createVoucher, updateVoucher, type VoucherActionState } from '@/app/actions/admin-vouchers';
@@ -31,9 +31,9 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
   const router = useRouter();
   const action = voucher ? updateVoucher.bind(null, voucher.id) : createVoucher;
   const [state, formAction, pending] = useActionState<VoucherActionState, FormData>(action, null);
+  const [submitting, startSubmitTransition] = useTransition();
   const [type, setType] = useState(voucher?.type ?? 'fixed');
   const [audience, setAudience] = useState(voucher?.audience ?? 'public');
-  const timezoneOffsetRef = useRef<HTMLInputElement>(null);
   const [fields, setFields] = useState(() => ({
     name: voucher?.name ?? '',
     code: voucher?.code ?? '',
@@ -60,12 +60,13 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
   // Once edited, the controlled value survives Server Action validation errors.
   const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false);
 
-  function handleFormSubmit() {
-    // React resets uncontrolled form fields after a Server Action response.
-    // Always re-apply the browser offset before EVERY submit or retry.
-    if (timezoneOffsetRef.current) {
-      timezoneOffsetRef.current.value = String(new Date().getTimezoneOffset());
-    }
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Submit the snapshot explicitly. React auto-resets a form with action={...}
+    // even when the server returns validation errors (which loses selected inputs).
+    const formData = new FormData(event.currentTarget);
+    formData.set('timezoneOffsetMinutes', String(new Date().getTimezoneOffset()));
+    startSubmitTransition(() => formAction(formData));
   }
 
   useEffect(() => {
@@ -80,8 +81,7 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
   }, [state, router, voucher]);
 
   return (
-    <form action={formAction} onSubmit={handleFormSubmit} className="max-w-4xl space-y-6">
-      <input ref={timezoneOffsetRef} type="hidden" name="timezoneOffsetMinutes" defaultValue="" />
+    <form onSubmit={handleFormSubmit} className="max-w-4xl space-y-6">
       {state?.error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{state.error}</div>
       )}
@@ -201,7 +201,7 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
       </section>
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>{pending ? 'Menyimpan...' : voucher ? 'Simpan Perubahan' : 'Buat Voucher'}</Button>
+        <Button type="submit" disabled={pending || submitting}>{pending || submitting ? 'Menyimpan...' : voucher ? 'Simpan Perubahan' : 'Buat Voucher'}</Button>
         <Button type="button" variant="ghost" onClick={() => router.push('/dashboard/vouchers')}>Batal</Button>
       </div>
     </form>
