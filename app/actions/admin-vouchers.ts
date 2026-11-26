@@ -12,7 +12,9 @@ const optionalInt = z.preprocess(
   (value) => value === '' || value === null || value === undefined ? null : value,
   z.coerce.number().int().min(0).nullable(),
 );
-const optionalDate = z.date().nullable();
+const optionalDate = z.date({
+  invalid_type_error: 'Tanggal atau zona waktu tidak valid. Muat ulang halaman lalu pilih ulang tanggal.',
+}).nullable();
 
 const voucherSchema = z.object({
   code: z.string().trim().min(3).max(50).regex(/^[A-Z0-9_-]+$/, 'Gunakan huruf besar, angka, - atau _'),
@@ -73,7 +75,8 @@ function valuesFromForm(formData: FormData) {
     try {
       return parseBrowserLocalDateTime(value, timezoneOffsetMinutes);
     } catch {
-      // Biarkan Zod menghasilkan field error tanpa menebak timezone server.
+      // Do not guess a timezone when the browser offset or date is invalid.
+      // Return a field-level validation error instead of persisting a shifted date.
       return value;
     }
   };
