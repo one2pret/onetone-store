@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createVoucher, updateVoucher, type VoucherActionState } from '@/app/actions/admin-vouchers';
@@ -17,6 +17,8 @@ function toDatetimeLocal(value?: Date | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const subscribeToNothing = () => () => {};
+
 function FieldError({ errors }: { errors?: string[] }) {
   return errors?.[0] ? <p className="text-xs text-destructive mt-1">{errors[0]}</p> : null;
 }
@@ -32,10 +34,6 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
   const [type, setType] = useState(voucher?.type ?? 'fixed');
   const [audience, setAudience] = useState(voucher?.audience ?? 'public');
   const timezoneOffsetRef = useRef<HTMLInputElement>(null);
-  const initialCampaignDates = useRef({
-    startsAt: voucher?.startsAt,
-    endsAt: voucher?.endsAt,
-  });
   const [fields, setFields] = useState(() => ({
     name: voucher?.name ?? '',
     code: voucher?.code ?? '',
@@ -49,24 +47,18 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
     firstOrderOnly: voucher?.firstOrderOnly ?? false,
     allowPoints: voucher?.allowPoints ?? true,
     isActive: voucher?.isActive ?? true,
-    startsAt: '',
-    endsAt: '',
+    startsAt: undefined as string | undefined,
+    endsAt: undefined as string | undefined,
   }));
 
   function setField<K extends keyof typeof fields>(field: K, value: (typeof fields)[K]) {
     setFields(previous => ({ ...previous, [field]: value }));
   }
 
-  // Format stored UTC timestamps in the administrator's browser timezone,
-  // after hydration, so the server timezone never shifts the displayed time.
-  useEffect(() => {
-    const dates = initialCampaignDates.current;
-    setFields(previous => ({
-      ...previous,
-      startsAt: toDatetimeLocal(dates.startsAt),
-      endsAt: toDatetimeLocal(dates.endsAt),
-    }));
-  }, []);
+  // Server and browser may use different timezones. Use the server snapshot
+  // during hydration, then display the initial date in the browser timezone.
+  // Once edited, the controlled value survives Server Action validation errors.
+  const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false);
 
   function handleFormSubmit() {
     // React resets uncontrolled form fields after a Server Action response.
@@ -203,8 +195,8 @@ export function VoucherForm({ voucher, tiers, hasHistory = false }: {
       <section className="rounded-xl border border-border bg-card p-5 md:p-6">
         <h2 className="text-base font-semibold text-foreground">Jadwal campaign</h2>
         <div className="grid gap-4 mt-4 md:grid-cols-2">
-          <div><Label htmlFor="startsAt">Mulai</Label><Input id="startsAt" name="startsAt" type="datetime-local" value={fields.startsAt} onChange={event => setField('startsAt', event.target.value)} className="mt-1" /><FieldError errors={state?.errors?.startsAt} /></div>
-          <div><Label htmlFor="endsAt">Selesai</Label><Input id="endsAt" name="endsAt" type="datetime-local" value={fields.endsAt} onChange={event => setField('endsAt', event.target.value)} className="mt-1" /><FieldError errors={state?.errors?.endsAt} /></div>
+          <div><Label htmlFor="startsAt">Mulai</Label><Input id="startsAt" name="startsAt" type="datetime-local" value={fields.startsAt ?? (hydrated ? toDatetimeLocal(voucher?.startsAt) : '')} onChange={event => setField('startsAt', event.target.value)} className="mt-1" /><FieldError errors={state?.errors?.startsAt} /></div>
+          <div><Label htmlFor="endsAt">Selesai</Label><Input id="endsAt" name="endsAt" type="datetime-local" value={fields.endsAt ?? (hydrated ? toDatetimeLocal(voucher?.endsAt) : '')} onChange={event => setField('endsAt', event.target.value)} className="mt-1" /><FieldError errors={state?.errors?.endsAt} /></div>
         </div>
       </section>
 
